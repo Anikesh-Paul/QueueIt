@@ -393,62 +393,49 @@ function App() {
     await loadWaitingList(token, queueId);
   }
 
-  async function handleAdminServe(entryId) {
+  /**
+   * Run one admin control action with shared busy/error/reload handling.
+   * @param {() => Promise<unknown>} action
+   * @param {string} errorLabel
+   * @param {{ clearSelection?: boolean }} [options]
+   */
+  async function runAdminAction(action, errorLabel, { clearSelection = false } = {}) {
     if (!token || !adminQueueId) return;
     setAdminActionError("");
     setAdminActionBusy(true);
     try {
-      await serveQueue(token, adminQueueId, entryId || undefined);
-      setSelectedEntryId(null);
+      await action();
+      if (clearSelection) setSelectedEntryId(null);
       await loadWaitingList(token, adminQueueId, { silent: true });
     } catch (err) {
-      setAdminActionError(err.message || "Serve failed");
+      setAdminActionError(err.message || errorLabel);
     } finally {
       setAdminActionBusy(false);
     }
   }
 
-  async function handleAdminSkip(entryId) {
-    if (!token || !adminQueueId) return;
-    setAdminActionError("");
-    setAdminActionBusy(true);
-    try {
-      await skipQueue(token, adminQueueId, entryId || undefined);
-      setSelectedEntryId(null);
-      await loadWaitingList(token, adminQueueId, { silent: true });
-    } catch (err) {
-      setAdminActionError(err.message || "Skip failed");
-    } finally {
-      setAdminActionBusy(false);
-    }
+  function handleAdminServe(entryId) {
+    return runAdminAction(
+      () => serveQueue(token, adminQueueId, entryId || undefined),
+      "Serve failed",
+      { clearSelection: true }
+    );
   }
 
-  async function handleAdminPause() {
-    if (!token || !adminQueueId) return;
-    setAdminActionError("");
-    setAdminActionBusy(true);
-    try {
-      await pauseQueue(token, adminQueueId);
-      await loadWaitingList(token, adminQueueId, { silent: true });
-    } catch (err) {
-      setAdminActionError(err.message || "Pause failed");
-    } finally {
-      setAdminActionBusy(false);
-    }
+  function handleAdminSkip(entryId) {
+    return runAdminAction(
+      () => skipQueue(token, adminQueueId, entryId || undefined),
+      "Skip failed",
+      { clearSelection: true }
+    );
   }
 
-  async function handleAdminResume() {
-    if (!token || !adminQueueId) return;
-    setAdminActionError("");
-    setAdminActionBusy(true);
-    try {
-      await resumeQueue(token, adminQueueId);
-      await loadWaitingList(token, adminQueueId, { silent: true });
-    } catch (err) {
-      setAdminActionError(err.message || "Resume failed");
-    } finally {
-      setAdminActionBusy(false);
-    }
+  function handleAdminPause() {
+    return runAdminAction(() => pauseQueue(token, adminQueueId), "Pause failed");
+  }
+
+  function handleAdminResume() {
+    return runAdminAction(() => resumeQueue(token, adminQueueId), "Resume failed");
   }
 
   if (booting) {

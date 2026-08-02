@@ -103,6 +103,38 @@ function rejectIfPaused(queue, res) {
 }
 
 /**
+ * Advance one waiting entry to a terminal status (served | skipped).
+ * Sets nowServing so the line does not stall. Shared by serve and skip.
+ *
+ * @param {import("mongoose").Document} queue
+ * @param {{ entryId?: string }} options
+ * @param {"served" | "skipped"} terminalStatus
+ * @returns {Promise<
+ *   | { ok: true, entry: import("mongoose").Document, queue: import("mongoose").Document }
+ *   | { ok: false, status: number, error: string }
+ * >}
+ */
+async function advanceWaitingEntry(queue, { entryId } = {}, terminalStatus) {
+  const resolved = await resolveWaitingEntry(queue._id, entryId);
+  if (!resolved.entry) {
+    return {
+      ok: false,
+      status: resolved.status || 404,
+      error: resolved.error || "No one waiting",
+    };
+  }
+
+  const entry = resolved.entry;
+  entry.status = terminalStatus;
+  await entry.save();
+
+  queue.nowServing = entry.tokenNumber;
+  await queue.save();
+
+  return { ok: true, entry, queue };
+}
+
+/**
  * GET /api/admin/queues/:queueId/waiting-list
  * Waiting entries ordered by token; positions 1..n among waiters.
  */
@@ -138,26 +170,19 @@ router.post("/queues/:queueId/serve", requireAuth, requireAdmin, async (req, res
     if (!queue) return;
     if (rejectIfPaused(queue, res)) return;
 
-    const entryId = req.body?.entryId;
-    const resolved = await resolveWaitingEntry(queue._id, entryId);
-    if (!resolved.entry) {
-      return res.status(resolved.status || 404).json({ error: resolved.error });
+    const result = await advanceWaitingEntry(queue, { entryId: req.body?.entryId }, "served");
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
 
-    const entry = resolved.entry;
-    entry.status = "served";
-    await entry.save();
-
-    queue.nowServing = entry.tokenNumber;
-    await queue.save();
-
+    const { entry } = result;
     return res.status(200).json({
       served: {
         id: entry._id.toString(),
         tokenNumber: entry.tokenNumber,
         status: entry.status,
       },
-      queue: toAdminQueueJSON(queue),
+      queue: toAdminQueueJSON(result.queue),
     });
   } catch (err) {
     return next(err);
@@ -175,27 +200,19 @@ router.post("/queues/:queueId/skip", requireAuth, requireAdmin, async (req, res,
     if (!queue) return;
     if (rejectIfPaused(queue, res)) return;
 
-    const entryId = req.body?.entryId;
-    const resolved = await resolveWaitingEntry(queue._id, entryId);
-    if (!resolved.entry) {
-      return res.status(resolved.status || 404).json({ error: resolved.error });
+    const result = await advanceWaitingEntry(queue, { entryId: req.body?.entryId }, "skipped");
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
 
-    const entry = resolved.entry;
-    entry.status = "skipped";
-    await entry.save();
-
-    // Advance now serving so the line does not stall on the skipped token.
-    queue.nowServing = entry.tokenNumber;
-    await queue.save();
-
+    const { entry } = result;
     return res.status(200).json({
       skipped: {
         id: entry._id.toString(),
         tokenNumber: entry.tokenNumber,
         status: entry.status,
       },
-      queue: toAdminQueueJSON(queue),
+      queue: toAdminQueueJSON(result.queue),
     });
   } catch (err) {
     return next(err);

@@ -8,8 +8,8 @@ Virtual queue management system for Summer School ’26 MERN evaluation.
 
 ```
 .
-├── client/          # React (Vite) frontend — login / register UI
-├── server/          # Express API — auth, roles, seed
+├── client/          # React (Vite) frontend — auth + queue list UI
+├── server/          # Express API — auth, roles, seed venue/queues
 ├── package.json     # npm workspaces root
 └── README.md
 ```
@@ -39,11 +39,17 @@ Edit `server/.env`:
 2. Set a strong `JWT_SECRET`.
 3. Set `SEED_*` emails/passwords for demo accounts (your choice — do not commit them).
 
-Seed demo user + admin (idempotent):
+Seed demo user + admin, one venue, and two queues (idempotent):
 
 ```bash
 npm run seed
 ```
+
+Seeded catalog (deterministic, not multi-venue admin UI):
+
+| Venue | Queues |
+|-------|--------|
+| Campus Hub | Cafeteria (~3 min/serve), Gym (~5 min/serve) |
 
 ## Run locally
 
@@ -75,6 +81,9 @@ curl -s http://localhost:5000/api/auth/me -H "Authorization: Bearer TOKEN"
 
 # Admin-only probe (403 for user tokens; 200 for admin)
 curl -s http://localhost:5000/api/admin/ping -H "Authorization: Bearer TOKEN"
+
+# List available queues (401 without token; 200 with any valid session)
+curl -s http://localhost:5000/api/queues -H "Authorization: Bearer TOKEN"
 ```
 
 Health check: `GET /api/health` → `{"status":"ok","service":"queueit-server"}`.
@@ -104,7 +113,9 @@ Coverage for this phase:
 - User-scoped vs admin-scoped sessions  
 - Unauthenticated → 401 on protected routes  
 - User token → 403 on admin-only routes  
-- Seeded accounts + password hashing (no plaintext storage)
+- Seeded accounts + password hashing (no plaintext storage)  
+- Seeded venue + two queues (idempotent)  
+- `GET /api/queues` requires auth and returns the catalog  
 
 ## Environment
 
@@ -127,11 +138,13 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 | `npm run dev:client` | Vite dev server |
 | `npm run start:server` | Express production start |
 | `npm run build:client` | Production client build |
-| `npm run seed` | Upsert demo user + admin from env |
+| `npm run seed` | Upsert demo accounts + Campus Hub / Cafeteria / Gym |
 | `npm test` | Server HTTP API tests |
 
 ## Current scope
 
-**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, basic login/register UI.
+**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, authenticated queue list API + UI (select queue to continue).
 
-**Later tickets:** venue/queues, join/leave/status, admin serve/skip/pause, deploy, Playwright E2E, stretch.
+**Later tickets:** join/leave/status, admin serve/skip/pause, deploy, Playwright E2E, stretch.
+
+**Explicitly out:** Super Admin multi-venue management UI.

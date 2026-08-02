@@ -1,4 +1,17 @@
 import { User } from "./models/User.js";
+import { Venue } from "./models/Venue.js";
+import { Queue } from "./models/Queue.js";
+
+/** Deterministic demo venue + queues (no Super Admin multi-venue UI). */
+const DEMO_VENUE = {
+  slug: "campus-hub",
+  name: "Campus Hub",
+};
+
+const DEMO_QUEUES = [
+  { slug: "cafeteria", name: "Cafeteria", averageServiceTime: 3 },
+  { slug: "gym", name: "Gym", averageServiceTime: 5 },
+];
 
 /**
  * Upsert demo user + admin from environment variables.
@@ -38,6 +51,52 @@ export async function seedDemoAccounts(env = process.env) {
     adminEmail,
     userEmail,
   };
+}
+
+/**
+ * Upsert one venue and two queues for local/demo use.
+ * Idempotent by slug; does not introduce multi-venue management UI.
+ */
+export async function seedVenueAndQueues() {
+  let venue = await Venue.findOne({ slug: DEMO_VENUE.slug });
+  if (venue) {
+    venue.name = DEMO_VENUE.name;
+    await venue.save();
+  } else {
+    venue = await Venue.create(DEMO_VENUE);
+  }
+
+  const queues = [];
+  for (const def of DEMO_QUEUES) {
+    let queue = await Queue.findOne({ venue: venue._id, slug: def.slug });
+    if (queue) {
+      queue.name = def.name;
+      queue.averageServiceTime = def.averageServiceTime;
+      queue.status = "open";
+      await queue.save();
+    } else {
+      queue = await Queue.create({
+        ...def,
+        venue: venue._id,
+        status: "open",
+      });
+    }
+    queues.push(queue);
+  }
+
+  return {
+    venue,
+    queues,
+  };
+}
+
+/**
+ * Full local/demo seed: accounts (env) + venue/queues (deterministic).
+ */
+export async function seedAll(env = process.env) {
+  const accounts = await seedDemoAccounts(env);
+  const catalog = await seedVenueAndQueues();
+  return { ...accounts, ...catalog };
 }
 
 async function upsertAccount({ email, password, name, role }) {

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
+import queueRoutes from "./routes/queues.js";
 
 /**
  * Build the Express application (no listen).
@@ -24,6 +25,7 @@ export function createApp(options = {}) {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/admin", adminRoutes);
+  app.use("/api/queues", queueRoutes);
 
   app.use((err, _req, res, _next) => {
     console.error(err);

@@ -4,6 +4,10 @@
   padding: 3rem 1.5rem;
 }
 
+.shell--wide {
+  max-width: 32rem;
+}
+
 .shell__header {
   margin-bottom: 1.5rem;
 }
@@ -172,4 +176,81 @@
 .badge--admin {
   background: #fef3c7;
   color: #92400e;
+}
+
+.queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.queue-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.6rem;
+  background: #f8fafc;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.queue-card:hover {
+  border-color: #a5b4fc;
+  background: #eef2ff;
+}
+
+.queue-card--selected {
+  border-color: #4f46e5;
+  background: #e0e7ff;
+  box-shadow: 0 0 0 1px #4f46e5;
+}
+
+.queue-card__name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.queue-card__meta {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.queue-selected {
+  margin-top: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.5rem;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 0.9rem;
+}
+
+.queue-selected p {
+  margin: 0;
+}
+
+.session-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.session-actions .btn--ghost {
+  margin-top: 0;
+}
+
+.shell__card code {
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  background: #f1f5f9;
 }

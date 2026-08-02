@@ -60,3 +60,8 @@ export function fetchMe(token) {
 export function adminPing(token) {
   return apiRequest("/api/admin/ping", { token });
 }
+
+/** GET /api/queues — authenticated catalog of available queues. */
+export function fetchQueues(token) {
+  return apiRequest("/api/queues", { token });
+}

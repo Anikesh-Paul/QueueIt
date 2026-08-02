@@ -53,3 +53,36 @@ export async function findActiveEntry(queueId, userId) {
     status: { $in: ACTIVE_ENTRY_STATUSES },
   });
 }
+
+/**
+ * Map entry status to a user-facing history outcome.
+ * Active membership (waiting/serving) surfaces as "joined".
+ */
+export function outcomeFromStatus(status) {
+  if (status === "waiting" || status === "serving") return "joined";
+  return status;
+}
+
+/**
+ * Public history row for one QueueEntry (populated queue optional).
+ */
+export function toHistoryEvent(entry) {
+  const queueDoc = entry.queue;
+  const queue =
+    queueDoc && typeof queueDoc === "object" && queueDoc.name
+      ? { id: queueDoc._id.toString(), name: queueDoc.name }
+      : {
+          id: (queueDoc?._id ?? queueDoc)?.toString?.() ?? String(queueDoc),
+          name: null,
+        };
+
+  return {
+    id: entry._id.toString(),
+    outcome: outcomeFromStatus(entry.status),
+    status: entry.status,
+    tokenNumber: entry.tokenNumber,
+    queue,
+    joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
+    updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
+  };
+}

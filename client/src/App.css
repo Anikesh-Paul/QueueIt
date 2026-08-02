@@ -369,3 +369,110 @@
   color: #64748b;
 }
 
+.btn--leave {
+  margin-top: 0;
+  width: 100%;
+  background: #fff;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.btn--leave:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+.btn--leave:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* User history */
+.history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.history-card__lede {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.6rem;
+  background: #f8fafc;
+}
+
+.history-item__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.history-item__token {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #475569;
+}
+
+.history-item__queue {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.history-item__time {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.history-outcome {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: capitalize;
+}
+
+.history-outcome--joined {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.history-outcome--left {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.history-outcome--served {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.history-outcome--skipped {
+  background: #fef3c7;
+  color: #92400e;
+}
+

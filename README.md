@@ -125,7 +125,9 @@ Coverage for this phase:
 - Seeded venue + two queues (idempotent)  
 - `GET /api/queues` requires auth and returns the catalog  
 - Join queue → token, position, ETA, now serving; double-join 409; status poll  
-- Playwright: smoke (login + queues) + ticket `05-join-queue-live-status`  
+- Leave queue → frees slot, position advances; re-join issues a new token  
+- User history → joined / left / served / skipped events for the authenticated user  
+- Playwright: smoke (login + queues) + tickets `05-join-queue-live-status`, `06-leave-queue-history`  
 
 ## Environment
 
@@ -156,8 +158,8 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 
 ## Current scope
 
-**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI.
+**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI, **leave**, and **user history** (joined / left / served / skipped).
 
-**Later tickets:** leave + history, admin serve/skip/pause, deploy, harden/Playwright expansion, stretch.
+**Later tickets:** admin serve/skip/pause, deploy, harden/Playwright expansion, stretch.
 
 **Explicitly out:** Super Admin multi-venue management UI; Socket.IO on must-ship.

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import {
   adminPing,
+  fetchHistory,
   fetchMe,
   fetchQueues,
   fetchQueueStatus,
   joinQueue,
+  leaveQueue,
   login,
   register,
 } from "./api.js";
@@ -17,6 +19,23 @@ const STATUS_POLL_MS = 3000;
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
   return String(value);
+}
+
+function formatOutcomeLabel(outcome) {
+  if (!outcome) return "—";
+  return String(outcome).charAt(0).toUpperCase() + String(outcome).slice(1);
+}
+
+function formatEventTime(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return String(iso);
+  }
 }
 
 function App() {
@@ -40,6 +59,13 @@ function App() {
   const [joinError, setJoinError] = useState("");
   const [statusError, setStatusError] = useState("");
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [leaveBusy, setLeaveBusy] = useState(false);
+  const [leaveError, setLeaveError] = useState("");
+  /** "queues" | "history" — main app panel for authenticated users. */
+  const [panel, setPanel] = useState("queues");
+  const [historyEvents, setHistoryEvents] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
   const pollRef = useRef(null);
 
   const persistSession = useCallback((nextToken, nextUser) => {
@@ -58,6 +84,8 @@ function App() {
     setJoinError("");
     setStatusError("");
     setStatusUpdating(false);
+    setLeaveError("");
+    setLeaveBusy(false);
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
@@ -71,6 +99,9 @@ function App() {
     setQueues([]);
     setQueuesError("");
     setSelectedQueueId(null);
+    setPanel("queues");
+    setHistoryEvents([]);
+    setHistoryError("");
     clearLiveStatus();
   }, [persistSession, clearLiveStatus]);
 
@@ -213,6 +244,26 @@ function App() {
     }
   }
 
+  const loadHistory = useCallback(async (sessionToken) => {
+    if (!sessionToken) return;
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const data = await fetchHistory(sessionToken);
+      setHistoryEvents(Array.isArray(data.events) ? data.events : []);
+    } catch (err) {
+      setHistoryEvents([]);
+      setHistoryError(err.message || "Could not load history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  async function openHistory() {
+    setPanel("history");
+    await loadHistory(token);
+  }
+
   async function handleJoin() {
     if (!token || !selectedQueueId) return;
     setJoinError("");
@@ -222,6 +273,7 @@ function App() {
       setLiveStatus(data);
       setStatusQueueId(selectedQueueId);
       setStatusError("");
+      setPanel("queues");
     } catch (err) {
       // Already waiting — resume live status instead of a dead-end error.
       if (err.status === 409) {
@@ -236,6 +288,27 @@ function App() {
       setJoinError(err.message || "Could not join queue");
     } finally {
       setJoinBusy(false);
+    }
+  }
+
+  async function handleLeave() {
+    if (!token || !statusQueueId) return;
+    setLeaveError("");
+    setLeaveBusy(true);
+    try {
+      await leaveQueue(token, statusQueueId);
+      clearLiveStatus();
+      setSelectedQueueId(null);
+      setPanel("queues");
+    } catch (err) {
+      if (err.status === 404) {
+        clearLiveStatus();
+        setLeaveError("");
+        return;
+      }
+      setLeaveError(err.message || "Could not leave queue");
+    } finally {
+      setLeaveBusy(false);
     }
   }
 
@@ -254,12 +327,19 @@ function App() {
       liveStatus?.queue?.name ||
       queues.find((q) => q.id === statusQueueId)?.name ||
       "Queue";
+    const showHistory = panel === "history";
 
     return (
       <main className="shell shell--wide">
         <header className="shell__header">
           <p className="shell__eyebrow">QueueIt (QIT)</p>
-          <h1>{inQueue ? "Your place in line" : "Available queues"}</h1>
+          <h1>
+            {showHistory
+              ? "Your queue history"
+              : inQueue
+                ? "Your place in line"
+                : "Available queues"}
+          </h1>
           <p className="shell__lede">
             Signed in as <strong>{user.name}</strong>{" "}
             <span className={`badge badge--${user.role}`}>{user.role}</span>
@@ -272,7 +352,83 @@ function App() {
           </p>
         </header>
 
-        {inQueue && (
+        {showHistory && (
+          <section className="shell__card history-card" aria-label="Queue history">
+            <p className="history-card__lede">
+              Past and current queue events — joined, left, served, and skipped.
+            </p>
+
+            {historyLoading && <p className="shell__muted">Loading history…</p>}
+
+            {!historyLoading && historyError && (
+              <p className="form-error" role="alert">
+                {historyError}
+              </p>
+            )}
+
+            {!historyLoading && !historyError && historyEvents.length === 0 && (
+              <p className="shell__muted" data-testid="history-empty">
+                No queue events yet. Join a line to start your history.
+              </p>
+            )}
+
+            {!historyLoading && !historyError && historyEvents.length > 0 && (
+              <ul className="history-list" data-testid="history-list">
+                {historyEvents.map((event) => (
+                  <li
+                    key={event.id}
+                    className="history-item"
+                    data-testid="history-item"
+                    data-outcome={event.outcome}
+                  >
+                    <div className="history-item__row">
+                      <span
+                        className={`history-outcome history-outcome--${event.outcome}`}
+                        data-testid="history-outcome"
+                      >
+                        {formatOutcomeLabel(event.outcome)}
+                      </span>
+                      <span className="history-item__token">
+                        Token {event.tokenNumber}
+                      </span>
+                    </div>
+                    <p className="history-item__queue">
+                      {event.queue?.name || "Queue"}
+                    </p>
+                    <p className="history-item__time">
+                      {formatEventTime(
+                        event.outcome === "joined" ? event.joinedAt : event.updatedAt || event.joinedAt
+                      )}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="session-actions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => loadHistory(token)}
+                disabled={historyLoading}
+              >
+                Refresh history
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setPanel("queues")}
+              >
+                {inQueue ? "Back to status" : "Back to queues"}
+              </button>
+              <button type="button" className="btn btn--ghost" onClick={logout}>
+                Log out
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!showHistory && inQueue && (
           <section className="shell__card status-card" aria-label="Live queue status">
             <div className="status-card__top">
               <div>
@@ -325,6 +481,22 @@ function App() {
               </p>
             )}
 
+            {leaveError && (
+              <p className="form-error" role="alert">
+                {leaveError}
+              </p>
+            )}
+
+            <button
+              type="button"
+              className="btn btn--leave"
+              onClick={handleLeave}
+              disabled={leaveBusy}
+              data-testid="leave-queue"
+            >
+              {leaveBusy ? "Leaving…" : "Leave queue"}
+            </button>
+
             <div className="session-actions">
               <button
                 type="button"
@@ -334,6 +506,9 @@ function App() {
               >
                 Refresh status
               </button>
+              <button type="button" className="btn btn--ghost" onClick={openHistory}>
+                View history
+              </button>
               <button type="button" className="btn btn--ghost" onClick={logout}>
                 Log out
               </button>
@@ -341,7 +516,7 @@ function App() {
           </section>
         )}
 
-        {!inQueue && (
+        {!showHistory && !inQueue && (
           <section className="shell__card" aria-label="Queue catalog">
             {queuesLoading && <p className="shell__muted">Loading queues…</p>}
 
@@ -416,6 +591,9 @@ function App() {
                 disabled={queuesLoading}
               >
                 Refresh list
+              </button>
+              <button type="button" className="btn btn--ghost" onClick={openHistory}>
+                View history
               </button>
               <button type="button" className="btn btn--ghost" onClick={logout}>
                 Log out

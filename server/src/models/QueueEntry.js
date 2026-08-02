@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-/** Active and terminal membership states (leave/serve/skip land in later tickets). */
+/** Active and terminal membership states (serve/skip admin transitions in ticket 07). */
 const ENTRY_STATUSES = ["waiting", "serving", "served", "skipped", "left"];
 
 /** Statuses that count as an active place in line (blocks double-join). */

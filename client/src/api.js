@@ -78,3 +78,16 @@ export function joinQueue(token, queueId) {
 export function fetchQueueStatus(token, queueId) {
   return apiRequest(`/api/queues/${queueId}/status`, { token });
 }
+
+/** POST /api/queues/:queueId/leave — free the caller's active place in line. */
+export function leaveQueue(token, queueId) {
+  return apiRequest(`/api/queues/${queueId}/leave`, {
+    method: "POST",
+    token,
+  });
+}
+
+/** GET /api/queues/history — caller's queue events (joined / left / served / skipped). */
+export function fetchHistory(token) {
+  return apiRequest("/api/queues/history", { token });
+}

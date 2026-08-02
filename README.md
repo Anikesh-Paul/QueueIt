@@ -84,9 +84,17 @@ curl -s http://localhost:5000/api/admin/ping -H "Authorization: Bearer TOKEN"
 
 # List available queues (401 without token; 200 with any valid session)
 curl -s http://localhost:5000/api/queues -H "Authorization: Bearer TOKEN"
+
+# Join a queue (replace QUEUE_ID) — returns tokenNumber, position, etaMinutes, nowServing
+curl -s -X POST http://localhost:5000/api/queues/QUEUE_ID/join -H "Authorization: Bearer TOKEN"
+
+# Poll live status while waiting
+curl -s http://localhost:5000/api/queues/QUEUE_ID/status -H "Authorization: Bearer TOKEN"
 ```
 
 Health check: `GET /api/health` → `{"status":"ok","service":"queueit-server"}`.
+
+**ETA:** `position × averageServiceTime` (minutes). Live updates use **polling** (no Socket.IO on the must-ship path).
 
 ## Demo accounts
 
@@ -116,6 +124,8 @@ Coverage for this phase:
 - Seeded accounts + password hashing (no plaintext storage)  
 - Seeded venue + two queues (idempotent)  
 - `GET /api/queues` requires auth and returns the catalog  
+- Join queue → token, position, ETA, now serving; double-join 409; status poll  
+- Playwright: smoke (login + queues) + ticket `05-join-queue-live-status`  
 
 ## Environment
 
@@ -139,12 +149,15 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 | `npm run start:server` | Express production start |
 | `npm run build:client` | Production client build |
 | `npm run seed` | Upsert demo accounts + Campus Hub / Cafeteria / Gym |
+| `npm run seed:e2e` | Wipe + seed dedicated `queueit-e2e` DB (never developer `queueit`) |
 | `npm test` | Server HTTP API tests |
+| `npm run test:e2e` | Playwright smoke (login + queues list) |
+| `npm run test:e2e -- e2e/tickets/<NN>-<slug>` | Smoke + ticket-owned Playwright specs |
 
 ## Current scope
 
-**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, authenticated queue list API + UI (select queue to continue).
+**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI.
 
-**Later tickets:** join/leave/status, admin serve/skip/pause, deploy, Playwright E2E, stretch.
+**Later tickets:** leave + history, admin serve/skip/pause, deploy, harden/Playwright expansion, stretch.
 
-**Explicitly out:** Super Admin multi-venue management UI.
+**Explicitly out:** Super Admin multi-venue management UI; Socket.IO on must-ship.

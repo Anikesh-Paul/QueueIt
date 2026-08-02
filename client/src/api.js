@@ -65,3 +65,16 @@ export function adminPing(token) {
 export function fetchQueues(token) {
   return apiRequest("/api/queues", { token });
 }
+
+/** POST /api/queues/:queueId/join — take a place; receive token + live status. */
+export function joinQueue(token, queueId) {
+  return apiRequest(`/api/queues/${queueId}/join`, {
+    method: "POST",
+    token,
+  });
+}
+
+/** GET /api/queues/:queueId/status — poll token, position, ETA, now serving. */
+export function fetchQueueStatus(token, queueId) {
+  return apiRequest(`/api/queues/${queueId}/status`, { token });
+}

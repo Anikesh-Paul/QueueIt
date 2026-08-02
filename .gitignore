@@ -30,6 +30,9 @@ Thumbs.db
 .vite/
 .eslintcache
 
+playwright-report/
+test-results/
+
 *.pem
 
 .scratch/

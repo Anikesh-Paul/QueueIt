@@ -14,10 +14,15 @@
     "test": "npm run test -w server",
     "test:server": "npm run test -w server",
     "seed": "npm run seed -w server",
+    "seed:e2e": "npm run seed:e2e -w server",
+    "test:e2e": "npm run seed:e2e && playwright test e2e/smoke",
     "start:server": "npm run start -w server",
     "build:client": "npm run build -w client"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

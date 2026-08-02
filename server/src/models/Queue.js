@@ -37,6 +37,22 @@ const queueSchema = new mongoose.Schema(
       default: "open",
       required: true,
     },
+    /** Next token to issue on join (monotonic per queue). */
+    nextTokenNumber: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: 1,
+    },
+    /**
+     * Token number currently at the counter.
+     * null until an admin serves someone (ticket 07).
+     */
+    nowServing: {
+      type: Number,
+      default: null,
+      min: 1,
+    },
   },
   { timestamps: true }
 );

@@ -476,3 +476,167 @@
   color: #92400e;
 }
 
+/* Paused badge (user status + admin console) */
+.status-paused {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #92400e;
+  background: #fef3c7;
+}
+
+/* Admin control console */
+.admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-card__queue {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.admin-card__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.admin-meta {
+  grid-template-columns: 1fr 1fr;
+}
+
+.admin-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.admin-actions .btn {
+  margin-top: 0;
+  width: 100%;
+}
+
+.admin-actions .btn--pause,
+.admin-actions .btn--resume {
+  grid-column: 1 / -1;
+}
+
+.btn--serve {
+  background: #059669;
+}
+
+.btn--serve:hover:not(:disabled) {
+  background: #047857;
+}
+
+.btn--skip {
+  background: #d97706;
+}
+
+.btn--skip:hover:not(:disabled) {
+  background: #b45309;
+}
+
+.btn--pause {
+  background: #fff;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.btn--pause:hover:not(:disabled) {
+  background: #fffbeb;
+}
+
+.btn--resume {
+  background: #4f46e5;
+}
+
+.admin-waiting__title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.waiting-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.waiting-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.6rem;
+  background: #f8fafc;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.waiting-card:hover {
+  border-color: #a5b4fc;
+  background: #eef2ff;
+}
+
+.waiting-card--selected {
+  border-color: #4f46e5;
+  background: #e0e7ff;
+  box-shadow: 0 0 0 1px #4f46e5;
+}
+
+.waiting-card__token {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #3730a3;
+  min-width: 2.5rem;
+}
+
+.waiting-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.waiting-card__name {
+  font-weight: 600;
+}
+
+.waiting-card__meta {
+  font-size: 0.8rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

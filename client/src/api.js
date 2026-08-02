@@ -91,3 +91,42 @@ export function leaveQueue(token, queueId) {
 export function fetchHistory(token) {
   return apiRequest("/api/queues/history", { token });
 }
+
+/** GET /api/admin/queues/:queueId/waiting-list — admin waiting list + queue meta. */
+export function fetchWaitingList(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/waiting-list`, { token });
+}
+
+/** POST /api/admin/queues/:queueId/serve — serve next or selected waiting entry. */
+export function serveQueue(token, queueId, entryId) {
+  return apiRequest(`/api/admin/queues/${queueId}/serve`, {
+    method: "POST",
+    token,
+    body: entryId ? { entryId } : {},
+  });
+}
+
+/** POST /api/admin/queues/:queueId/skip — skip next or selected waiting entry. */
+export function skipQueue(token, queueId, entryId) {
+  return apiRequest(`/api/admin/queues/${queueId}/skip`, {
+    method: "POST",
+    token,
+    body: entryId ? { entryId } : {},
+  });
+}
+
+/** POST /api/admin/queues/:queueId/pause */
+export function pauseQueue(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/pause`, {
+    method: "POST",
+    token,
+  });
+}
+
+/** POST /api/admin/queues/:queueId/resume */
+export function resumeQueue(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/resume`, {
+    method: "POST",
+    token,
+  });
+}

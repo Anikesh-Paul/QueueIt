@@ -6,14 +6,19 @@ import {
   fetchMe,
   fetchQueues,
   fetchQueueStatus,
+  fetchWaitingList,
   joinQueue,
   leaveQueue,
   login,
+  pauseQueue,
   register,
+  resumeQueue,
+  serveQueue,
+  skipQueue,
 } from "./api.js";
 
 const TOKEN_KEY = "queueit_token";
-/** Poll interval for live status (must-ship path; no Socket.IO). */
+/** Poll interval for live status and admin waiting list (must-ship path; no Socket.IO). */
 const STATUS_POLL_MS = 3000;
 
 function formatNowServing(value) {
@@ -66,7 +71,17 @@ function App() {
   const [historyEvents, setHistoryEvents] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  /** Admin console state (waiting list + controls for selected queue). */
+  const [adminQueueId, setAdminQueueId] = useState(null);
+  const [adminQueueMeta, setAdminQueueMeta] = useState(null);
+  const [waitingList, setWaitingList] = useState([]);
+  const [waitingLoading, setWaitingLoading] = useState(false);
+  const [waitingError, setWaitingError] = useState("");
+  const [adminActionBusy, setAdminActionBusy] = useState(false);
+  const [adminActionError, setAdminActionError] = useState("");
+  const [selectedEntryId, setSelectedEntryId] = useState(null);
   const pollRef = useRef(null);
+  const adminPollRef = useRef(null);
 
   const persistSession = useCallback((nextToken, nextUser) => {
     setToken(nextToken);
@@ -92,6 +107,21 @@ function App() {
     }
   }, []);
 
+  const clearAdminConsole = useCallback(() => {
+    setAdminQueueId(null);
+    setAdminQueueMeta(null);
+    setWaitingList([]);
+    setWaitingError("");
+    setWaitingLoading(false);
+    setAdminActionError("");
+    setAdminActionBusy(false);
+    setSelectedEntryId(null);
+    if (adminPollRef.current) {
+      clearInterval(adminPollRef.current);
+      adminPollRef.current = null;
+    }
+  }, []);
+
   const logout = useCallback(() => {
     persistSession("", null);
     setAdminStatus(null);
@@ -103,7 +133,8 @@ function App() {
     setHistoryEvents([]);
     setHistoryError("");
     clearLiveStatus();
-  }, [persistSession, clearLiveStatus]);
+    clearAdminConsole();
+  }, [persistSession, clearLiveStatus, clearAdminConsole]);
 
   const restoreActiveMembership = useCallback(async (sessionToken, catalog) => {
     if (!sessionToken || !Array.isArray(catalog)) return false;
@@ -204,6 +235,25 @@ function App() {
     };
   }, [token, logout, loadQueues]);
 
+  const loadWaitingList = useCallback(
+    async (sessionToken, queueId, { silent } = {}) => {
+      if (!sessionToken || !queueId) return;
+      if (!silent) setWaitingLoading(true);
+      try {
+        const data = await fetchWaitingList(sessionToken, queueId);
+        setAdminQueueMeta(data.queue || null);
+        setWaitingList(Array.isArray(data.waiting) ? data.waiting : []);
+        setWaitingError("");
+        setAdminQueueId(queueId);
+      } catch (err) {
+        setWaitingError(err.message || "Could not load waiting list");
+      } finally {
+        if (!silent) setWaitingLoading(false);
+      }
+    },
+    []
+  );
+
   // Poll live status while the user holds a place in line.
   useEffect(() => {
     if (!token || !statusQueueId || !liveStatus) {
@@ -225,6 +275,28 @@ function App() {
       }
     };
   }, [token, statusQueueId, liveStatus, refreshStatus]);
+
+  // Poll admin waiting list while console is open.
+  useEffect(() => {
+    if (!token || !adminQueueId || user?.role !== "admin") {
+      if (adminPollRef.current) {
+        clearInterval(adminPollRef.current);
+        adminPollRef.current = null;
+      }
+      return;
+    }
+
+    adminPollRef.current = setInterval(() => {
+      loadWaitingList(token, adminQueueId, { silent: true });
+    }, STATUS_POLL_MS);
+
+    return () => {
+      if (adminPollRef.current) {
+        clearInterval(adminPollRef.current);
+        adminPollRef.current = null;
+      }
+    };
+  }, [token, adminQueueId, user?.role, loadWaitingList]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -312,6 +384,73 @@ function App() {
     }
   }
 
+  async function openAdminConsole(queueId) {
+    if (!token || !queueId) return;
+    setSelectedQueueId(queueId);
+    setSelectedEntryId(null);
+    setAdminActionError("");
+    setPanel("queues");
+    await loadWaitingList(token, queueId);
+  }
+
+  async function handleAdminServe(entryId) {
+    if (!token || !adminQueueId) return;
+    setAdminActionError("");
+    setAdminActionBusy(true);
+    try {
+      await serveQueue(token, adminQueueId, entryId || undefined);
+      setSelectedEntryId(null);
+      await loadWaitingList(token, adminQueueId, { silent: true });
+    } catch (err) {
+      setAdminActionError(err.message || "Serve failed");
+    } finally {
+      setAdminActionBusy(false);
+    }
+  }
+
+  async function handleAdminSkip(entryId) {
+    if (!token || !adminQueueId) return;
+    setAdminActionError("");
+    setAdminActionBusy(true);
+    try {
+      await skipQueue(token, adminQueueId, entryId || undefined);
+      setSelectedEntryId(null);
+      await loadWaitingList(token, adminQueueId, { silent: true });
+    } catch (err) {
+      setAdminActionError(err.message || "Skip failed");
+    } finally {
+      setAdminActionBusy(false);
+    }
+  }
+
+  async function handleAdminPause() {
+    if (!token || !adminQueueId) return;
+    setAdminActionError("");
+    setAdminActionBusy(true);
+    try {
+      await pauseQueue(token, adminQueueId);
+      await loadWaitingList(token, adminQueueId, { silent: true });
+    } catch (err) {
+      setAdminActionError(err.message || "Pause failed");
+    } finally {
+      setAdminActionBusy(false);
+    }
+  }
+
+  async function handleAdminResume() {
+    if (!token || !adminQueueId) return;
+    setAdminActionError("");
+    setAdminActionBusy(true);
+    try {
+      await resumeQueue(token, adminQueueId);
+      await loadWaitingList(token, adminQueueId, { silent: true });
+    } catch (err) {
+      setAdminActionError(err.message || "Resume failed");
+    } finally {
+      setAdminActionBusy(false);
+    }
+  }
+
   if (booting) {
     return (
       <main className="shell">
@@ -321,6 +460,7 @@ function App() {
   }
 
   if (user && token) {
+    const isAdmin = user.role === "admin";
     const selected = queues.find((q) => q.id === selectedQueueId) || null;
     const inQueue = Boolean(liveStatus && statusQueueId);
     const statusQueueName =
@@ -328,6 +468,13 @@ function App() {
       queues.find((q) => q.id === statusQueueId)?.name ||
       "Queue";
     const showHistory = panel === "history";
+    const showAdminConsole = isAdmin && Boolean(adminQueueId) && !showHistory;
+    const adminQueueName =
+      adminQueueMeta?.name ||
+      queues.find((q) => q.id === adminQueueId)?.name ||
+      "Queue";
+    const queuePaused = adminQueueMeta?.status === "paused";
+    const userQueuePaused = liveStatus?.queue?.status === "paused";
 
     return (
       <main className="shell shell--wide">
@@ -336,14 +483,16 @@ function App() {
           <h1>
             {showHistory
               ? "Your queue history"
-              : inQueue
-                ? "Your place in line"
-                : "Available queues"}
+              : showAdminConsole
+                ? "Admin control"
+                : inQueue
+                  ? "Your place in line"
+                  : "Available queues"}
           </h1>
           <p className="shell__lede">
             Signed in as <strong>{user.name}</strong>{" "}
             <span className={`badge badge--${user.role}`}>{user.role}</span>
-            {user.role === "admin" && adminStatus && (
+            {isAdmin && adminStatus && (
               <>
                 {" "}
                 · Admin API {adminStatus === "ok" ? "ok" : "denied"}
@@ -428,7 +577,7 @@ function App() {
           </section>
         )}
 
-        {!showHistory && inQueue && (
+        {!showHistory && !showAdminConsole && inQueue && (
           <section className="shell__card status-card" aria-label="Live queue status">
             <div className="status-card__top">
               <div>
@@ -438,9 +587,15 @@ function App() {
                   {statusUpdating ? " · refreshing…" : ""}
                 </p>
               </div>
-              <span className="status-live" aria-live="polite">
-                Live
-              </span>
+              {userQueuePaused ? (
+                <span className="status-paused" aria-live="polite" data-testid="queue-paused">
+                  Paused
+                </span>
+              ) : (
+                <span className="status-live" aria-live="polite">
+                  Live
+                </span>
+              )}
             </div>
 
             <div className="status-grid" role="status">
@@ -473,6 +628,7 @@ function App() {
 
             <p className="status-card__formula">
               ETA = position × {liveStatus.averageServiceTime} min/serve
+              {userQueuePaused ? " · line paused (advancement frozen)" : ""}
             </p>
 
             {statusError && (
@@ -516,7 +672,161 @@ function App() {
           </section>
         )}
 
-        {!showHistory && !inQueue && (
+        {showAdminConsole && (
+          <section className="shell__card admin-card" aria-label="Admin queue control">
+            <div className="admin-card__top">
+              <div>
+                <p className="admin-card__queue" data-testid="admin-queue-name">
+                  {adminQueueName}
+                </p>
+                <p className="admin-card__hint">
+                  Waiting list updates every few seconds
+                  {waitingLoading ? " · loading…" : ""}
+                </p>
+              </div>
+              <span
+                className={queuePaused ? "status-paused" : "status-live"}
+                data-testid="admin-queue-status"
+              >
+                {queuePaused ? "Paused" : "Open"}
+              </span>
+            </div>
+
+            <div className="status-grid admin-meta" role="status">
+              <div className="status-metric">
+                <span className="status-metric__label">Now serving</span>
+                <span className="status-metric__value" data-testid="admin-now-serving">
+                  {formatNowServing(adminQueueMeta?.nowServing)}
+                </span>
+              </div>
+              <div className="status-metric">
+                <span className="status-metric__label">Waiting</span>
+                <span className="status-metric__value" data-testid="admin-waiting-count">
+                  {waitingList.length}
+                </span>
+              </div>
+            </div>
+
+            {waitingError && (
+              <p className="form-error" role="alert">
+                {waitingError}
+              </p>
+            )}
+
+            {adminActionError && (
+              <p className="form-error" role="alert" data-testid="admin-action-error">
+                {adminActionError}
+              </p>
+            )}
+
+            <div className="admin-actions" data-testid="admin-actions">
+              <button
+                type="button"
+                className="btn btn--serve"
+                onClick={() => handleAdminServe(selectedEntryId || undefined)}
+                disabled={adminActionBusy || queuePaused || waitingList.length === 0}
+                data-testid="admin-serve"
+              >
+                {selectedEntryId ? "Serve selected" : "Serve next"}
+              </button>
+              <button
+                type="button"
+                className="btn btn--skip"
+                onClick={() => handleAdminSkip(selectedEntryId || undefined)}
+                disabled={adminActionBusy || queuePaused || waitingList.length === 0}
+                data-testid="admin-skip"
+              >
+                {selectedEntryId ? "Skip selected" : "Skip next"}
+              </button>
+              {queuePaused ? (
+                <button
+                  type="button"
+                  className="btn btn--resume"
+                  onClick={handleAdminResume}
+                  disabled={adminActionBusy}
+                  data-testid="admin-resume"
+                >
+                  Resume
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn--pause"
+                  onClick={handleAdminPause}
+                  disabled={adminActionBusy}
+                  data-testid="admin-pause"
+                >
+                  Pause
+                </button>
+              )}
+            </div>
+
+            <h2 className="admin-waiting__title">Waiting list</h2>
+            {waitingList.length === 0 && !waitingLoading && (
+              <p className="shell__muted" data-testid="admin-waiting-empty">
+                No one waiting.
+              </p>
+            )}
+            {waitingList.length > 0 && (
+              <ul className="waiting-list" data-testid="admin-waiting-list">
+                {waitingList.map((entry) => {
+                  const isSelected = entry.id === selectedEntryId;
+                  return (
+                    <li key={entry.id}>
+                      <button
+                        type="button"
+                        className={`waiting-card${isSelected ? " waiting-card--selected" : ""}`}
+                        onClick={() =>
+                          setSelectedEntryId((prev) => (prev === entry.id ? null : entry.id))
+                        }
+                        aria-pressed={isSelected}
+                        data-testid="waiting-entry"
+                        data-token={entry.tokenNumber}
+                      >
+                        <span className="waiting-card__token">#{entry.tokenNumber}</span>
+                        <span className="waiting-card__body">
+                          <span className="waiting-card__name">
+                            {entry.user?.name || "Guest"}
+                          </span>
+                          <span className="waiting-card__meta">
+                            Position {entry.position}
+                            {entry.user?.email ? ` · ${entry.user.email}` : ""}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <div className="session-actions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => loadWaitingList(token, adminQueueId)}
+                disabled={waitingLoading}
+              >
+                Refresh list
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => {
+                  clearAdminConsole();
+                  setSelectedQueueId(null);
+                }}
+              >
+                Back to queues
+              </button>
+              <button type="button" className="btn btn--ghost" onClick={logout}>
+                Log out
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!showHistory && !showAdminConsole && !inQueue && (
           <section className="shell__card" aria-label="Queue catalog">
             {queuesLoading && <p className="shell__muted">Loading queues…</p>}
 
@@ -563,17 +873,30 @@ function App() {
               <div className="queue-selected" role="status">
                 <p>
                   Selected <strong>{selected.name}</strong>
-                  {selected.venue?.name ? ` at ${selected.venue.name}` : ""}. Join to get a token
-                  and live wait estimate.
+                  {selected.venue?.name ? ` at ${selected.venue.name}` : ""}.
+                  {isAdmin
+                    ? " Open admin control to see the waiting list and serve, skip, or pause."
+                    : " Join to get a token and live wait estimate."}
                 </p>
-                <button
-                  type="button"
-                  className="btn btn--join"
-                  onClick={handleJoin}
-                  disabled={joinBusy}
-                >
-                  {joinBusy ? "Joining…" : `Join ${selected.name}`}
-                </button>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    className="btn btn--join"
+                    onClick={() => openAdminConsole(selected.id)}
+                    data-testid="open-admin-console"
+                  >
+                    Manage {selected.name}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn--join"
+                    onClick={handleJoin}
+                    disabled={joinBusy}
+                  >
+                    {joinBusy ? "Joining…" : `Join ${selected.name}`}
+                  </button>
+                )}
               </div>
             )}
 
@@ -592,9 +915,11 @@ function App() {
               >
                 Refresh list
               </button>
-              <button type="button" className="btn btn--ghost" onClick={openHistory}>
-                View history
-              </button>
+              {!isAdmin && (
+                <button type="button" className="btn btn--ghost" onClick={openHistory}>
+                  View history
+                </button>
+              )}
               <button type="button" className="btn btn--ghost" onClick={logout}>
                 Log out
               </button>

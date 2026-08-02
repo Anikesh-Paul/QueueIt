@@ -13,6 +13,7 @@
     "dev:server": "npm run dev -w server",
     "test": "npm run test -w server",
     "test:server": "npm run test -w server",
+    "seed": "npm run seed -w server",
     "start:server": "npm run start -w server",
     "build:client": "npm run build -w client"
   },

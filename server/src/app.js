@@ -1,9 +1,12 @@
 import express from "express";
 import cors from "cors";
+import authRoutes from "./routes/auth.js";
+import adminRoutes from "./routes/admin.js";
 
 /**
  * Build the Express application (no listen).
  * Exporting createApp keeps the HTTP surface testable without binding a port.
+ * Callers are responsible for connecting MongoDB before handling requests.
  */
 export function createApp(options = {}) {
   const app = express();
@@ -17,6 +20,14 @@ export function createApp(options = {}) {
       status: "ok",
       service: "queueit-server",
     });
+  });
+
+  app.use("/api/auth", authRoutes);
+  app.use("/api/admin", adminRoutes);
+
+  app.use((err, _req, res, _next) => {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
   });
 
   return app;

@@ -2,16 +2,14 @@
 
 Virtual queue management system for Summer School ’26 MERN evaluation.
 
-**Stack:** MongoDB · Express · React · Node · JWT (product features land in later tickets)
-
-This monorepo is the Phase 0 scaffold: empty client shell + Express health check + env templates. No auth, queues, or deploy yet.
+**Stack:** MongoDB · Express · React · Node · JWT (`user` | `admin`)
 
 ## Layout
 
 ```
 .
-├── client/          # React (Vite) frontend
-├── server/          # Express API
+├── client/          # React (Vite) frontend — login / register UI
+├── server/          # Express API — auth, roles, seed
 ├── package.json     # npm workspaces root
 └── README.md
 ```
@@ -20,6 +18,7 @@ This monorepo is the Phase 0 scaffold: empty client shell + Express health check
 
 - Node.js 20+
 - npm 10+
+- MongoDB (local `mongod`, Docker, or Atlas) for running the server
 
 ## Setup
 
@@ -27,16 +26,28 @@ This monorepo is the Phase 0 scaffold: empty client shell + Express health check
 # Install all workspace dependencies
 npm install
 
-# Optional: copy env templates (no secrets in the repo)
+# Copy env templates (no secrets in the repo)
 copy server\.env.example server\.env
 copy client\.env.example client\.env
 ```
 
 On macOS/Linux use `cp` instead of `copy`.
 
+Edit `server/.env`:
+
+1. Set `MONGODB_URI` to your database.
+2. Set a strong `JWT_SECRET`.
+3. Set `SEED_*` emails/passwords for demo accounts (your choice — do not commit them).
+
+Seed demo user + admin (idempotent):
+
+```bash
+npm run seed
+```
+
 ## Run locally
 
-Two terminals:
+Two terminals (MongoDB must be reachable at `MONGODB_URI`):
 
 ```bash
 # API — http://localhost:5000
@@ -46,25 +57,60 @@ npm run dev:server
 npm run dev:client
 ```
 
-Health check:
+### Auth API (smoke)
 
 ```bash
-curl http://localhost:5000/api/health
-# → {"status":"ok","service":"queueit-server"}
+# Register a student (always role: user)
+curl -s -X POST http://localhost:5000/api/auth/register ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"student@example.com\",\"password\":\"password123\",\"name\":\"Student\"}"
+
+# Login
+curl -s -X POST http://localhost:5000/api/auth/login ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"student@example.com\",\"password\":\"password123\"}"
+
+# Current user (replace TOKEN)
+curl -s http://localhost:5000/api/auth/me -H "Authorization: Bearer TOKEN"
+
+# Admin-only probe (403 for user tokens; 200 for admin)
+curl -s http://localhost:5000/api/admin/ping -H "Authorization: Bearer TOKEN"
 ```
+
+Health check: `GET /api/health` → `{"status":"ok","service":"queueit-server"}`.
+
+## Demo accounts
+
+Demo logins are **seeded from env**, not hard-coded secrets in git.
+
+| Role  | Env vars | Notes |
+|-------|----------|--------|
+| admin | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | Admin-scoped JWT; can call `/api/admin/*` |
+| user  | `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | User-scoped JWT; cannot call admin routes |
+
+Use those credentials on the login screen after `npm run seed`. Students may also self-register (always `user` role).
 
 ## Tests
 
 ```bash
 npm test
-# currently: server health endpoint (node:test + supertest)
 ```
+
+Server HTTP API tests use an in-memory MongoDB (`mongodb-memory-server`) — no local mongod required for CI/local unit runs.
+
+Coverage for this phase:
+
+- Register / login success and validation failures  
+- User-scoped vs admin-scoped sessions  
+- Unauthenticated → 401 on protected routes  
+- User token → 403 on admin-only routes  
+- Seeded accounts + password hashing (no plaintext storage)
 
 ## Environment
 
 | File | Purpose |
 |------|---------|
-| `server/.env.example` | `PORT`, `CLIENT_ORIGIN`, placeholders for Mongo/JWT |
+| `server/.env.example` | `PORT`, `MONGODB_URI`, `JWT_SECRET`, `CLIENT_ORIGIN`, `SEED_*` |
 | `client/.env.example` | `VITE_API_URL` for API base URL |
 
 Copy examples to `.env` locally. **Never commit `.env` or real secrets.**
@@ -81,8 +127,11 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 | `npm run dev:client` | Vite dev server |
 | `npm run start:server` | Express production start |
 | `npm run build:client` | Production client build |
-| `npm test` | Server tests |
+| `npm run seed` | Upsert demo user + admin from env |
+| `npm test` | Server HTTP API tests |
 
-## Out of scope (this scaffold)
+## Current scope
 
-Auth, roles, venue seed, join/leave/serve/skip/pause, deploy hosts, Playwright E2E, and stretch features land in later work — not in this scaffold.
+**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, basic login/register UI.
+
+**Later tickets:** venue/queues, join/leave/status, admin serve/skip/pause, deploy, Playwright E2E, stretch.

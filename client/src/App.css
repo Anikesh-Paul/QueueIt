@@ -1,5 +1,5 @@
 .shell {
-  max-width: 40rem;
+  max-width: 28rem;
   margin: 0 auto;
   padding: 3rem 1.5rem;
 }
@@ -29,24 +29,147 @@
   line-height: 1.5;
 }
 
+.shell__muted {
+  margin: 0;
+  color: #64748b;
+}
+
 .shell__card {
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.25rem 1.35rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #ffffff;
   box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
 }
 
-.shell__card p {
-  margin: 0;
-  color: #0f172a;
-  line-height: 1.5;
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }
 
-.shell__card code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.9em;
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.field input {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font: inherit;
+  color: #0f172a;
+  background: #fff;
+}
+
+.field input:focus {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 1px;
+  border-color: #6366f1;
+}
+
+.btn {
+  margin-top: 0.25rem;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: #4f46e5;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btn--ghost {
+  margin-top: 1rem;
+  width: 100%;
   background: #f1f5f9;
-  padding: 0.1em 0.35em;
-  border-radius: 0.25rem;
+  color: #0f172a;
+}
+
+.btn--ghost:hover {
+  background: #e2e8f0;
+}
+
+.form-error {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.5rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.auth-switch {
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.linkish {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: #4f46e5;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.session {
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.session div {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.session dt {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.session dd {
+  margin: 0;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.badge--user {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.badge--admin {
+  background: #fef3c7;
+  color: #92400e;
 }

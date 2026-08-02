@@ -5,6 +5,9 @@
   "type": "module",
   "description": "QueueIt Express API",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",

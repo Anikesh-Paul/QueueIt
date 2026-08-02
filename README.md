@@ -4,12 +4,31 @@ Virtual queue management system for Summer School ’26 MERN evaluation.
 
 **Stack:** MongoDB · Express · React · Node · JWT (`user` | `admin`)
 
+## Live deployment
+
+| Layer | Host (example) | Notes |
+|-------|----------------|-------|
+| Database | MongoDB Atlas | Hosted cluster; `MONGODB_URI` on the API host only |
+| Backend | Vercel (or Render) | Public API; health at `/api/health` |
+| Frontend | Vercel | Static Vite build; `VITE_API_URL` points at the API |
+
+Fill in your production URLs after deploy (do **not** put secrets here):
+
+| Surface | URL |
+|---------|-----|
+| Frontend | _set after deploy_ |
+| Backend API | _set after deploy_ |
+| Health | `{API}/api/health` |
+
+**Demo accounts** are created from **host environment variables** (`SEED_*`) — passwords are **never** committed. See [Production demo accounts](#production-demo-accounts).
+
 ## Layout
 
 ```
 .
-├── client/          # React (Vite) frontend — auth + queue list UI
-├── server/          # Express API — auth, roles, seed venue/queues
+├── client/          # React (Vite) frontend — auth + queue UI
+├── server/          # Express API — auth, queues, admin control
+├── render.yaml      # Optional Render Blueprint for the API
 ├── package.json     # npm workspaces root
 └── README.md
 ```
@@ -107,6 +126,15 @@ Demo logins are **seeded from env**, not hard-coded secrets in git.
 
 Use those credentials on the login screen after `npm run seed`. Students may also self-register (always `user` role).
 
+### Production demo accounts
+
+1. On the **API host** dashboard, set `SEED_ADMIN_*`, `SEED_USER_*`, `MONGODB_URI`, `JWT_SECRET`, and `CLIENT_ORIGIN` (production frontend origin).
+2. Set `SEED_ON_BOOT=true` for the first deploy (or run `npm run seed` against production `MONGODB_URI` from a trusted machine). Seeding is **idempotent** (upsert by email/slug).
+3. Share demo email/password with the evaluator **out of band** (panel brief, private note) — **not** in this repository.
+4. After the first successful seed, you may set `SEED_ON_BOOT=false` so restarts only serve traffic.
+
+Placeholder emails in `server/.env.example` are local templates only.
+
 ## Tests
 
 ```bash
@@ -127,16 +155,82 @@ Coverage for this phase:
 - Join queue → token, position, ETA, now serving; double-join 409; status poll  
 - Leave queue → frees slot, position advances; re-join issues a new token  
 - User history → joined / left / served / skipped events for the authenticated user  
-- Playwright: smoke (login + queues) + tickets `05-join-queue-live-status`, `06-leave-queue-history`  
+- Playwright: smoke (login + queues) + tickets `05`–`07`  
+- CORS: single/multi origin + preflight for production `CLIENT_ORIGIN`  
 
 ## Environment
 
 | File | Purpose |
 |------|---------|
-| `server/.env.example` | `PORT`, `MONGODB_URI`, `JWT_SECRET`, `CLIENT_ORIGIN`, `SEED_*` |
+| `server/.env.example` | `PORT`, `HOST`, `MONGODB_URI`, `JWT_SECRET`, `CLIENT_ORIGIN`, `SEED_ON_BOOT`, `SEED_*` |
 | `client/.env.example` | `VITE_API_URL` for API base URL |
 
 Copy examples to `.env` locally. **Never commit `.env` or real secrets.**
+
+### Production env checklist
+
+| Variable | Where | Purpose |
+|----------|--------|---------|
+| `MONGODB_URI` | API host | Atlas connection string |
+| `JWT_SECRET` | API host | Strong random secret |
+| `CLIENT_ORIGIN` | API host | Exact frontend origin(s), comma-separated if needed |
+| `SEED_ON_BOOT` | API host | `true` once to upsert demo data |
+| `SEED_ADMIN_*` / `SEED_USER_*` | API host | Demo logins (host-only) |
+| `VITE_API_URL` | Frontend **build** env | Public API base URL (no trailing slash) |
+
+CORS rejects browser calls if `CLIENT_ORIGIN` does not match the site origin exactly (scheme + host + port).
+
+## Deploy (Phase 3 — must-ship)
+
+Suggested free-tier path (brands may vary):
+
+### 1. MongoDB Atlas
+
+1. Create a free cluster and database user.
+2. Network access: allow the API host (or `0.0.0.0/0` for student demos).
+3. Copy the `mongodb+srv://…` URI — set it only on the API host as `MONGODB_URI`.
+
+### 2. Backend (Vercel from `server/`)
+
+```bash
+# From repo root after vercel login
+cd server
+vercel --prod
+```
+
+Set project env in the Vercel dashboard (or `vercel env add`):
+
+- `MONGODB_URI`, `JWT_SECRET`, `CLIENT_ORIGIN` (set after FE URL is known — redeploy API if needed)
+- `SEED_ON_BOOT=true`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_USER_EMAIL`, `SEED_USER_PASSWORD`
+- Optional: `SEED_ADMIN_NAME`, `SEED_USER_NAME`, `JWT_EXPIRES_IN`
+
+Confirm: `GET https://<api-host>/api/health` → `{"status":"ok","service":"queueit-server"}`.
+
+**Alternative:** Render Blueprint — connect the GitHub repo and use root `render.yaml` (set secret env vars in the Render UI).
+
+### 3. Frontend (Vercel from `client/`)
+
+```bash
+cd client
+vercel --prod
+```
+
+Build env:
+
+- `VITE_API_URL=https://<your-api-host>` (must be present **at build time** for Vite)
+
+Then set API `CLIENT_ORIGIN` to the production frontend origin (e.g. `https://queueit-….vercel.app`) and redeploy the API if CORS was wrong on first boot.
+
+### 4. Smoke the live demo path
+
+1. Open the frontend URL → login as **user** (seed credentials from host env).
+2. Join a queue → confirm token, position, ETA, now serving (polling).
+3. In another browser/profile → login as **admin** → serve / skip / pause-resume.
+4. Confirm the user view updates within a few seconds.
+
+### 5. GitHub
+
+Push FE + BE source. Keep `.env` files gitignored. README must not contain production passwords or Atlas credentials.
 
 ## Internship report
 
@@ -158,8 +252,8 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 
 ## Current scope
 
-**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI, **leave**, and **user history** (joined / left / served / skipped).
+**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI, **leave**, **user history**, **admin serve / skip / pause-resume**, and **deploy readiness** (CORS multi-origin, production env templates, Vercel/Render configs, host-only `SEED_*`, `SEED_ON_BOOT`). Live public URLs are filled in the table above once Atlas + hosts are provisioned.
 
-**Later tickets:** admin serve/skip/pause, deploy, harden/Playwright expansion, stretch.
+**Later tickets:** harden/Playwright expansion, stretch (walk-in → … → Socket.IO last).
 
 **Explicitly out:** Super Admin multi-venue management UI; Socket.IO on must-ship.

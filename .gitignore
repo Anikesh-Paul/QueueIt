@@ -39,3 +39,5 @@ test-results/
 docs/
 AGENTS.md
 report/
+
+.vercel/

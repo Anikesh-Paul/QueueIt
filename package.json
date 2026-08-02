@@ -1,0 +1,22 @@
+{
+  "name": "queueit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QueueIt — virtual queue management (MERN monorepo)",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:client": "npm run dev -w client",
+    "dev:server": "npm run dev -w server",
+    "test": "npm run test -w server",
+    "test:server": "npm run test -w server",
+    "start:server": "npm run start -w server",
+    "build:client": "npm run build -w client"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

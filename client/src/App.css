@@ -1,0 +1,52 @@
+.shell {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.shell__header {
+  margin-bottom: 1.5rem;
+}
+
+.shell__eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #4f46e5;
+}
+
+.shell__header h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.shell__lede {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.shell__card {
+  padding: 1rem 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+.shell__card p {
+  margin: 0;
+  color: #0f172a;
+  line-height: 1.5;
+}
+
+.shell__card code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  background: #f1f5f9;
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+}

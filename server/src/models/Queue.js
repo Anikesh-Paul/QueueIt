@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+// Ensure Venue is registered whenever Queue is loaded (needed for populate).
+import "./Venue.js";
 
 const QUEUE_STATUSES = ["open", "paused"];
 

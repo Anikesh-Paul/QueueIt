@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { Queue } from "../models/Queue.js";
+// Register Venue model so Queue.populate("venue") resolves at runtime.
+import "../models/Venue.js";
 
 const router = Router();
 

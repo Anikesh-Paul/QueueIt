@@ -12,6 +12,9 @@ const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "admin-demo-pass";
 test.describe("QueueIt shared smoke (login + queues list)", () => {
   test("login page loads", async ({ page }) => {
     await page.goto("/");
+
+    // Unauth "/" redirects to the public /login (Router shell).
+    await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
@@ -48,6 +51,7 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
     await expect(page.getByRole("heading", { name: "Available queues" })).toBeVisible({
       timeout: 15_000,
     });
+    await expect(page).toHaveURL(/\/queues$/);
     await expect(page.getByText("Demo User", { exact: true })).toBeVisible();
     await expect(page.locator(".badge--user")).toHaveText("user");
 
@@ -79,6 +83,8 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
       timeout: 15_000,
     });
     await expect(page.locator(".badge--admin")).toHaveText("admin");
+    // No "Admin API ok/denied" after the overhaul shell.
+    await expect(page.getByText(/Admin API/i)).toHaveCount(0);
     await expect(page.locator(".queue-card", { hasText: "Cafeteria" })).toBeVisible({
       timeout: 10_000,
     });

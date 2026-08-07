@@ -16,9 +16,9 @@ Fill in your production URLs after deploy (do **not** put secrets here):
 
 | Surface | URL |
 |---------|-----|
-| Frontend | _set after deploy_ |
-| Backend API | _set after deploy_ |
-| Health | `{API}/api/health` |
+| Frontend | https://queueit-seven.vercel.app |
+| Backend API | https://queueit-api.vercel.app |
+| Health | https://queueit-api.vercel.app/api/health |
 
 **Demo accounts** are created from **host environment variables** (`SEED_*`) — passwords are **never** committed. See [Production demo accounts](#production-demo-accounts).
 

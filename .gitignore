@@ -38,6 +38,9 @@ test-results/
 .scratch/
 docs/
 AGENTS.md
+CONTEXT.md
+DESIGN.md
+PRODUCT.md
 report/
 
 .vercel/

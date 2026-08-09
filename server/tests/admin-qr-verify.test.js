@@ -216,7 +216,7 @@ describe("Admin QR arrival check (HTTP API)", () => {
       const app = testApp();
       const { token: adminToken } = await createAdmin(app);
 
-      for (const value of ["hello", "QIT:", "QIT:zz:5", "QIT:5f0c12345:abc", "12.5", "-3"]) {
+      for (const value of ["hello", "QIT:", "QIT:zz:5", "QIT:5f0c12345:abc", "12.5", "-3", "0x10", "1e3"]) {
         const verify = await request(app)
           .post(`/api/admin/queues/${queueId}/verify-qr`)
           .set("Authorization", `Bearer ${adminToken}`)

@@ -59,8 +59,10 @@ export function AdminConsolePage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [verifyValue, setVerifyValue] = useState("");
   const [verifyBusy, setVerifyBusy] = useState(false);
-  /** @type {[{ verified: boolean, entry?: object, reason?: string }, ...] | null} */
+  /** @type {{ verified: boolean, entry?: object, reason?: string } | null} */
   const [verifyResult, setVerifyResult] = useState(null);
+  /** System/network failures are errors — never a counter "No match". */
+  const [verifyError, setVerifyError] = useState("");
 
   useEffect(() => {
     if (queueId) openAdminConsole(queueId);
@@ -69,6 +71,7 @@ export function AdminConsolePage() {
   useEffect(() => {
     setVerifyValue("");
     setVerifyResult(null);
+    setVerifyError("");
   }, [queueId]);
 
   useEffect(() => () => clearAdminConsole(), [clearAdminConsole]);
@@ -99,14 +102,12 @@ export function AdminConsolePage() {
     if (!value || verifyBusy) return;
     setVerifyBusy(true);
     setVerifyResult(null);
+    setVerifyError("");
     try {
       const data = await verifyArrival(token, queueId, value);
       setVerifyResult(data);
     } catch (err) {
-      setVerifyResult({
-        verified: false,
-        reason: err.message || "Could not check arrival",
-      });
+      setVerifyError(err.message || "Could not check arrival");
     } finally {
       setVerifyBusy(false);
     }
@@ -365,7 +366,10 @@ export function AdminConsolePage() {
                 value={verifyValue}
                 onChange={(e) => {
                   setVerifyValue(e.target.value);
-                  if (verifyResult) setVerifyResult(null);
+                  if (verifyResult || verifyError) {
+                    setVerifyResult(null);
+                    setVerifyError("");
+                  }
                 }}
                 placeholder="e.g. 7 or QIT:…"
                 disabled={verifyBusy}
@@ -384,6 +388,12 @@ export function AdminConsolePage() {
               {verifyBusy ? "Checking…" : "Verify"}
             </Button>
           </form>
+
+          {verifyError && (
+            <div className="mt-3" data-testid="verify-error">
+              <Alert variant="destructive">{verifyError}</Alert>
+            </div>
+          )}
 
           {verifyResult && (
             <div

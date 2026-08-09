@@ -130,3 +130,19 @@ export function resumeQueue(token, queueId) {
     token,
   });
 }
+
+/**
+ * POST /api/admin/queues/:queueId/walk-in
+ * Counter walk-in: { name, tokenNumber? } — auto token when tokenNumber omitted.
+ */
+export function walkInQueue(token, queueId, { name, tokenNumber } = {}) {
+  const body = { name };
+  if (tokenNumber !== undefined && tokenNumber !== null && tokenNumber !== "") {
+    body.tokenNumber = Number(tokenNumber);
+  }
+  return apiRequest(`/api/admin/queues/${queueId}/walk-in`, {
+    method: "POST",
+    token,
+    body,
+  });
+}

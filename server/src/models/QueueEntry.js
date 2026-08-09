@@ -14,13 +14,30 @@ const queueEntrySchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    /**
+     * Authenticated joiner. Optional for admin walk-ins (counter arrivals without app join).
+     * Walk-ins set isWalkIn + walkInName instead.
+     */
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
+      default: null,
       index: true,
     },
-    /** Display token issued at join (sequential per queue). */
+    /** True when the entry was created by admin walk-in (no User account). */
+    isWalkIn: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
+    /** Display name for walk-in entries (counter guest). Ignored when user is set. */
+    walkInName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    /** Display token issued at join (sequential per queue, or manual for walk-in). */
     tokenNumber: {
       type: Number,
       required: true,
@@ -36,6 +53,17 @@ const queueEntrySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+queueEntrySchema.pre("validate", function ensureMembershipIdentity() {
+  if (this.isWalkIn) {
+    if (!this.walkInName || !String(this.walkInName).trim()) {
+      this.invalidate("walkInName", "Walk-in name is required");
+    }
+    this.user = null;
+  } else if (!this.user) {
+    this.invalidate("user", "User is required for app-joined entries");
+  }
+});
 
 queueEntrySchema.index({ queue: 1, tokenNumber: 1 });
 queueEntrySchema.index({ queue: 1, user: 1, status: 1 });

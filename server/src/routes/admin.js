@@ -27,27 +27,39 @@ function toAdminQueueJSON(queue) {
   };
 }
 
-/** Waiting-list row for one entry (user may be populated). */
+/** Waiting-list row for one entry (user may be populated; walk-ins have no User). */
 function toWaitingRow(entry, position) {
-  const userDoc = entry.user;
-  const user =
-    userDoc && typeof userDoc === "object" && userDoc.email
-      ? {
-          id: userDoc._id.toString(),
-          name: userDoc.name,
-          email: userDoc.email,
-        }
-      : {
-          id: (userDoc?._id ?? userDoc)?.toString?.() ?? String(userDoc),
-          name: null,
-          email: null,
-        };
+  const isWalkIn = Boolean(entry.isWalkIn);
+  let user;
+
+  if (isWalkIn) {
+    user = {
+      id: null,
+      name: entry.walkInName || "Walk-in",
+      email: null,
+    };
+  } else {
+    const userDoc = entry.user;
+    user =
+      userDoc && typeof userDoc === "object" && userDoc.email
+        ? {
+            id: userDoc._id.toString(),
+            name: userDoc.name,
+            email: userDoc.email,
+          }
+        : {
+            id: (userDoc?._id ?? userDoc)?.toString?.() ?? String(userDoc),
+            name: null,
+            email: null,
+          };
+  }
 
   return {
     id: entry._id.toString(),
     tokenNumber: entry.tokenNumber,
     position,
     user,
+    isWalkIn,
     joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
   };
 }
@@ -213,6 +225,94 @@ router.post("/queues/:queueId/skip", requireAuth, requireAdmin, async (req, res,
         status: entry.status,
       },
       queue: toAdminQueueJSON(result.queue),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/queues/:queueId/walk-in
+ * Body: { name: string, tokenNumber?: number }
+ * Adds a counter walk-in (no app account) with auto or manual token.
+ * Participates in serve/skip like any waiting entry. Allowed while paused.
+ */
+router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res);
+    if (!queue) return;
+
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (!name) {
+      return res.status(400).json({ error: "Walk-in name is required" });
+    }
+    if (name.length > 80) {
+      return res.status(400).json({ error: "Walk-in name is too long" });
+    }
+
+    const rawToken = req.body?.tokenNumber;
+    let tokenNumber;
+
+    if (rawToken === undefined || rawToken === null || rawToken === "") {
+      // Auto: same atomic issue path as app join.
+      const updated = await Queue.findByIdAndUpdate(
+        queue._id,
+        { $inc: { nextTokenNumber: 1 } },
+        { returnDocument: "before" }
+      );
+      if (!updated) {
+        return res.status(404).json({ error: "Queue not found" });
+      }
+      tokenNumber = updated.nextTokenNumber;
+    } else {
+      const parsed = Number(rawToken);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        return res.status(400).json({ error: "tokenNumber must be a positive integer" });
+      }
+      tokenNumber = parsed;
+
+      // Reject if an active entry already holds this token on the queue.
+      const conflict = await QueueEntry.findOne({
+        queue: queue._id,
+        tokenNumber,
+        status: { $in: ["waiting", "serving"] },
+      }).exec();
+      if (conflict) {
+        return res.status(409).json({ error: "Token already in use in this queue" });
+      }
+
+      // Keep sequential issuer ahead of any manual token.
+      await Queue.findByIdAndUpdate(queue._id, {
+        $max: { nextTokenNumber: tokenNumber + 1 },
+      });
+    }
+
+    const entry = await QueueEntry.create({
+      queue: queue._id,
+      user: null,
+      isWalkIn: true,
+      walkInName: name,
+      tokenNumber,
+      status: "waiting",
+    });
+
+    const freshQueue = await Queue.findById(queue._id);
+    const waitingCount = await QueueEntry.countDocuments({
+      queue: queue._id,
+      status: "waiting",
+      tokenNumber: { $lte: tokenNumber },
+    });
+
+    return res.status(201).json({
+      entry: {
+        id: entry._id.toString(),
+        tokenNumber: entry.tokenNumber,
+        status: entry.status,
+        isWalkIn: true,
+        name,
+        position: waitingCount,
+      },
+      queue: toAdminQueueJSON(freshQueue),
     });
   } catch (err) {
     return next(err);

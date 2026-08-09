@@ -19,6 +19,7 @@ import {
   resumeQueue,
   serveQueue,
   skipQueue,
+  walkInQueue,
 } from "@/api";
 
 export const TOKEN_KEY = "queueit_token";
@@ -403,6 +404,30 @@ export function AppProvider({ children }) {
     [token, adminQueueId, runAdminAction]
   );
 
+  /**
+   * Add a walk-in waiter (counter arrival without app join).
+   * @param {{ name: string, tokenNumber?: number|string }} payload
+   * @returns {Promise<boolean>}
+   */
+  const adminWalkIn = useCallback(
+    async ({ name, tokenNumber } = {}) => {
+      if (!token || !adminQueueId) return false;
+      setAdminActionError("");
+      setAdminActionBusy(true);
+      try {
+        await walkInQueue(token, adminQueueId, { name, tokenNumber });
+        await loadWaitingList(token, adminQueueId, { silent: true });
+        return true;
+      } catch (err) {
+        setAdminActionError(err.message || "Walk-in failed");
+        return false;
+      } finally {
+        setAdminActionBusy(false);
+      }
+    },
+    [token, adminQueueId, loadWaitingList]
+  );
+
   const value = {
     token,
     user,
@@ -449,6 +474,7 @@ export function AppProvider({ children }) {
     adminSkip,
     adminPause,
     adminResume,
+    adminWalkIn,
     logout,
   };
 

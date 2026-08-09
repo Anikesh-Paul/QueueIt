@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
@@ -13,7 +15,8 @@ function formatNowServing(value) {
 
 /**
  * Admin console — medium-density waiting list for one queue with Serve / Skip
- * / Pause / Resume controls. Explicit busy + disabled states; inline errors.
+ * / Pause / Resume controls, plus walk-in for counter arrivals without app join.
+ * Explicit busy + disabled states; inline errors.
  * No "Admin API ok/denied" diagnostics in the production surface.
  */
 export function AdminConsolePage() {
@@ -34,7 +37,11 @@ export function AdminConsolePage() {
     adminSkip,
     adminPause,
     adminResume,
+    adminWalkIn,
   } = useApp();
+
+  const [walkInName, setWalkInName] = useState("");
+  const [walkInToken, setWalkInToken] = useState("");
 
   useEffect(() => {
     if (queueId) openAdminConsole(queueId);
@@ -45,6 +52,22 @@ export function AdminConsolePage() {
   const paused = adminQueueMeta?.status === "paused";
   const queueName = adminQueueMeta?.name || "Queue";
   const empty = waitingList.length === 0;
+
+  async function handleWalkIn(event) {
+    event.preventDefault();
+    if (adminActionBusy) return;
+    const name = walkInName.trim();
+    if (!name) return;
+    const payload = { name };
+    if (walkInToken.trim() !== "") {
+      payload.tokenNumber = walkInToken.trim();
+    }
+    const ok = await adminWalkIn(payload);
+    if (ok) {
+      setWalkInName("");
+      setWalkInToken("");
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
@@ -181,6 +204,60 @@ export function AdminConsolePage() {
         </div>
 
         <div className="border-t border-border px-5 py-5">
+          <h2 className="text-label uppercase tracking-wide text-text-muted">Add walk-in</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            Counter arrival without the app — name required; token optional (auto if blank).
+          </p>
+          <form
+            className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+            onSubmit={handleWalkIn}
+            data-testid="walk-in-form"
+          >
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:min-w-[12rem]">
+              <Label htmlFor="walk-in-name">Name</Label>
+              <Input
+                id="walk-in-name"
+                name="walkInName"
+                value={walkInName}
+                onChange={(e) => setWalkInName(e.target.value)}
+                placeholder="Name at counter"
+                required
+                maxLength={80}
+                disabled={adminActionBusy}
+                data-testid="walk-in-name"
+                className="h-10"
+              />
+            </div>
+            <div className="flex w-full flex-col gap-1.5 sm:w-28">
+              <Label htmlFor="walk-in-token">Token (optional)</Label>
+              <Input
+                id="walk-in-token"
+                name="walkInToken"
+                type="number"
+                min={1}
+                step={1}
+                value={walkInToken}
+                onChange={(e) => setWalkInToken(e.target.value)}
+                placeholder="Auto"
+                disabled={adminActionBusy}
+                data-testid="walk-in-token"
+                className="h-10"
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="secondary"
+              size="lg"
+              disabled={adminActionBusy || !walkInName.trim()}
+              data-testid="walk-in-submit"
+              className="w-full sm:w-auto"
+            >
+              {adminActionBusy ? "Working…" : "Add walk-in"}
+            </Button>
+          </form>
+        </div>
+
+        <div className="border-t border-border px-5 py-5">
           <h2 className="text-label uppercase tracking-wide text-text-muted">Waiting list</h2>
 
           {waitingLoading && (
@@ -200,6 +277,8 @@ export function AdminConsolePage() {
             <ul className="mt-3 flex flex-col gap-2" data-testid="admin-waiting-list">
               {waitingList.map((entry) => {
                 const isSelected = entry.id === selectedEntryId;
+                const isWalkIn = Boolean(entry.isWalkIn);
+                const displayName = entry.user?.name || (isWalkIn ? "Walk-in" : "User");
                 return (
                   <li key={entry.id}>
                     <button
@@ -214,13 +293,19 @@ export function AdminConsolePage() {
                       aria-pressed={isSelected}
                       data-testid="waiting-entry"
                       data-token={entry.tokenNumber}
+                      data-walk-in={isWalkIn ? "true" : "false"}
                     >
                       <span className="w-10 shrink-0 font-heading text-base font-bold tabular-nums text-foreground">
                         #{entry.tokenNumber}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-foreground">
-                          {entry.user?.name || "Guest"}
+                          {displayName}
+                          {isWalkIn ? (
+                            <span className="ml-1.5 text-xs font-semibold text-text-muted">
+                              · Walk-in
+                            </span>
+                          ) : null}
                         </span>
                         <span className="block truncate text-xs text-text-muted">
                           Position {entry.position}

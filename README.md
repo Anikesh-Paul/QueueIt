@@ -165,7 +165,7 @@ Coverage:
 - Leave queue → frees slot, position advances; re-join issues a new token  
 - User history → joined / left / served / skipped events for the authenticated user  
 - Admin serve / skip / pause / resume + waiting list  
-- Admin walk-in / reset / analytics (stretch)
+- Admin walk-in / reset / analytics / QR arrival check (stretch)
 - CORS: single/multi origin + preflight for production `CLIENT_ORIGIN`
 
 ### Playwright (primary product acceptance seam)
@@ -183,6 +183,8 @@ npm run test:e2e -- e2e/tickets/09-harden-playwright-readme
 npm run test:e2e -- e2e/tickets/05-join-queue-live-status
 npm run test:e2e -- e2e/tickets/06-leave-queue-history
 npm run test:e2e -- e2e/tickets/07-admin-serve-skip-pause
+npm run test:e2e -- e2e/tickets/13-stretch-admin-analytics
+npm run test:e2e -- e2e/tickets/14-stretch-qr-arrival
 
 # Full suite under e2e/
 npx playwright test
@@ -297,6 +299,6 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 
 **Must-ship (done):** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI (loading/error states), **leave**, **user history**, **admin serve / skip / pause-resume**, **deployed** FE + API + Atlas, README + **[DEMO.md](./DEMO.md)**, Playwright evaluation gate (`e2e/smoke` + tickets `05`–`07` + `09`).
 
-**Stretch shipped:** admin **walk-in** (counter arrival without app join — name + optional manual token; appears on waiting list; serve/skip), admin **reset queue** (end-of-session / day close — clears the waiting list, restarts tokens, re-opens the queue), the user **top-3 near-front banner** (when a user's position is 1–3 the live status shows an amber “You're next / near the front” banner telling them to approach the counter; hidden beyond position 3 and while the queue is paused — rule: `position ≤ 3`, position 1 = front of waiting line), and the admin **analytics page** (`GET /api/admin/queues/:queueId/analytics` — served count, average + longest wait in minutes, and a simple throughput peak: the top 3 busiest hours by serves, UTC; reachable via the admin console's **Analytics** button). Remaining order: QR → Socket.IO last.
+**Stretch shipped:** admin **walk-in** (counter arrival without app join — name + optional manual token; appears on waiting list; serve/skip), admin **reset queue** (end-of-session / day close — clears the waiting list, restarts tokens, re-opens the queue), the user **top-3 near-front banner** (when a user's position is 1–3 the live status shows an amber “You're next / near the front” banner telling them to approach the counter; hidden beyond position 3 and while the queue is paused — rule: `position ≤ 3`, position 1 = front of waiting line), the admin **analytics page** (`GET /api/admin/queues/:queueId/analytics` — served count, average + longest wait in minutes, and a simple throughput peak: the top 3 busiest hours by serves, UTC; reachable via the admin console's **Analytics** button), and the **QR arrival check** (the user's live status shows a scannable **Arrival pass** QR encoding the queue + token — `QIT:<queueId>:<tokenNumber>` — and the admin console's **Check arrival** matches a pass or bare token number against the waiting list: `POST /api/admin/queues/:queueId/verify-qr`, `{ value }`; a non-match returns `verified: false` with a counter-facing reason, never an error). Remaining order: Socket.IO last.
 
 **Explicitly out:** Super Admin multi-venue management UI; product push/SMS/email; guest mode; ratings; PWA/offline; Socket.IO on the must-ship path.

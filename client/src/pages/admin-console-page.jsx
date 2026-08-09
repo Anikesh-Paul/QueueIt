@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
+import { verifyArrival } from "@/api";
 
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
@@ -34,6 +35,7 @@ export function AdminConsolePage() {
   const { queueId } = useParams();
   const navigate = useNavigate();
   const {
+    token,
     openAdminConsole,
     clearAdminConsole,
     adminQueueMeta,
@@ -55,10 +57,19 @@ export function AdminConsolePage() {
   const [walkInName, setWalkInName] = useState("");
   const [walkInToken, setWalkInToken] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
+  const [verifyValue, setVerifyValue] = useState("");
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  /** @type {[{ verified: boolean, entry?: object, reason?: string }, ...] | null} */
+  const [verifyResult, setVerifyResult] = useState(null);
 
   useEffect(() => {
     if (queueId) openAdminConsole(queueId);
   }, [queueId, openAdminConsole]);
+
+  useEffect(() => {
+    setVerifyValue("");
+    setVerifyResult(null);
+  }, [queueId]);
 
   useEffect(() => () => clearAdminConsole(), [clearAdminConsole]);
 
@@ -79,6 +90,25 @@ export function AdminConsolePage() {
     if (ok) {
       setWalkInName("");
       setWalkInToken("");
+    }
+  }
+
+  async function handleVerify(event) {
+    event.preventDefault();
+    const value = verifyValue.trim();
+    if (!value || verifyBusy) return;
+    setVerifyBusy(true);
+    setVerifyResult(null);
+    try {
+      const data = await verifyArrival(token, queueId, value);
+      setVerifyResult(data);
+    } catch (err) {
+      setVerifyResult({
+        verified: false,
+        reason: err.message || "Could not check arrival",
+      });
+    } finally {
+      setVerifyBusy(false);
     }
   }
 
@@ -314,6 +344,86 @@ export function AdminConsolePage() {
               {adminActionBusy ? "Working…" : "Add walk-in"}
             </Button>
           </form>
+        </div>
+
+        <div className="border-t border-border px-5 py-5">
+          <h2 className="text-label uppercase tracking-wide text-text-muted">Check arrival</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            Match a student&apos;s QR pass or token number against the waiting
+            list — arrival confirmation at the counter.
+          </p>
+          <form
+            className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+            onSubmit={handleVerify}
+            data-testid="verify-form"
+          >
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:min-w-[14rem]">
+              <Label htmlFor="verify-value">Pass or token</Label>
+              <Input
+                id="verify-value"
+                name="verifyValue"
+                value={verifyValue}
+                onChange={(e) => {
+                  setVerifyValue(e.target.value);
+                  if (verifyResult) setVerifyResult(null);
+                }}
+                placeholder="e.g. 7 or QIT:…"
+                disabled={verifyBusy}
+                data-testid="verify-input"
+                className="h-10"
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="secondary"
+              size="lg"
+              disabled={verifyBusy || !verifyValue.trim()}
+              data-testid="verify-submit"
+              className="w-full sm:w-auto"
+            >
+              {verifyBusy ? "Checking…" : "Verify"}
+            </Button>
+          </form>
+
+          {verifyResult && (
+            <div
+              data-testid="verify-result"
+              data-verified={verifyResult.verified ? "true" : "false"}
+              className={cn(
+                "mt-3 flex flex-col gap-1 rounded-lg border px-4 py-3",
+                verifyResult.verified
+                  ? "border-success/30 bg-success/10"
+                  : "border-border bg-secondary"
+              )}
+            >
+              {verifyResult.verified ? (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-success">
+                    Arrival confirmed
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {verifyResult.entry?.user?.name || "Walk-in"}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    Token{" "}
+                    <span
+                      className="font-heading font-bold tabular-nums text-foreground"
+                      data-testid="verify-token"
+                    >
+                      {verifyResult.entry?.tokenNumber}
+                    </span>
+                    {" · "}Position {verifyResult.entry?.position}
+                    {verifyResult.entry?.user?.email ? ` · ${verifyResult.entry.user.email}` : ""}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground">No match</p>
+                  <p className="text-xs text-text-muted">{verifyResult.reason}</p>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="border-t border-border px-5 py-5">

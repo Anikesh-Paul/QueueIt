@@ -166,3 +166,17 @@ export function walkInQueue(token, queueId, { name, tokenNumber } = {}) {
     body,
   });
 }
+
+/**
+ * POST /api/admin/queues/:queueId/verify-qr
+ * Counter arrival check: match a QR pass or bare token against the waiting
+ * list. Resolves to { verified, entry?, reason? } — a non-match is a valid
+ * counter outcome, not an error.
+ */
+export function verifyArrival(token, queueId, value) {
+  return apiRequest(`/api/admin/queues/${queueId}/verify-qr`, {
+    method: "POST",
+    token,
+    body: { value },
+  });
+}

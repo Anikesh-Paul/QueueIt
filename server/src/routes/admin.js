@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
+import { parseArrivalValue } from "../services/arrivalPass.js";
 
 const router = Router();
 
@@ -313,6 +314,67 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
         position: waitingCount,
       },
       queue: toAdminQueueJSON(freshQueue),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/queues/:queueId/verify-qr
+ * Counter arrival check: match a user's QR pass (`QIT:<queueId>:<tokenNumber>`)
+ * or a bare token number against this queue's waiting list.
+ * A non-match is a valid counter outcome — 200 { verified: false, reason } —
+ * not an HTTP error. Malformed input (no value) is a 400 client bug.
+ */
+router.post("/queues/:queueId/verify-qr", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res);
+    if (!queue) return;
+
+    const value = typeof req.body?.value === "string" ? req.body.value : "";
+    if (!value.trim()) {
+      return res.status(400).json({ error: "Pass or token number is required" });
+    }
+
+    const parsed = parseArrivalValue(value);
+    if (!parsed) {
+      return res.status(200).json({
+        verified: false,
+        reason: "That doesn't look like a valid pass or token number",
+      });
+    }
+
+    if (parsed.queueId && parsed.queueId !== queue._id.toString()) {
+      return res.status(200).json({
+        verified: false,
+        reason: "This pass belongs to a different queue",
+      });
+    }
+
+    const entry = await QueueEntry.findOne({
+      queue: queue._id,
+      tokenNumber: parsed.tokenNumber,
+      status: "waiting",
+    }).populate("user");
+
+    if (!entry) {
+      return res.status(200).json({
+        verified: false,
+        reason: "No one waiting with this token",
+      });
+    }
+
+    const ahead = await QueueEntry.countDocuments({
+      queue: queue._id,
+      status: "waiting",
+      tokenNumber: { $lt: entry.tokenNumber },
+    });
+
+    return res.status(200).json({
+      verified: true,
+      entry: toWaitingRow(entry, ahead + 1),
+      queue: toAdminQueueJSON(queue),
     });
   } catch (err) {
     return next(err);

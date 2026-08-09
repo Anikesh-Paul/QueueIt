@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
+import { buildArrivalPass } from "@/lib/arrival-pass";
 
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
@@ -135,39 +137,45 @@ export function StatusPage() {
 
         {nearFront && <NearFrontBanner position={liveStatus.position} />}
 
-        <div className="flex flex-col gap-4 px-5 py-5">
-          <StatusMetric
-            label="Token"
-            value={liveStatus.tokenNumber}
-            hero
-            testId="token-number"
-          />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
-            <StatusMetric label="Position" value={liveStatus.position} testId="position" />
+          <div className="flex flex-col gap-4 px-5 py-5">
             <StatusMetric
-              label="ETA"
-              value={
-                <>
-                  {liveStatus.etaMinutes}
-                  <span className="ml-1 text-sm font-medium tracking-normal text-text-muted">
-                    min
-                  </span>
-                </>
-              }
-              testId="eta"
+              label="Token"
+              value={liveStatus.tokenNumber}
+              hero
+              testId="token-number"
             />
-            <StatusMetric
-              label="Now serving"
-              value={formatNowServing(liveStatus.nowServing)}
-              testId="now-serving"
-            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
+              <StatusMetric label="Position" value={liveStatus.position} testId="position" />
+              <StatusMetric
+                label="ETA"
+                value={
+                  <>
+                    {liveStatus.etaMinutes}
+                    <span className="ml-1 text-sm font-medium tracking-normal text-text-muted">
+                      min
+                    </span>
+                  </>
+                }
+                testId="eta"
+              />
+              <StatusMetric
+                label="Now serving"
+                value={formatNowServing(liveStatus.nowServing)}
+                testId="now-serving"
+              />
+            </div>
           </div>
-        </div>
 
-        <p className="border-t border-border px-5 py-3 text-xs text-text-muted">
-          ETA = position × {liveStatus.averageServiceTime} min per serve
-          {paused ? " · line paused (advancement frozen)" : ""}
-        </p>
+          <ArrivalPass
+            queueName={queueTitle}
+            queueId={statusQueueId}
+            tokenNumber={liveStatus.tokenNumber}
+          />
+
+          <p className="border-t border-border px-5 py-3 text-xs text-text-muted">
+            ETA = position × {liveStatus.averageServiceTime} min per serve
+            {paused ? " · line paused (advancement frozen)" : ""}
+          </p>
 
         {(statusError || leaveError) && (
           <div className="px-5 pb-4">
@@ -257,6 +265,52 @@ function NearFrontBanner({ position }) {
         </p>
       </div>
     </div>
+  );
+}
+
+function ArrivalPass({ queueName, queueId, tokenNumber }) {
+  const payload = buildArrivalPass(queueId, tokenNumber);
+  return (
+    <section
+      data-testid="arrival-pass"
+      data-payload={payload}
+      className="flex flex-col gap-4 border-t border-border px-5 py-5 sm:flex-row sm:items-center sm:gap-5"
+    >
+      <div
+        className="shrink-0 self-center rounded-lg border border-border bg-card p-3 shadow-card"
+        data-testid="arrival-qr"
+      >
+        <QRCodeSVG
+          value={payload}
+          size={128}
+          level="M"
+          marginSize={0}
+          className="block h-28 w-28"
+          role="img"
+          aria-label={`Arrival pass QR for token ${tokenNumber}`}
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-heading text-sm font-semibold text-foreground">Arrival pass</p>
+        <p className="mt-1 text-sm leading-5 text-text-muted">
+          Show this code at the counter to confirm your arrival — no need to
+          repeat your token.
+        </p>
+        <p className="mt-2 text-sm text-foreground">
+          Token{" "}
+          <span
+            className="font-heading text-base font-bold tabular-nums text-primary"
+            data-testid="arrival-token"
+          >
+            {tokenNumber}
+          </span>
+          <span className="text-text-muted"> · {queueName}</span>
+        </p>
+        <p className="mt-1 text-xs text-text-muted">
+          The counter can also match you by token number alone.
+        </p>
+      </div>
+    </section>
   );
 }
 

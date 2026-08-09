@@ -5,6 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
 
@@ -37,11 +48,13 @@ export function AdminConsolePage() {
     adminSkip,
     adminPause,
     adminResume,
+    adminReset,
     adminWalkIn,
   } = useApp();
 
   const [walkInName, setWalkInName] = useState("");
   const [walkInToken, setWalkInToken] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
 
   useEffect(() => {
     if (queueId) openAdminConsole(queueId);
@@ -80,9 +93,47 @@ export function AdminConsolePage() {
             Serve, skip, or pause {queueName} — the list updates every few seconds.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => navigate("/queues")}>
-          Back to queues
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={adminActionBusy}
+                data-testid="admin-reset"
+                className="w-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive sm:w-auto"
+              >
+                Reset queue
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent data-testid="admin-reset-dialog">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reset {queueName}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Closes the waiting list, clears now serving, and restarts tokens
+                  at 1. The queue re-opens ready for the next session.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructiveSolid"
+                  data-testid="admin-reset-confirm"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setResetOpen(false);
+                    adminReset();
+                  }}
+                >
+                  {adminActionBusy ? "Working…" : "Reset queue"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button variant="outline" size="sm" onClick={() => navigate("/queues")}>
+            Back to queues
+          </Button>
+        </div>
       </header>
 
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">

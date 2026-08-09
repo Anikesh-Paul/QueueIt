@@ -320,6 +320,45 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
 });
 
 /**
+ * POST /api/admin/queues/:queueId/reset
+ * End-of-session / day close. Closes every waiting entry as left (users keep a
+ * history event and can rejoin), clears now serving, restarts tokens at 1, and
+ * re-opens the queue. Works while paused. Idempotent: clearing an empty list
+ * returns cleared: 0 with the same reset outcome.
+ */
+router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res);
+    if (!queue) return;
+
+    // Reset the queue atomically first (same $set discipline as token issuance)
+    // so a join landing mid-reset cannot reuse a token number already reset to 1.
+    const updated = await Queue.findByIdAndUpdate(
+      queue._id,
+      { $set: { status: "open", nowServing: null, nextTokenNumber: 1 } },
+      { returnDocument: "after" }
+    );
+    if (!updated) {
+      return res.status(404).json({ error: "Queue not found" });
+    }
+
+    // Close any waiting entries created before the reset (including one racing
+    // in between the two writes) so the waiting list ends empty.
+    const closed = await QueueEntry.updateMany(
+      { queue: queue._id, status: "waiting" },
+      { $set: { status: "left" } }
+    );
+
+    return res.status(200).json({
+      cleared: closed.modifiedCount,
+      queue: toAdminQueueJSON(updated),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
  * POST /api/admin/queues/:queueId/pause
  * Freezes advancement; waiting list is preserved.
  */

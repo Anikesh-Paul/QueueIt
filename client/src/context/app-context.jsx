@@ -16,6 +16,7 @@ import {
   leaveQueue,
   login,
   pauseQueue,
+  resetQueue,
   resumeQueue,
   serveQueue,
   skipQueue,
@@ -405,6 +406,15 @@ export function AppProvider({ children }) {
   );
 
   /**
+   * Reset the queue for end-of-session / day close: clears the waiting list,
+   * resets now serving + tokens, re-opens the queue.
+   */
+  const adminReset = useCallback(
+    () => runAdminAction(() => resetQueue(token, adminQueueId), "Reset failed"),
+    [token, adminQueueId, runAdminAction]
+  );
+
+  /**
    * Add a walk-in waiter (counter arrival without app join).
    * @param {{ name: string, tokenNumber?: number|string }} payload
    * @returns {Promise<boolean>}
@@ -474,6 +484,7 @@ export function AppProvider({ children }) {
     adminSkip,
     adminPause,
     adminResume,
+    adminReset,
     adminWalkIn,
     logout,
   };

@@ -296,6 +296,6 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 
 **Must-ship (done):** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI (loading/error states), **leave**, **user history**, **admin serve / skip / pause-resume**, **deployed** FE + API + Atlas, README + **[DEMO.md](./DEMO.md)**, Playwright evaluation gate (`e2e/smoke` + tickets `05`–`07` + `09`).
 
-**Stretch shipped:** admin **walk-in** (counter arrival without app join — name + optional manual token; appears on waiting list; serve/skip). Remaining order: reset queue → top-3 banner → analytics → QR → Socket.IO last.
+**Stretch shipped:** admin **walk-in** (counter arrival without app join — name + optional manual token; appears on waiting list; serve/skip) and admin **reset queue** (end-of-session / day close — clears the waiting list, restarts tokens, re-opens the queue). Remaining order: top-3 banner → analytics → QR → Socket.IO last.
 
 **Explicitly out:** Super Admin multi-venue management UI; product push/SMS/email; guest mode; ratings; PWA/offline; Socket.IO on the must-ship path.

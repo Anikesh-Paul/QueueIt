@@ -132,6 +132,18 @@ export function resumeQueue(token, queueId) {
 }
 
 /**
+ * POST /api/admin/queues/:queueId/reset
+ * End-of-session / day close: clears waiting list, resets tokens + now serving,
+ * re-opens the queue.
+ */
+export function resetQueue(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/reset`, {
+    method: "POST",
+    token,
+  });
+}
+
+/**
  * POST /api/admin/queues/:queueId/walk-in
  * Counter walk-in: { name, tokenNumber? } — auto token when tokenNumber omitted.
  */

@@ -22,10 +22,12 @@ import {
   serveQueue,
   skipQueue,
   walkInQueue,
+  API_URL,
 } from "@/api";
+import { createRealtimeClient } from "@/lib/realtime";
 
 export const TOKEN_KEY = "queueit_token";
-/** Poll interval for live status and admin waiting list (must-ship path; no Socket.IO). */
+/** Poll interval for live status and admin waiting list (safe fallback baseline). */
 const STATUS_POLL_MS = 3000;
 
 const AppContext = createContext(null);
@@ -70,6 +72,19 @@ export function AppProvider({ children }) {
 
   const pollRef = useRef(null);
   const adminPollRef = useRef(null);
+
+  /** Socket.IO client for the current session (null when logged out). */
+  const realtimeRef = useRef(null);
+  const statusQueueIdRef = useRef(null);
+  const adminQueueIdRef = useRef(null);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+
+  // Keep refs in sync so the socket's queue:changed handler always targets the
+  // current rooms without re-creating the socket on every state change.
+  useEffect(() => {
+    statusQueueIdRef.current = statusQueueId;
+    adminQueueIdRef.current = adminQueueId;
+  }, [statusQueueId, adminQueueId]);
 
   const persistSession = useCallback((nextToken, nextUser) => {
     setToken(nextToken);
@@ -236,6 +251,50 @@ export function AppProvider({ children }) {
     },
     []
   );
+
+  // Realtime lifecycle: one socket per session token. On queue:changed the
+  // matching surface re-fetches through the normal REST APIs; polling stays
+  // active underneath as the documented fallback.
+  useEffect(() => {
+    if (!token) {
+      if (realtimeRef.current) {
+        realtimeRef.current.disconnect();
+        realtimeRef.current = null;
+        setRealtimeConnected(false);
+      }
+      return undefined;
+    }
+
+    const client = createRealtimeClient({
+      url: API_URL,
+      token,
+      onStatusChange: (connected) => setRealtimeConnected(connected),
+      onQueueChanged: ({ queueId }) => {
+        if (queueId === statusQueueIdRef.current) {
+          refreshStatus(token, statusQueueIdRef.current, { silent: true });
+        }
+        if (queueId === adminQueueIdRef.current) {
+          loadWaitingList(token, adminQueueIdRef.current, { silent: true });
+        }
+      },
+    });
+    realtimeRef.current = client;
+    client.connect();
+
+    return () => {
+      client.disconnect();
+      if (realtimeRef.current === client) realtimeRef.current = null;
+      setRealtimeConnected(false);
+    };
+  }, [token, refreshStatus, loadWaitingList]);
+
+  // Subscribe the socket to the rooms matching the open surfaces.
+  useEffect(() => {
+    const client = realtimeRef.current;
+    if (!client) return;
+    const targets = [statusQueueId, adminQueueId].filter(Boolean);
+    client.setSubscriptions(targets);
+  }, [statusQueueId, adminQueueId]);
 
   const loadHistory = useCallback(async (sessionToken) => {
     if (!sessionToken) return;
@@ -513,6 +572,7 @@ export function AppProvider({ children }) {
     adminResume,
     adminReset,
     adminWalkIn,
+    realtimeConnected,
     analyticsData,
     analyticsLoading,
     analyticsError,

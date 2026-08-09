@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
+import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
 import { buildArrivalPass } from "@/lib/arrival-pass";
 
@@ -57,6 +58,7 @@ export function StatusPage() {
     leave,
     leaveBusy,
     leaveError,
+    realtimeConnected,
   } = useAppStatus();
   const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -98,7 +100,13 @@ export function StatusPage() {
               {queueTitle}
             </p>
             <p className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs leading-5 text-text-muted">
-              <span className="shrink-0">Updates every few seconds</span>
+              <span className="shrink-0">
+                {realtimeConnected ? "Instant updates" : "Updates every few seconds"}
+              </span>
+              <RealtimeIndicator
+                connected={realtimeConnected}
+                testId="realtime-status"
+              />
               {ageLabel ? (
                 <span
                   className="inline-block min-w-[4.75rem] shrink-0 tabular-nums tracking-tight text-text-muted"

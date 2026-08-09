@@ -120,7 +120,26 @@ curl -s http://localhost:5000/api/queues/QUEUE_ID/status -H "Authorization: Bear
 
 Health check: `GET /api/health` → `{"status":"ok","service":"queueit-server"}`.
 
-**ETA:** `position × averageServiceTime` (minutes). Live updates use **polling** (no Socket.IO on the must-ship path).
+## Realtime updates (Socket.IO, stretch)
+
+The long-running API entry (`server/src/index.js`) also attaches a Socket.IO
+server. Authenticated clients connect with their JWT (`auth: { token }`),
+subscribe to the queue(s) they are watching (`subscribe { queueId }`), and the
+server broadcasts a `queue:changed { queueId, change }` notification to the
+room on every mutation — join, leave, served, skipped, walk-in, reset, pause,
+resume. The client then re-fetches through the normal REST APIs, so the status
+page and admin waiting list update **instantly** while polling keeps running
+underneath as the documented fallback.
+
+**Host dependency:** Socket.IO needs a persistent server process. It works
+locally and on long-running hosts (e.g. Render via `render.yaml`). The **Vercel
+serverless** API (`server/api/index.js`) deliberately does **not** attach
+sockets; there the client cannot connect, the UI honestly shows the polling
+fallback (`· polling`), and the demo path behaves exactly like the must-ship
+baseline. A failed or absent socket never breaks the app — polling is the
+safety net, realtime is only an accelerator.
+
+**ETA:** `position × averageServiceTime` (minutes). Live updates use **polling** as the reliable baseline; the long-running server (local / Render) additionally pushes instant updates over **Socket.IO** with automatic polling fallback when realtime is unavailable — see [Realtime updates](#realtime-updates).
 
 ## Demo accounts
 
@@ -166,6 +185,7 @@ Coverage:
 - User history → joined / left / served / skipped events for the authenticated user  
 - Admin serve / skip / pause / resume + waiting list  
 - Admin walk-in / reset / analytics / QR arrival check (stretch)
+- Realtime (stretch): Socket.IO connection auth (JWT), room-scoped `queue:changed` broadcasts on every mutation, and the route → emitter seam (safe no-op without a socket server)
 - CORS: single/multi origin + preflight for production `CLIENT_ORIGIN`
 
 ### Playwright (primary product acceptance seam)
@@ -185,6 +205,7 @@ npm run test:e2e -- e2e/tickets/06-leave-queue-history
 npm run test:e2e -- e2e/tickets/07-admin-serve-skip-pause
 npm run test:e2e -- e2e/tickets/13-stretch-admin-analytics
 npm run test:e2e -- e2e/tickets/14-stretch-qr-arrival
+npm run test:e2e -- e2e/tickets/15-stretch-socket-io
 
 # Full suite under e2e/
 npx playwright test
@@ -299,6 +320,6 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 
 **Must-ship (done):** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI (loading/error states), **leave**, **user history**, **admin serve / skip / pause-resume**, **deployed** FE + API + Atlas, README + **[DEMO.md](./DEMO.md)**, Playwright evaluation gate (`e2e/smoke` + tickets `05`–`07` + `09`).
 
-**Stretch shipped:** admin **walk-in** (counter arrival without app join — name + optional manual token; appears on waiting list; serve/skip), admin **reset queue** (end-of-session / day close — clears the waiting list, restarts tokens, re-opens the queue), the user **top-3 near-front banner** (when a user's position is 1–3 the live status shows an amber “You're next / near the front” banner telling them to approach the counter; hidden beyond position 3 and while the queue is paused — rule: `position ≤ 3`, position 1 = front of waiting line), the admin **analytics page** (`GET /api/admin/queues/:queueId/analytics` — served count, average + longest wait in minutes, and a simple throughput peak: the top 3 busiest hours by serves, UTC; reachable via the admin console's **Analytics** button), and the **QR arrival check** (the user's live status shows a scannable **Arrival pass** QR encoding the queue + token — `QIT:<queueId>:<tokenNumber>` — and the admin console's **Check arrival** matches a pass or bare token number against the waiting list: `POST /api/admin/queues/:queueId/verify-qr`, `{ value }`; a non-match returns `verified: false` with a counter-facing reason, never an error). Remaining order: Socket.IO last.
+**Stretch shipped:** admin **walk-in** (counter arrival without app join — name + optional manual token; appears on waiting list; serve/skip), admin **reset queue** (end-of-session / day close — clears the waiting list, restarts tokens, re-opens the queue), the user **top-3 near-front banner** (when a user's position is 1–3 the live status shows an amber “You're next / near the front” banner telling them to approach the counter; hidden beyond position 3 and while the queue is paused — rule: `position ≤ 3`, position 1 = front of waiting line), the admin **analytics page** (`GET /api/admin/queues/:queueId/analytics` — served count, average + longest wait in minutes, and a simple throughput peak: the top 3 busiest hours by serves, UTC; reachable via the admin console's **Analytics** button), the **QR arrival check** (the user's live status shows a scannable **Arrival pass** QR encoding the queue + token — `QIT:<queueId>:<tokenNumber>` — and the admin console's **Check arrival** matches a pass or bare token number against the waiting list: `POST /api/admin/queues/:queueId/verify-qr`, `{ value }`; a non-match returns `verified: false` with a counter-facing reason, never an error), and **Socket.IO live updates** (instant push on the status page and admin console via `queue:changed` notifications on the long-running server; `· realtime` indicator when connected, `· polling` fallback otherwise — see [Realtime updates](#realtime-updates)).
 
-**Explicitly out:** Super Admin multi-venue management UI; product push/SMS/email; guest mode; ratings; PWA/offline; Socket.IO on the must-ship path.
+**Explicitly out:** Super Admin multi-venue management UI; product push/SMS/email; guest mode; ratings; PWA/offline.

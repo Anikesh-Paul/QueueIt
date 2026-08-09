@@ -8,6 +8,7 @@ import {
   findActiveEntry,
   toHistoryEvent,
 } from "../services/queueStatus.js";
+import { emitQueueChanged } from "../services/realtime.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
 
@@ -96,6 +97,7 @@ router.post("/:queueId/join", requireAuth, async (req, res, next) => {
 
     // Reload queue for current nowServing / averageServiceTime after token bump.
     const freshQueue = await Queue.findById(queue._id);
+    emitQueueChanged(queue._id, "join");
     const payload = await buildStatusPayload(freshQueue, entry);
     return res.status(201).json(payload);
   } catch (err) {
@@ -125,6 +127,8 @@ router.post("/:queueId/leave", requireAuth, async (req, res, next) => {
 
     entry.status = "left";
     await entry.save();
+
+    emitQueueChanged(queue._id, "leave");
 
     return res.status(200).json({
       status: "left",

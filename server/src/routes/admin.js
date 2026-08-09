@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { parseArrivalValue } from "../services/arrivalPass.js";
+import { emitQueueChanged } from "../services/realtime.js";
 
 const router = Router();
 
@@ -143,6 +144,8 @@ async function advanceWaitingEntry(queue, { entryId } = {}, terminalStatus) {
 
   queue.nowServing = entry.tokenNumber;
   await queue.save();
+
+  emitQueueChanged(queue._id, terminalStatus);
 
   return { ok: true, entry, queue };
 }
@@ -297,6 +300,8 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
       status: "waiting",
     });
 
+    emitQueueChanged(queue._id, "walk-in");
+
     const freshQueue = await Queue.findById(queue._id);
     const waitingCount = await QueueEntry.countDocuments({
       queue: queue._id,
@@ -411,6 +416,8 @@ router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res
       { $set: { status: "left" } }
     );
 
+    emitQueueChanged(queue._id, "reset");
+
     return res.status(200).json({
       cleared: closed.modifiedCount,
       queue: toAdminQueueJSON(updated),
@@ -519,6 +526,8 @@ router.post("/queues/:queueId/pause", requireAuth, requireAdmin, async (req, res
     queue.status = "paused";
     await queue.save();
 
+    emitQueueChanged(queue._id, "pause");
+
     return res.status(200).json({
       queue: toAdminQueueJSON(queue),
     });
@@ -538,6 +547,8 @@ router.post("/queues/:queueId/resume", requireAuth, requireAdmin, async (req, re
 
     queue.status = "open";
     await queue.save();
+
+    emitQueueChanged(queue._id, "resume");
 
     return res.status(200).json({
       queue: toAdminQueueJSON(queue),

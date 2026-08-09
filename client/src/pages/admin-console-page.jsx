@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useApp } from "@/context/app-context";
+import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
 import { verifyArrival } from "@/api";
 
@@ -52,6 +53,7 @@ export function AdminConsolePage() {
     adminResume,
     adminReset,
     adminWalkIn,
+    realtimeConnected,
   } = useApp();
 
   const [walkInName, setWalkInName] = useState("");
@@ -182,7 +184,8 @@ export function AdminConsolePage() {
               <span data-testid="admin-queue-name">{queueName}</span>
             </p>
             <p className="mt-0.5 text-xs text-text-muted">
-              Waiting list updates every few seconds
+              {realtimeConnected ? "Instant updates" : "Waiting list updates every few seconds"}
+              <RealtimeIndicator connected={realtimeConnected} testId="admin-realtime-status" />
               {waitingLoading ? " · loading…" : ""}
             </p>
           </div>

@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 
-function getJwtSecret() {
+/** JWT secret from env (throws when unset). Shared by REST auth and socket auth. */
+export function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error("JWT_SECRET is required");

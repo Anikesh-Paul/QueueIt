@@ -4,6 +4,8 @@ Virtual queue management system for Summer School ’26 MERN evaluation.
 
 **Stack:** MongoDB · Express · React · Node · JWT (`user` | `admin`)
 
+**Must-ship status:** Deployed and evaluation-ready (auth, user queue lifecycle, admin control, polling live status). Stretch features are optional and ordered — see [Current scope](#current-scope).
+
 ## Live deployment
 
 | Layer | Host (example) | Notes |
@@ -12,7 +14,7 @@ Virtual queue management system for Summer School ’26 MERN evaluation.
 | Backend | Vercel (or Render) | Public API; health at `/api/health` |
 | Frontend | Vercel | Static Vite build; `VITE_API_URL` points at the API |
 
-Fill in your production URLs after deploy (do **not** put secrets here):
+Production URLs (no secrets):
 
 | Surface | URL |
 |---------|-----|
@@ -22,13 +24,18 @@ Fill in your production URLs after deploy (do **not** put secrets here):
 
 **Demo accounts** are created from **host environment variables** (`SEED_*`) — passwords are **never** committed. See [Production demo accounts](#production-demo-accounts).
 
+**Panel demo:** step-by-step dual-browser script → **[DEMO.md](./DEMO.md)** (user join → admin serve/skip/pause → user updates).
+
 ## Layout
 
 ```
 .
 ├── client/          # React (Vite) frontend — auth + queue UI
 ├── server/          # Express API — auth, queues, admin control
+├── e2e/             # Playwright: smoke + per-ticket specs
+├── DEMO.md          # Live evaluation demo script (locked agenda)
 ├── render.yaml      # Optional Render Blueprint for the API
+├── playwright.config.mjs
 ├── package.json     # npm workspaces root
 └── README.md
 ```
@@ -137,13 +144,15 @@ Placeholder emails in `server/.env.example` are local templates only.
 
 ## Tests
 
+### Server HTTP API (supporting seam)
+
 ```bash
 npm test
 ```
 
-Server HTTP API tests use an in-memory MongoDB (`mongodb-memory-server`) — no local mongod required for CI/local unit runs.
+Uses an in-memory MongoDB (`mongodb-memory-server`) — no local mongod required for unit/API runs.
 
-Coverage for this phase:
+Coverage:
 
 - Register / login success and validation failures  
 - User-scoped vs admin-scoped sessions  
@@ -155,8 +164,39 @@ Coverage for this phase:
 - Join queue → token, position, ETA, now serving; double-join 409; status poll  
 - Leave queue → frees slot, position advances; re-join issues a new token  
 - User history → joined / left / served / skipped events for the authenticated user  
-- Playwright: smoke (login + queues) + tickets `05`–`07`  
-- CORS: single/multi origin + preflight for production `CLIENT_ORIGIN`  
+- Admin serve / skip / pause / resume + waiting list  
+- CORS: single/multi origin + preflight for production `CLIENT_ORIGIN`
+
+### Playwright (primary product acceptance seam)
+
+Requires local MongoDB on `127.0.0.1:27017`. The e2e script **wipe-seeds** only `queueit-e2e` (never the developer `queueit` DB), then starts API `:5000` + Vite `:5173`.
+
+```bash
+# Shared smoke: login + queues list
+npm run test:e2e
+
+# Evaluation must-ship path (smoke + ticket 09)
+npm run test:e2e -- e2e/tickets/09-harden-playwright-readme
+
+# Per-feature tickets (also run after related UI changes)
+npm run test:e2e -- e2e/tickets/05-join-queue-live-status
+npm run test:e2e -- e2e/tickets/06-leave-queue-history
+npm run test:e2e -- e2e/tickets/07-admin-serve-skip-pause
+
+# Full suite under e2e/
+npx playwright test
+```
+
+Playwright covers (browser-visible + critical API checks):
+
+| Flow | What is asserted |
+|------|------------------|
+| User happy path | Login → list → join → token / position / ETA / now serving → leave → history |
+| Admin happy path | Login → waiting list → serve / skip / pause-resume |
+| Cross-actor | Admin serve reflected on user view within the poll window |
+| Role boundaries | 401 unauthenticated; 403 user on admin routes; bad login error in UI |
+
+Artifacts (gitignored): `playwright-report/index.html`, failure traces under `test-results/`.
 
 ## Environment
 
@@ -223,6 +263,8 @@ Then set API `CLIENT_ORIGIN` to the production frontend origin (e.g. `https://qu
 
 ### 4. Smoke the live demo path
 
+Follow **[DEMO.md](./DEMO.md)** for the full dual-browser agenda. Quick check:
+
 1. Open the frontend URL → login as **user** (seed credentials from host env).
 2. Join a queue → confirm token, position, ETA, now serving (polling).
 3. In another browser/profile → login as **admin** → serve / skip / pause-resume.
@@ -252,8 +294,8 @@ The LaTeX report and PDF are **local-only** (gitignored `report/`). Submit the c
 
 ## Current scope
 
-**In:** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI, **leave**, **user history**, **admin serve / skip / pause-resume**, and **deploy readiness** (CORS multi-origin, production env templates, Vercel/Render configs, host-only `SEED_*`, `SEED_ON_BOOT`). Live public URLs are filled in the table above once Atlas + hosts are provisioned.
+**Must-ship (done):** JWT auth (`user` \| `admin`), register/login, protected + admin-only API gates, env-based seed accounts, seeded venue + 1–2 queues, queue list, **join → token / position / ETA / now serving** with **polling** UI (loading/error states), **leave**, **user history**, **admin serve / skip / pause-resume**, **deployed** FE + API + Atlas, README + **[DEMO.md](./DEMO.md)**, Playwright evaluation gate (`e2e/smoke` + tickets `05`–`07` + `09`).
 
-**Later tickets:** harden/Playwright expansion, stretch (walk-in → … → Socket.IO last).
+**Stretch (optional, fixed order only after must-ship stays green):** admin walk-in → reset queue → top-3 banner → analytics → QR → Socket.IO last. Mention on slides/report only if built.
 
-**Explicitly out:** Super Admin multi-venue management UI; Socket.IO on must-ship.
+**Explicitly out:** Super Admin multi-venue management UI; product push/SMS/email; guest mode; ratings; PWA/offline; Socket.IO on the must-ship path.

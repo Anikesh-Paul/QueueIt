@@ -39,6 +39,8 @@ export function AppProvider({ children }) {
 
   const [liveStatus, setLiveStatus] = useState(null);
   const [statusQueueId, setStatusQueueId] = useState(null);
+  /** Wall-clock ms of last successful live status payload (join / poll / restore). */
+  const [statusLastUpdatedAt, setStatusLastUpdatedAt] = useState(null);
   const [joinBusy, setJoinBusy] = useState(false);
   const [joinError, setJoinError] = useState("");
   const [statusError, setStatusError] = useState("");
@@ -75,6 +77,7 @@ export function AppProvider({ children }) {
   const clearLiveStatus = useCallback(() => {
     setLiveStatus(null);
     setStatusQueueId(null);
+    setStatusLastUpdatedAt(null);
     setJoinError("");
     setStatusError("");
     setStatusUpdating(false);
@@ -121,6 +124,7 @@ export function AppProvider({ children }) {
         const data = await fetchQueueStatus(sessionToken, queue.id);
         setLiveStatus(data);
         setStatusQueueId(queue.id);
+        setStatusLastUpdatedAt(Date.now());
         setStatusError("");
         return true;
       } catch {
@@ -159,6 +163,7 @@ export function AppProvider({ children }) {
         const data = await fetchQueueStatus(sessionToken, queueId);
         setLiveStatus(data);
         setStatusQueueId(queueId);
+        setStatusLastUpdatedAt(Date.now());
         setStatusError("");
       } catch (err) {
         if (err.status === 404) {
@@ -290,6 +295,7 @@ export function AppProvider({ children }) {
         const data = await joinQueue(token, queueId);
         setLiveStatus(data);
         setStatusQueueId(queueId);
+        setStatusLastUpdatedAt(Date.now());
         setStatusError("");
         return true;
       } catch (err) {
@@ -413,6 +419,7 @@ export function AppProvider({ children }) {
     refreshQueues: loadQueues,
     liveStatus,
     statusQueueId,
+    statusLastUpdatedAt,
     inQueue: Boolean(liveStatus && statusQueueId),
     joinBusy,
     joinError,

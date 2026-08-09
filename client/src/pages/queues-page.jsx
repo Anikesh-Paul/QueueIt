@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
  */
 export function QueuesPage() {
   const {
+    token,
     isAdmin,
     queues,
     queuesLoading,
@@ -37,14 +38,14 @@ export function QueuesPage() {
   const selected = queues.find((q) => q.id === selectedQueueId) || null;
 
   async function handleJoin() {
-    if (!selectedQueueId) return;
+    if (!selectedQueueId || joinBusy) return;
     const ok = await join(selectedQueueId);
     if (ok) navigate("/status");
   }
 
   async function handleManage() {
     if (!selectedQueueId) return;
-    setJoinError(null);
+    setJoinError("");
     await openAdminConsole(selectedQueueId);
     navigate(`/admin/queues/${selectedQueueId}`);
   }

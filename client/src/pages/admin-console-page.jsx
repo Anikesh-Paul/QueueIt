@@ -123,7 +123,11 @@ export function AdminConsolePage() {
               data-testid="admin-serve"
               className="w-full sm:w-auto"
             >
-              {selectedEntryId ? "Serve selected" : "Serve next"}
+              {adminActionBusy
+                ? "Working…"
+                : selectedEntryId
+                  ? "Serve selected"
+                  : "Serve next"}
             </Button>
             <Button
               variant="secondary"
@@ -133,7 +137,11 @@ export function AdminConsolePage() {
               data-testid="admin-skip"
               className="w-full sm:w-auto"
             >
-              {selectedEntryId ? "Skip selected" : "Skip next"}
+              {adminActionBusy
+                ? "Working…"
+                : selectedEntryId
+                  ? "Skip selected"
+                  : "Skip next"}
             </Button>
             {paused ? (
               <Button
@@ -144,7 +152,7 @@ export function AdminConsolePage() {
                 data-testid="admin-resume"
                 className="col-span-2 w-full sm:col-auto sm:ml-auto sm:w-auto"
               >
-                Resume
+                {adminActionBusy ? "Working…" : "Resume"}
               </Button>
             ) : (
               <Button
@@ -155,7 +163,7 @@ export function AdminConsolePage() {
                 data-testid="admin-pause"
                 className="col-span-2 w-full sm:col-auto sm:ml-auto sm:w-auto"
               >
-                Pause
+                {adminActionBusy ? "Working…" : "Pause"}
               </Button>
             )}
           </div>

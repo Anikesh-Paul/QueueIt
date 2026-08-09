@@ -21,6 +21,9 @@ function formatNowServing(value) {
   return String(value);
 }
 
+/** Top-3 near-front rule: position <= 3 (1 = front of the waiting line). */
+const NEAR_FRONT_POSITION_LIMIT = 3;
+
 /** Quiet relative age for polling honesty (no heavy date libs). */
 function formatStatusAge(updatedAt, nowMs) {
   if (updatedAt == null) return null;
@@ -73,6 +76,10 @@ export function StatusPage() {
   const paused = liveStatus.queue?.status === "paused";
   const ageLabel = formatStatusAge(statusLastUpdatedAt, nowMs);
   const queueTitle = liveStatus.queue?.name || statusQueueName;
+  // Banner suppressed while paused: position is near the front but the line is
+  // frozen, so "approach the counter" would be dishonest.
+  const nearFront =
+    !paused && Number.isInteger(liveStatus.position) && liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
@@ -125,6 +132,8 @@ export function StatusPage() {
             </span>
           )}
         </div>
+
+        {nearFront && <NearFrontBanner position={liveStatus.position} />}
 
         <div className="flex flex-col gap-4 px-5 py-5">
           <StatusMetric
@@ -222,6 +231,31 @@ export function StatusPage() {
           </AlertDialog>
         </div>
       </section>
+    </div>
+  );
+}
+
+function NearFrontBanner({ position }) {
+  const peopleAhead = position - 1;
+  const isNext = position === 1;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="near-front-banner"
+      className="mx-5 mt-4 flex items-start gap-2.5 rounded-lg border border-[#FCD34D] bg-[#FEF3C7] px-4 py-3"
+    >
+      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#D97706]" aria-hidden="true" />
+      <div>
+        <p className="font-heading text-sm font-semibold text-[#92400E]">
+          {isNext ? "You're next!" : "You're near the front"}
+        </p>
+        <p className="mt-0.5 text-xs leading-5 text-[#78350F]">
+          {isNext
+            ? "You're at the front of the line — please approach the counter."
+            : `${peopleAhead} ${peopleAhead === 1 ? "person" : "people"} ahead of you — please approach the counter soon.`}
+        </p>
+      </div>
     </div>
   );
 }

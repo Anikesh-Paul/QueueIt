@@ -130,6 +130,14 @@ export function AdminConsolePage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/admin/queues/${queueId}/analytics`)}
+            data-testid="open-analytics"
+          >
+            Analytics
+          </Button>
           <Button variant="outline" size="sm" onClick={() => navigate("/queues")}>
             Back to queues
           </Button>

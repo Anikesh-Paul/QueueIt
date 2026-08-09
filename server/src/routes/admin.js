@@ -358,6 +358,93 @@ router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res
   }
 });
 
+/** Round a wait in minutes to one decimal for display. */
+function roundWaitMinutes(value) {
+  return Math.round(value * 10) / 10;
+}
+
+/**
+ * GET /api/admin/queues/:queueId/analytics
+ * Ops storytelling metrics for one queue (not a BI product):
+ *   - servedCount / skippedCount / leftCount / waitingCount
+ *   - averageWaitMinutes + longestWaitMinutes over served entries
+ *     (wait = time from join until the entry left the line as served,
+ *      i.e. updatedAt - createdAt of the entry)
+ *   - peakHours: top 3 busiest hourly buckets by serves (UTC hour label)
+ * Peaks are derived from data already tracked — no snapshots required.
+ */
+router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res);
+    if (!queue) return;
+
+    const [servedCount, skippedCount, leftCount, waitingCount, [facet]] = await Promise.all([
+      QueueEntry.countDocuments({ queue: queue._id, status: "served" }),
+      QueueEntry.countDocuments({ queue: queue._id, status: "skipped" }),
+      QueueEntry.countDocuments({ queue: queue._id, status: "left" }),
+      QueueEntry.countDocuments({ queue: queue._id, status: "waiting" }),
+      QueueEntry.aggregate([
+        { $match: { queue: queue._id, status: "served" } },
+        {
+          $facet: {
+            totals: [
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  waitMinutesSum: {
+                    $sum: {
+                      $divide: [{ $subtract: ["$updatedAt", "$createdAt"] }, 60000],
+                    },
+                  },
+                  maxWaitMinutes: {
+                    $max: {
+                      $divide: [{ $subtract: ["$updatedAt", "$createdAt"] }, 60000],
+                    },
+                  },
+                },
+              },
+            ],
+            peakHours: [
+              {
+                $group: {
+                  _id: {
+                    $dateToString: { format: "%H:00 UTC", date: "$updatedAt", timezone: "UTC" },
+                  },
+                  served: { $sum: 1 },
+                },
+              },
+              { $sort: { served: -1, _id: 1 } },
+              { $limit: 3 },
+            ],
+          },
+        },
+      ]),
+    ]);
+
+    const totals = facet?.totals?.[0] || { count: 0, waitMinutesSum: 0, maxWaitMinutes: 0 };
+    const hasServed = totals.count > 0;
+
+    return res.status(200).json({
+      queue: toAdminQueueJSON(queue),
+      metrics: {
+        servedCount,
+        skippedCount,
+        leftCount,
+        waitingCount,
+        averageWaitMinutes: hasServed ? roundWaitMinutes(totals.waitMinutesSum / totals.count) : null,
+        longestWaitMinutes: hasServed ? roundWaitMinutes(totals.maxWaitMinutes) : null,
+      },
+      peakHours: (facet?.peakHours || []).map((hour) => ({
+        label: hour._id,
+        served: hour.served,
+      })),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 /**
  * POST /api/admin/queues/:queueId/pause
  * Freezes advancement; waiting list is preserved.

@@ -97,6 +97,14 @@ export function fetchWaitingList(token, queueId) {
   return apiRequest(`/api/admin/queues/${queueId}/waiting-list`, { token });
 }
 
+/**
+ * GET /api/admin/queues/:queueId/analytics
+ * Ops metrics: served count, average wait, simple peaks (busiest hours).
+ */
+export function fetchAnalytics(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/analytics`, { token });
+}
+
 /** POST /api/admin/queues/:queueId/serve — serve next or selected waiting entry. */
 export function serveQueue(token, queueId, entryId) {
   return apiRequest(`/api/admin/queues/${queueId}/serve`, {

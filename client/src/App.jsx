@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import { AppProvider, useApp } from "@/context/app-context";
 import { AppShell } from "@/components/shell/app-shell";
 import { Wordmark } from "@/components/brand/wordmark";
@@ -13,39 +13,50 @@ import { QueuesPage } from "@/pages/queues-page";
 import { StatusPage } from "@/pages/status-page";
 import { HistoryPage } from "@/pages/history-page";
 import { AdminConsolePage } from "@/pages/admin-console-page";
+import { AnalyticsPage } from "@/pages/analytics-page";
 import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
 
 const router = createBrowserRouter([
   {
-    element: <RequireGuest />,
-    children: [
-      { path: "/login", element: <LoginPage /> },
-      { path: "/register", element: <RegisterPage /> },
-    ],
-  },
-  {
-    element: <RequireAuth />,
+    // The boot gate lives INSIDE the router so the boot screen may render
+    // router primitives (the wordmark's Link). Above the router it crashed on
+    // any hard reload while a session was stored: Link has no Router context
+    // until RouterProvider mounts, and the boot screen painted before that.
+    element: <BootGate />,
     children: [
       {
-        element: <AppShell />,
+        element: <RequireGuest />,
         children: [
-          { index: true, element: <HomeRedirect /> },
-          { path: "queues", element: <QueuesPage /> },
+          { path: "/login", element: <LoginPage /> },
+          { path: "/register", element: <RegisterPage /> },
+        ],
+      },
+      {
+        element: <RequireAuth />,
+        children: [
           {
-            element: <RequireUser />,
+            element: <AppShell />,
             children: [
-              { path: "status", element: <StatusPage /> },
-              { path: "history", element: <HistoryPage /> },
+              { index: true, element: <HomeRedirect /> },
+              { path: "queues", element: <QueuesPage /> },
+              {
+                element: <RequireUser />,
+                children: [
+                  { path: "status", element: <StatusPage /> },
+                  { path: "history", element: <HistoryPage /> },
+                ],
+              },
+              {
+                path: "admin",
+                element: <RequireAdmin />,
+                children: [
+                  { path: "queues/:queueId", element: <AdminConsolePage /> },
+                  { path: "queues/:queueId/analytics", element: <AnalyticsPage /> },
+                ],
+              },
+              { path: "*", element: <NotFoundPage /> },
             ],
           },
-          {
-            path: "admin",
-            element: <RequireAdmin />,
-            children: [
-              { path: "queues/:queueId", element: <AdminConsolePage /> },
-            ],
-          },
-          { path: "*", element: <NotFoundPage /> },
         ],
       },
     ],
@@ -64,9 +75,14 @@ function BootScreen() {
   );
 }
 
-function AppRoot() {
+/** Route-level gate: render the boot surface until the session is restored. */
+function BootGate() {
   const { booting } = useApp();
   if (booting) return <BootScreen />;
+  return <Outlet />;
+}
+
+function AppRoot() {
   return <RouterProvider router={router} />;
 }
 

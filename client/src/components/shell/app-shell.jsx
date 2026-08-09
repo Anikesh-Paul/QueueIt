@@ -53,9 +53,14 @@ export function AppShell() {
               <ShellNavLink to="/status">Your place in line</ShellNavLink>
             )}
             {isAdmin && adminQueueId && (
-              <ShellNavLink to={`/admin/queues/${adminQueueId}`}>
-                Admin console
-              </ShellNavLink>
+              <>
+                <ShellNavLink to={`/admin/queues/${adminQueueId}`}>
+                  Admin console
+                </ShellNavLink>
+                <ShellNavLink to={`/admin/queues/${adminQueueId}/analytics`}>
+                  Analytics
+                </ShellNavLink>
+              </>
             )}
           </nav>
 

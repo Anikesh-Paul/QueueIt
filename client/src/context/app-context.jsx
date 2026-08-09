@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  fetchAnalytics,
   fetchHistory,
   fetchMe,
   fetchQueues,
@@ -63,6 +64,10 @@ export function AppProvider({ children }) {
   const [adminActionError, setAdminActionError] = useState("");
   const [selectedEntryId, setSelectedEntryId] = useState(null);
 
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState("");
+
   const pollRef = useRef(null);
   const adminPollRef = useRef(null);
 
@@ -115,6 +120,9 @@ export function AppProvider({ children }) {
     setHistoryEvents([]);
     setHistoryError("");
     setHistoryLoading(false);
+    setAnalyticsData(null);
+    setAnalyticsError("");
+    setAnalyticsLoading(false);
     clearLiveStatus();
     clearAdminConsole();
   }, [persistSession, clearLiveStatus, clearAdminConsole]);
@@ -241,6 +249,25 @@ export function AppProvider({ children }) {
       setHistoryError(err.message || "Could not load history");
     } finally {
       setHistoryLoading(false);
+    }
+  }, []);
+
+  /**
+   * Load ops analytics for one queue (served count, average wait, busy hours).
+   * Admin-only route; refreshed on mount and by the Refresh button.
+   */
+  const loadAnalytics = useCallback(async (sessionToken, queueId) => {
+    if (!sessionToken || !queueId) return;
+    setAnalyticsLoading(true);
+    setAnalyticsError("");
+    try {
+      const data = await fetchAnalytics(sessionToken, queueId);
+      setAnalyticsData(data);
+    } catch (err) {
+      setAnalyticsData(null);
+      setAnalyticsError(err.message || "Could not load analytics");
+    } finally {
+      setAnalyticsLoading(false);
     }
   }, []);
 
@@ -486,6 +513,10 @@ export function AppProvider({ children }) {
     adminResume,
     adminReset,
     adminWalkIn,
+    analyticsData,
+    analyticsLoading,
+    analyticsError,
+    loadAnalytics,
     logout,
   };
 

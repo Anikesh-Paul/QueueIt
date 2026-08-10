@@ -207,7 +207,7 @@ export function AdminConsolePage() {
               Now serving
             </span>
             <span
-              className="font-heading text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
+              className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
               data-testid="admin-now-serving"
             >
               {formatNowServing(adminQueueMeta?.nowServing)}
@@ -218,7 +218,7 @@ export function AdminConsolePage() {
               Waiting
             </span>
             <span
-              className="font-heading text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
+              className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
               data-testid="admin-waiting-count"
             >
               {waitingList.length}
@@ -420,7 +420,7 @@ export function AdminConsolePage() {
                   <p className="text-xs text-text-muted">
                     Token{" "}
                     <span
-                      className="font-heading font-bold tabular-nums text-foreground"
+                      className="font-metric font-bold tabular-nums text-foreground"
                       data-testid="verify-token"
                     >
                       {verifyResult.entry?.tokenNumber}
@@ -477,7 +477,7 @@ export function AdminConsolePage() {
                       data-token={entry.tokenNumber}
                       data-walk-in={isWalkIn ? "true" : "false"}
                     >
-                      <span className="w-10 shrink-0 font-heading text-base font-bold tabular-nums text-foreground">
+                      <span className="w-10 shrink-0 font-metric text-base font-bold tabular-nums text-foreground">
                         #{entry.tokenNumber}
                       </span>
                       <span className="min-w-0 flex-1">

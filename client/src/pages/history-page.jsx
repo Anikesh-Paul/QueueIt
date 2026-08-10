@@ -69,7 +69,7 @@ export function HistoryPage() {
           data-testid="history-empty"
           className="rounded-xl border border-border bg-card px-5 py-12 text-center shadow-card"
         >
-          <p className="font-heading text-sm font-semibold text-foreground">
+          <p className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
             Your history is quiet for now
           </p>
           <p className="mt-1 text-sm text-text-secondary">

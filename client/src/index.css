@@ -1,7 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Self-hosted Source Sans 3 (no runtime Google Fonts dependency). */
+/* Self-hosted type — no runtime Google Fonts CDN.
+   Display: Fraunces Variable Soft axis (latin-scoped; WONK off via variation settings).
+   UI / metrics: Source Sans 3 400–700. */
+/* latin Soft+weight variable face (SOFT axis available; WONK off in .font-display) */
+@import "@fontsource-variable/fraunces/soft.css";
 @import "@fontsource/source-sans-3/400.css";
 @import "@fontsource/source-sans-3/500.css";
 @import "@fontsource/source-sans-3/600.css";
@@ -25,7 +29,7 @@ body {
   margin: 0;
   color: var(--foreground);
   background: var(--background);
-  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -33,8 +37,11 @@ body {
 }
 
 @theme inline {
-  --font-sans: "Source Sans 3", system-ui, sans-serif;
-  --font-heading: "Source Sans 3", system-ui, sans-serif;
+  /* Two-role type: display = Fraunces Soft (hero only); sans/heading/metric = Source Sans 3 */
+  --font-display: "Fraunces Variable", "Fraunces", "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-sans: "Source Sans 3", "Source Sans Pro", system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-metric: var(--font-sans);
 
   /* DESIGN typography scale (rem steps; light-only; no fluid type) */
   --text-display: 1.75rem;
@@ -56,10 +63,10 @@ body {
   --text-metric--font-weight: 700;
   --text-metric--letter-spacing: -0.02em;
 
-  /* DESIGN elevation (quiet, structural) */
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 6%);
-  --shadow-lift: 0 4px 12px rgb(15 23 42 / 8%);
-  --shadow-dialog: 0 8px 24px rgb(15 23 42 / 14%);
+  /* DESIGN elevation — warm stone tint, quiet structural */
+  --shadow-card: 0 1px 2px rgb(26 26 24 / 5%);
+  --shadow-lift: 0 4px 12px rgb(26 26 24 / 8%);
+  --shadow-dialog: 0 8px 24px rgb(26 26 24 / 12%);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -113,59 +120,60 @@ body {
   --radius-4xl: 24px;
 }
 
-/* DESIGN.md palette — light-only, teal primary on slate neutrals. */
+/* DESIGN.md palette — Mess hall linen (O5). Teal Operate is anti-reference. */
 :root {
-  --background: #f8fafc; /* canvas */
-  --foreground: #0f172a; /* text */
-  --card: #ffffff; /* surface */
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --background: #f4f1ea; /* canvas — warm stone */
+  --foreground: #1a1a18; /* text */
+  --card: #fffcf7; /* surface — cream */
+  --card-foreground: #1a1a18;
+  --popover: #fffcf7;
+  --popover-foreground: #1a1a18;
 
-  --primary: #0f766e; /* Service Teal */
-  --primary-foreground: #f0fdfa; /* Teal Ink on Mist */
-  --primary-hover: #0d9488; /* Teal Hover */
-  --primary-muted: #ccfbf1; /* Teal Mist */
+  --primary: #1b4332; /* Forest */
+  --primary-foreground: #f0fdf4; /* On primary */
+  --primary-hover: #14532d; /* Forest Hover */
+  --primary-muted: #d8f3dc; /* Primary mist / success wash */
 
-  --secondary: #f1f5f9; /* surface muted */
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b; /* text muted */
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
+  --secondary: #efece4; /* surface muted */
+  --secondary-foreground: #1a1a18;
+  --muted: #efece4;
+  --muted-foreground: #78716c; /* text muted */
+  --accent: #efece4;
+  --accent-foreground: #1a1a18;
 
-  --destructive: #dc2626; /* danger */
+  --destructive: #9b2226; /* danger */
   --destructive-foreground: #ffffff;
-  --success: #059669;
-  --warning: #d97706; /* warm accent */
-  --info: #0284c7;
+  --success: #2d6a4f;
+  --warning: #bc6c25; /* terracotta warm */
+  --info: #57534e;
 
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --input: #cbd5e1;
-  --ring: #14b8a6; /* focus-ring */
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --input: #d6d3d1;
+  --ring: #1b4332; /* focus-ring = forest */
 
-  --text-secondary: #475569;
+  --text-secondary: #57534e;
+  --text-muted: #78716c;
 
-  --chart-1: #0f766e;
-  --chart-2: #475569;
-  --chart-3: #0284c7;
-  --chart-4: #d97706;
-  --chart-5: #0f172a;
+  --chart-1: #1b4332;
+  --chart-2: #57534e;
+  --chart-3: #2d6a4f;
+  --chart-4: #bc6c25;
+  --chart-5: #1a1a18;
 
   --radius: 0.625rem;
 
-  --sidebar: oklch(0.97 0.005 220);
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #0f766e;
-  --sidebar-primary-foreground: #f0fdfa;
-  --sidebar-accent: rgb(240 253 250 / 0.6);
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #14b8a6;
+  --sidebar: #f4f1ea;
+  --sidebar-foreground: #1a1a18;
+  --sidebar-primary: #1b4332;
+  --sidebar-primary-foreground: #f0fdf4;
+  --sidebar-accent: rgb(216 243 220 / 0.55);
+  --sidebar-accent-foreground: #1a1a18;
+  --sidebar-border: #e7e5e4;
+  --sidebar-ring: #1b4332;
 }
 
-/* Dark world is intentionally dormant in the overview (light-only product);
+/* Dark world is intentionally dormant (light-only product);
    a `.dark` class is never present, so the `dark:` utilities stay inert. */
 .dark {
   --background: oklch(0.145 0 0);
@@ -210,5 +218,12 @@ body {
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Soft = 100 (Soft instance), WONK off — locked plan §2.2 / DESIGN display role */
+@layer utilities {
+  .font-display {
+    font-variation-settings: "SOFT" 100, "WONK" 0;
   }
 }

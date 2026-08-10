@@ -35,7 +35,7 @@ export function UserChip({ user, className }) {
 }
 
 /**
- * Role chip — muted teal wash for user, warm amber for admin (identity, not error).
+ * Role chip — forest mist wash for user, warm amber for admin (identity, not error).
  */
 export function RoleBadge({ role, className }) {
   const isAdmin = role === "admin";

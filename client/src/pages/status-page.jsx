@@ -88,7 +88,7 @@ export function StatusPage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <header className="mb-6">
-        <h1 className="font-heading text-display leading-tight text-foreground">
+        <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground">
           Your place in line
         </h1>
       </header>
@@ -299,7 +299,9 @@ function ArrivalPass({ queueName, queueId, tokenNumber }) {
         />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-heading text-sm font-semibold text-foreground">Arrival pass</p>
+        <p className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
+          Arrival pass
+        </p>
         <p className="mt-1 text-sm leading-5 text-text-muted">
           Show this code at the counter to confirm your arrival — no need to
           repeat your token.
@@ -307,7 +309,7 @@ function ArrivalPass({ queueName, queueId, tokenNumber }) {
         <p className="mt-2 text-sm text-foreground">
           Token{" "}
           <span
-            className="font-heading text-base font-bold tabular-nums text-primary"
+            className="font-metric text-base font-bold tabular-nums text-primary"
             data-testid="arrival-token"
           >
             {tokenNumber}
@@ -342,7 +344,7 @@ function StatusMetric({ label, value, hero = false, testId }) {
       <span
         data-testid={testId}
         className={cn(
-          "inline-flex items-baseline font-heading text-metric tabular-nums text-foreground",
+          "inline-flex items-baseline font-metric text-metric tabular-nums text-foreground",
           hero &&
             "text-[2.75rem] font-bold leading-[1.05] tracking-[-0.02em] text-primary sm:text-[3rem]"
         )}

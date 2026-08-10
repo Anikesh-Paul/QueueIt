@@ -85,7 +85,9 @@ export function QueuesPage() {
 
       {!queuesLoading && !queuesError && queues.length === 0 && (
         <div className="rounded-xl border border-border bg-card px-5 py-10 text-center shadow-card">
-          <p className="font-heading text-sm font-medium text-foreground">No queues are open yet</p>
+          <p className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
+            No queues are open yet
+          </p>
           <p className="mt-1 text-sm text-text-secondary">
             Run <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">npm run seed</code>{" "}
             on the server, then refresh.

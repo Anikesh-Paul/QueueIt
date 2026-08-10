@@ -23,7 +23,7 @@ function MetricCard({ label, caption, value, testId, hero = false, valueClassNam
       <span
         data-testid={testId}
         className={cn(
-          "font-heading text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground",
+          "font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground",
           valueClassName
         )}
       >

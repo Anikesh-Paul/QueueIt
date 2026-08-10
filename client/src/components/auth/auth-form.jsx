@@ -42,7 +42,7 @@ export function AuthForm({ mode }) {
 
   return (
     <div className="w-full max-w-sm">
-      <h1 className="font-heading text-display leading-tight text-foreground">
+      <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground">
         {mode === "login" ? "Log in" : "Register"}
       </h1>
       <p className="mt-1.5 text-sm text-text-secondary">

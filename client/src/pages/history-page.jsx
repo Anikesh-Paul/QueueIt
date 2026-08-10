@@ -13,8 +13,8 @@ function formatOutcomeLabel(outcome) {
 }
 
 /**
- * A user's own queue history (joined / left / served / skipped).
- * History nav is a user-role surface only.
+ * User History — past queue events (joined / left / served / skipped).
+ * Ruthless copy: H1 History; empty primary + one secondary only.
  */
 export function HistoryPage() {
   const { token, historyEvents, historyLoading, historyError, loadHistory } = useApp();
@@ -26,20 +26,19 @@ export function HistoryPage() {
   return (
     <ShellContent tier="student">
       <header className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-display leading-tight text-foreground">
-            Your queue history
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Past and current queue events — joined, left, served, and skipped.
-          </p>
-        </div>
+        <h1
+          data-testid="history-heading"
+          className="font-heading text-headline leading-tight text-foreground"
+        >
+          History
+        </h1>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => loadHistory(token)}
           disabled={historyLoading}
           className="hidden sm:inline-flex"
+          data-testid="history-refresh"
         >
           Refresh
         </Button>
@@ -59,12 +58,10 @@ export function HistoryPage() {
           data-testid="history-empty"
           className="rounded-xl border border-border bg-card px-5 py-12 text-center shadow-card"
         >
-          <p className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
-            Your history is quiet for now
+          <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
+            No history yet
           </p>
-          <p className="mt-1 text-sm text-text-secondary">
-            No queue events yet. Join a line to start your history.
-          </p>
+          <p className="mt-1 text-sm text-text-secondary">Join a queue to start one.</p>
         </div>
       )}
 
@@ -112,7 +109,7 @@ function outcomeTone(outcome) {
     case "joined":
       return "bg-primary-muted text-primary";
     case "served":
-      return "bg-emerald-100 text-emerald-700";
+      return "bg-primary-muted text-success";
     case "skipped":
       return "bg-[#FEF3C7] text-[#92400E]";
     default:

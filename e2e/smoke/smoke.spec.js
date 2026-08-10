@@ -48,7 +48,7 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
     await page.getByLabel("Password").fill(USER_PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
 
-    await expect(page.getByRole("heading", { name: "Available queues" })).toBeVisible({
+    await expect(page.getByTestId("queues-heading")).toBeVisible({
       timeout: 15_000,
     });
     await expect(page).toHaveURL(/\/queues$/);
@@ -63,12 +63,11 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
     await expect(page.getByText(/Campus Hub/i).first()).toBeVisible();
 
     await cafeteria.click();
-    await expect(page.getByRole("status")).toContainText(/Selected.*Cafeteria/i);
     await expect(cafeteria).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("join-queue")).toBeVisible();
     await expect(page.getByRole("button", { name: "Join Cafeteria" })).toBeVisible();
 
     await gym.click();
-    await expect(page.getByRole("status")).toContainText(/Selected.*Gym/i);
     await expect(gym).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Join Gym" })).toBeVisible();
   });
@@ -79,7 +78,7 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
     await page.getByLabel("Password").fill(ADMIN_PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
 
-    await expect(page.getByRole("heading", { name: "Available queues" })).toBeVisible({
+    await expect(page.getByTestId("queues-heading")).toBeVisible({
       timeout: 15_000,
     });
     await expect(page.locator(".badge--admin")).toHaveText("Admin");

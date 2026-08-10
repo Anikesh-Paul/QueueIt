@@ -29,11 +29,10 @@ function formatNowServing(value) {
 /** Top-3 near-front rule: position <= 3 (1 = front of the waiting line). */
 const NEAR_FRONT_POSITION_LIMIT = 3;
 
-/** Quiet relative age for polling honesty (no heavy date libs). */
+/** Quiet relative age for polling honesty (no absolute campus clocks here). */
 function formatStatusAge(updatedAt, nowMs) {
   if (updatedAt == null) return null;
   const sec = Math.max(0, Math.floor((nowMs - updatedAt) / 1000));
-  // Age-only fragments: cadence already says "Updates" on the line.
   if (sec < 5) return "just now";
   if (sec < 60) return `${sec}s ago`;
   const min = Math.floor(sec / 60);
@@ -42,8 +41,10 @@ function formatStatusAge(updatedAt, nowMs) {
 }
 
 /**
- * Live status — the signature surface. Hero Token metric, supporting
- * Position / ETA / Now serving, honest polling copy, calm Live/Paused pill.
+ * Live status — signature student surface.
+ * Wide (md+): token + metrics | arrival pass + Leave.
+ * Phone: hero → metrics → pass → Leave.
+ * No motif wallpaper; forest edge + mist on token hero; arrival stub + terracotta.
  */
 export function StatusPage() {
   const {
@@ -65,12 +66,10 @@ export function StatusPage() {
   const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  // Membership ended (served / left / expired) — back to the catalog.
   useEffect(() => {
     if (!inQueue) navigate("/queues", { replace: true });
   }, [inQueue, navigate]);
 
-  // Tick relative age while open (interval, not CSS animation — fine for reduced-motion).
   useEffect(() => {
     if (!inQueue || statusLastUpdatedAt == null) return undefined;
     const id = setInterval(() => setNowMs(Date.now()), 1000);
@@ -87,6 +86,11 @@ export function StatusPage() {
   const nearFront =
     !paused && Number.isInteger(liveStatus.position) && liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
 
+  async function handleLeave() {
+    const ok = await leave();
+    if (ok) navigate("/queues");
+  }
+
   return (
     <>
       <PageToolbar
@@ -99,7 +103,10 @@ export function StatusPage() {
             </span>
             <RealtimeIndicator connected={realtimeConnected} testId="realtime-status" />
             {ageLabel ? (
-              <span className="inline-block min-w-[4.75rem] shrink-0 tabular-nums tracking-tight text-text-muted">
+              <span
+                data-testid="status-age"
+                className="inline-block min-w-[4.75rem] shrink-0 tabular-nums tracking-tight text-text-muted"
+              >
                 · {ageLabel}
               </span>
             ) : null}
@@ -121,7 +128,10 @@ export function StatusPage() {
               Paused
             </span>
           ) : (
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary">
+            <span
+              data-testid="queue-live"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary"
+            >
               <span className="size-1.5 rounded-full bg-primary" />
               Live
             </span>
@@ -134,63 +144,50 @@ export function StatusPage() {
               size="sm"
               onClick={() => refreshStatus(token, statusQueueId)}
               disabled={statusUpdating}
+              data-testid="status-refresh"
             >
               Refresh
             </Button>
             {user?.role !== "admin" && (
-              <Button variant="secondary" size="sm" onClick={() => navigate("/history")}>
-                History
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => navigate("/history")}
+                data-testid="status-view-history"
+              >
+                View history
               </Button>
             )}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={leaveBusy}
-                  data-testid="leave-queue"
-                  className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
-                >
-                  {leaveBusy ? "Leaving…" : "Leave queue"}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Leave your place in line?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    You&apos;ll free your spot and lose this token. You can rejoin
-                    the line later if plans change.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-                  <AlertDialogCancel>Keep my place</AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructiveSolid"
-                    onClick={async () => {
-                      const ok = await leave();
-                      if (ok) navigate("/queues");
-                    }}
-                  >
-                    Leave
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </>
         }
       />
 
       <ShellContent tier="student">
         <header className="mb-6">
-          <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground">
+          <h1
+            data-testid="status-heading"
+            className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground"
+          >
             Your place in line
           </h1>
         </header>
 
-        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-          {nearFront && <NearFrontBanner position={liveStatus.position} />}
+        {nearFront && (
+          <div className="mb-4">
+            <NearFrontBanner position={liveStatus.position} />
+          </div>
+        )}
 
-          <div className="flex flex-col gap-4 px-5 py-5">
+        {/*
+          Signature composition:
+          md+: token+metrics | pass+Leave
+          phone: hero → metrics → pass → Leave (single column order)
+        */}
+        <div
+          data-testid="status-layout"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start md:gap-5"
+        >
+          <section data-testid="status-metrics" className="flex flex-col gap-3">
             <StatusMetric
               label="Token"
               value={liveStatus.tokenNumber}
@@ -217,28 +214,60 @@ export function StatusPage() {
                 testId="now-serving"
               />
             </div>
+          </section>
+
+          <section data-testid="status-pass-column" className="flex flex-col gap-4">
+            <ArrivalPass
+              queueName={queueTitle}
+              queueId={statusQueueId}
+              tokenNumber={liveStatus.tokenNumber}
+            />
+            <LeaveControl leaveBusy={leaveBusy} onLeave={handleLeave} />
+          </section>
+        </div>
+
+        {(statusError || leaveError) && (
+          <div className="mt-4 space-y-2">
+            {statusError && <Alert variant="destructive">{statusError}</Alert>}
+            {leaveError && <Alert variant="destructive">{leaveError}</Alert>}
           </div>
-
-          <ArrivalPass
-            queueName={queueTitle}
-            queueId={statusQueueId}
-            tokenNumber={liveStatus.tokenNumber}
-          />
-
-          <p className="border-t border-border px-5 py-3 text-xs text-text-muted">
-            ETA = position × {liveStatus.averageServiceTime} min per serve
-            {paused ? " · line paused (advancement frozen)" : ""}
-          </p>
-
-          {(statusError || leaveError) && (
-            <div className="border-t border-border px-5 py-4">
-              {statusError && <Alert variant="destructive">{statusError}</Alert>}
-              {leaveError && <Alert variant="destructive">{leaveError}</Alert>}
-            </div>
-          )}
-        </section>
+        )}
       </ShellContent>
     </>
+  );
+}
+
+function LeaveControl({ leaveBusy, onLeave }) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="lg"
+          disabled={leaveBusy}
+          data-testid="leave-queue"
+          className="w-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+        >
+          {leaveBusy ? "Leaving…" : "Leave"}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent data-testid="leave-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Leave this line?</AlertDialogTitle>
+          <AlertDialogDescription>You lose this token.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+          <AlertDialogCancel data-testid="leave-keep">Keep place</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructiveSolid"
+            data-testid="leave-confirm"
+            onClick={onLeave}
+          >
+            Leave
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -250,66 +279,83 @@ function NearFrontBanner({ position }) {
       role="status"
       aria-live="polite"
       data-testid="near-front-banner"
-      className="mx-5 mt-5 flex items-start gap-2.5 rounded-lg border border-[#FCD34D] bg-[#FEF3C7] px-4 py-3"
+      data-near-front={isNext ? "next" : "near"}
+      className="flex items-start gap-2.5 rounded-lg border border-[#FCD34D] bg-[#FEF3C7] px-4 py-3"
     >
       <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#D97706]" aria-hidden="true" />
       <div>
         <p className="font-heading text-sm font-semibold text-[#92400E]">
-          {isNext ? "You're next!" : "You're near the front"}
+          {isNext ? "You're next" : "Near the front"}
         </p>
         <p className="mt-0.5 text-xs leading-5 text-[#78350F]">
           {isNext
-            ? "You're at the front of the line — please approach the counter."
-            : `${peopleAhead} ${peopleAhead === 1 ? "person" : "people"} ahead of you — please approach the counter soon.`}
+            ? "Approach the counter."
+            : `${peopleAhead} ahead — approach soon.`}
         </p>
       </div>
     </div>
   );
 }
 
+/**
+ * Arrival pass — QR + token hierarchy; stub corner + terracotta edge (signature).
+ * Payload contract unchanged: QIT:<queueId>:<token>.
+ */
 function ArrivalPass({ queueName, queueId, tokenNumber }) {
   const payload = buildArrivalPass(queueId, tokenNumber);
   return (
     <section
       data-testid="arrival-pass"
       data-payload={payload}
-      className="flex flex-col gap-4 border-t border-border px-5 py-5 sm:flex-row sm:items-center sm:gap-5"
+      className={cn(
+        "relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-card",
+        /* Terracotta 2px accent on the left edge only + subtle stub corner */
+        "border-l-[2px] border-l-warning"
+      )}
     >
+      {/* Subtle CSS stub / dog-ear at top-right */}
       <div
-        className="shrink-0 self-center rounded-lg border border-border bg-card p-3 shadow-card"
-        data-testid="arrival-qr"
-      >
-        <QRCodeSVG
-          value={payload}
-          size={128}
-          level="M"
-          marginSize={0}
-          className="block h-28 w-28"
-          role="img"
-          aria-label={`Arrival pass QR for token ${tokenNumber}`}
-        />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
-          Arrival pass
-        </p>
-        <p className="mt-1 text-sm leading-5 text-text-muted">
-          Show this code at the counter to confirm your arrival — no need to
-          repeat your token.
-        </p>
-        <p className="mt-2 text-sm text-foreground">
-          Token{" "}
-          <span
-            className="font-metric text-base font-bold tabular-nums text-primary"
-            data-testid="arrival-token"
-          >
-            {tokenNumber}
-          </span>
-          <span className="text-text-muted"> · {queueName}</span>
-        </p>
-        <p className="mt-1 text-xs text-text-muted">
-          The counter can also match you by token number alone.
-        </p>
+        aria-hidden="true"
+        className="pointer-events-none absolute right-0 top-0 size-0 border-b-[18px] border-l-[18px] border-b-transparent border-l-secondary"
+        style={{
+          filter: "drop-shadow(-1px 1px 0 rgb(26 26 24 / 8%))",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute right-0 top-0 size-0 border-r-[18px] border-t-[18px] border-r-background border-t-background"
+      />
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+        <div
+          className="shrink-0 self-center rounded-lg border border-border bg-card p-3 shadow-card"
+          data-testid="arrival-qr"
+        >
+          <QRCodeSVG
+            value={payload}
+            size={128}
+            level="M"
+            marginSize={0}
+            className="block h-28 w-28"
+            role="img"
+            aria-label={`Arrival pass QR for token ${tokenNumber}`}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-headline font-semibold tracking-[-0.01em] text-foreground">
+            Arrival pass
+          </p>
+          <p className="mt-2 text-sm text-foreground">
+            Token{" "}
+            <span
+              className="font-metric text-base font-bold tabular-nums text-primary"
+              data-testid="arrival-token"
+            >
+              {tokenNumber}
+            </span>
+            <span className="text-text-muted"> · {queueName}</span>
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -321,7 +367,8 @@ function StatusMetric({ label, value, hero = false, testId }) {
       className={cn(
         "flex h-full flex-col gap-1 rounded-lg border border-border bg-secondary px-4 py-3",
         hero &&
-          "min-h-[6.5rem] justify-center gap-1.5 bg-primary-muted px-6 py-5 sm:min-h-[7rem]"
+          /* Soft 4px forest left edge + primary-mist wash */
+          "min-h-[6.5rem] justify-center gap-1.5 border-l-4 border-l-primary border-border bg-primary-muted px-6 py-5 sm:min-h-[7rem]"
       )}
     >
       <span

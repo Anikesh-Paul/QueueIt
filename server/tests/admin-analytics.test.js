@@ -39,15 +39,26 @@ async function seedAndGetCafeteriaId() {
 }
 
 /**
+ * Wall-clock hour in campus time (Asia/Kolkata) → UTC Date for storage.
+ * Lands at :15 past the hour so the peak bucket is unambiguous.
+ */
+function servedAtInIstHour(hourIst) {
+  const hh = String(Number(hourIst)).padStart(2, "0");
+  return new Date(`2026-08-09T${hh}:15:00+05:30`);
+}
+
+/**
  * Insert a terminal QueueEntry with a fixed lifespan: servedAt (updatedAt)
  * and createdAt are back-dated via a raw updateOne so mongoose timestamps do
  * not override the story the test needs. App-joined entries get a real user;
  * walk-ins carry a name instead.
+ *
+ * `hourIst` is the campus-time hour bucket (Asia/Kolkata, 00–23). Storage is
+ * still UTC; only the wall-clock intent is IST so peak labels stay stable.
  */
-async function createServedEntry(queueId, { waitMinutes, hourUtc, isWalkIn = false } = {}) {
-  const servedAt = hourUtc
-    ? new Date(`2026-08-09T${hourUtc}:15:00Z`)
-    : new Date(Date.now() - 60_000);
+async function createServedEntry(queueId, { waitMinutes, hourIst, isWalkIn = false } = {}) {
+  const servedAt =
+    hourIst != null ? servedAtInIstHour(hourIst) : new Date(Date.now() - 60_000);
   const joinedAt = new Date(servedAt.getTime() - waitMinutes * 60_000);
 
   const entry = await QueueEntry.create({
@@ -73,7 +84,7 @@ async function createServedEntry(queueId, { waitMinutes, hourUtc, isWalkIn = fal
  * Stretch: admin analytics — served count, average wait, simple peaks.
  * GET /api/admin/queues/:queueId/analytics
  * Metrics: served/skipped/left/waiting counts, average + longest wait over
- * served entries (minutes), and the top 3 busiest hourly buckets (UTC).
+ * served entries (minutes), and the top 3 busiest hourly buckets (campus IST).
  */
 describe("Admin analytics (HTTP API)", () => {
   before(async () => {
@@ -134,9 +145,9 @@ describe("Admin analytics (HTTP API)", () => {
       const { token: adminToken } = await createAdmin(app);
 
       // Three served entries with 4, 6, 8 minute waits (one a walk-in).
-      await createServedEntry(queueId, { waitMinutes: 4, hourUtc: "10" });
-      await createServedEntry(queueId, { waitMinutes: 6, hourUtc: "10", isWalkIn: true });
-      await createServedEntry(queueId, { waitMinutes: 8, hourUtc: "11" });
+      await createServedEntry(queueId, { waitMinutes: 4, hourIst: 10 });
+      await createServedEntry(queueId, { waitMinutes: 6, hourIst: 10, isWalkIn: true });
+      await createServedEntry(queueId, { waitMinutes: 8, hourIst: 11 });
 
       // One skipped, one left, two still waiting.
       await QueueEntry.create({
@@ -192,11 +203,11 @@ describe("Admin analytics (HTTP API)", () => {
       const app = testApp();
       const { token: adminToken } = await createAdmin(app);
 
-      // Two serves in the 10:00 bucket, one each in 11:00 and 13:00.
-      await createServedEntry(queueId, { waitMinutes: 5, hourUtc: "10" });
-      await createServedEntry(queueId, { waitMinutes: 3, hourUtc: "10" });
-      await createServedEntry(queueId, { waitMinutes: 7, hourUtc: "11" });
-      await createServedEntry(queueId, { waitMinutes: 2, hourUtc: "13" });
+      // Two serves in the 10:00 IST bucket, one each in 11:00 and 13:00 IST.
+      await createServedEntry(queueId, { waitMinutes: 5, hourIst: 10 });
+      await createServedEntry(queueId, { waitMinutes: 3, hourIst: 10 });
+      await createServedEntry(queueId, { waitMinutes: 7, hourIst: 11 });
+      await createServedEntry(queueId, { waitMinutes: 2, hourIst: 13 });
 
       const res = await request(app)
         .get(`/api/admin/queues/${queueId}/analytics`)
@@ -204,9 +215,9 @@ describe("Admin analytics (HTTP API)", () => {
 
       assert.equal(res.status, 200);
       assert.deepEqual(res.body.peakHours, [
-        { label: "10:00 UTC", served: 2 },
-        { label: "11:00 UTC", served: 1 },
-        { label: "13:00 UTC", served: 1 },
+        { label: "10:00 IST", served: 2 },
+        { label: "11:00 IST", served: 1 },
+        { label: "13:00 IST", served: 1 },
       ]);
       assert.equal(res.body.metrics.servedCount, 4);
     });

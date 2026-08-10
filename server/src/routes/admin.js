@@ -439,8 +439,9 @@ function roundWaitMinutes(value) {
  *   - averageWaitMinutes + longestWaitMinutes over served entries
  *     (wait = time from join until the entry left the line as served,
  *      i.e. updatedAt - createdAt of the entry)
- *   - peakHours: top 3 busiest hourly buckets by serves (UTC hour label)
+ *   - peakHours: top 3 busiest hourly buckets by serves (campus time / IST)
  * Peaks are derived from data already tracked — no snapshots required.
+ * Storage remains UTC; bucketing/labels convert at present to Asia/Kolkata.
  */
 router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, res, next) => {
   try {
@@ -478,7 +479,11 @@ router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, 
               {
                 $group: {
                   _id: {
-                    $dateToString: { format: "%H:00 UTC", date: "$updatedAt", timezone: "UTC" },
+                    $dateToString: {
+                      format: "%H:00 IST",
+                      date: "$updatedAt",
+                      timezone: "Asia/Kolkata",
+                    },
                   },
                   served: { $sum: 1 },
                 },

@@ -4,19 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
+import { formatCampusDateTime } from "@/lib/campus-time";
 import { cn } from "@/lib/utils";
-
-function formatEventTime(iso) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return String(iso);
-  }
-}
 
 function formatOutcomeLabel(outcome) {
   if (!outcome) return "—";
@@ -105,8 +94,8 @@ export function HistoryPage() {
               <p className="mt-2 font-heading text-sm font-medium text-foreground">
                 {event.queue?.name || "Queue"}
               </p>
-              <p className="mt-0.5 text-xs text-text-muted">
-                {formatEventTime(
+              <p className="mt-0.5 text-xs text-text-muted" data-testid="history-event-time">
+                {formatCampusDateTime(
                   event.outcome === "joined" ? event.joinedAt : event.updatedAt || event.joinedAt
                 )}
               </p>

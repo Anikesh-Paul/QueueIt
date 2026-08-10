@@ -144,8 +144,11 @@ export function AnalyticsPage() {
                 <p className="font-heading text-sm font-semibold text-foreground">
                   Busiest hours
                 </p>
-                <p className="mt-0.5 text-xs text-text-muted">
-                  Top serving hours by tokens completed (UTC) — a simple throughput peak.
+                <p
+                  className="mt-0.5 text-xs text-text-muted"
+                  data-testid="analytics-campus-time"
+                >
+                  Campus time · IST
                 </p>
               </div>
               <div className="px-5 py-5">

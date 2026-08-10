@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
+import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,7 @@ export function HistoryPage() {
           data-testid="history-empty"
           className="rounded-xl border border-border bg-card px-5 py-12 text-center shadow-card"
         >
+          <MotifIllustration motif="foldedPass" variant="empty" className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
             No history yet
           </p>

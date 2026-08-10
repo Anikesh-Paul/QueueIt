@@ -46,9 +46,7 @@ export function AuthForm({ mode }) {
         {mode === "login" ? "Log in" : "Register"}
       </h1>
       <p className="mt-1.5 text-sm text-text-secondary">
-        {mode === "login"
-          ? "Sign in with your QueueIt account."
-          : "Students register as a user; admins use a seeded account."}
+        {mode === "login" ? "Sign in to QueueIt." : "Create a student account."}
       </p>
 
       <form className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit}>

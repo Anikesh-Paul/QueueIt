@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
+import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { cn } from "@/lib/utils";
 
 /**
@@ -88,6 +89,7 @@ export function QueuesPage() {
           data-testid="queues-empty"
           className="rounded-xl border border-border bg-card px-5 py-10 text-center shadow-card"
         >
+          <MotifIllustration motif="waitingHall" variant="empty" className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
             No queues open
           </p>

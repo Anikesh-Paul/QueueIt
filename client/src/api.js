@@ -196,6 +196,18 @@ export function extendAcceptingSession(token, queueId, payload) {
 }
 
 /**
+ * PUT /api/admin/queues/:queueId/service-windows
+ * Replace daily service windows (campus IST HH:mm). Body: { serviceWindows: [{start,end}] }.
+ */
+export function updateServiceWindows(token, queueId, serviceWindows) {
+  return apiRequest(`/api/admin/queues/${queueId}/service-windows`, {
+    method: "PUT",
+    token,
+    body: { serviceWindows },
+  });
+}
+
+/**
  * POST /api/admin/queues/:queueId/reset
  * End-of-session / day close: clears waiting list, resets tokens + now serving,
  * re-opens advancement. Does not flip accepting tokens.

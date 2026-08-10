@@ -7,6 +7,7 @@ import { parseArrivalValue } from "../services/arrivalPass.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import {
   applyExtend,
+  applyServiceWindowsUpdate,
   applyStartAccepting,
   applyStopAccepting,
   autoPrepareIfClosedEmpty,
@@ -674,6 +675,42 @@ router.post(
       await queue.save();
 
       emitQueueChanged(queue._id, "extend");
+
+      return res.status(200).json({
+        queue: toAdminQueueJSON(queue),
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+/**
+ * PUT /api/admin/queues/:queueId/service-windows
+ * Replace daily service windows (same pattern every day; campus IST HH:mm).
+ * Body: { serviceWindows: [{ start, end }, ...] }.
+ * Overlaps rejected; end must be after start. Adjacent windows allowed.
+ * When Closed, recomputes reopenAt from the new schedule.
+ */
+router.put(
+  "/queues/:queueId/service-windows",
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const queue = await loadQueueOr404(req.params.queueId, res);
+      if (!queue) return;
+
+      const applied = applyServiceWindowsUpdate(
+        queue,
+        req.body?.serviceWindows
+      );
+      if (!applied.ok) {
+        return res.status(applied.status).json({ error: applied.error });
+      }
+      await queue.save();
+
+      emitQueueChanged(queue._id, "service-windows");
 
       return res.status(200).json({
         queue: toAdminQueueJSON(queue),

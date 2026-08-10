@@ -24,6 +24,7 @@ import {
   startAcceptingTokens,
   stopAcceptingTokens,
   extendAcceptingSession,
+  updateServiceWindows,
   walkInQueue,
   API_URL,
 } from "@/api";
@@ -542,15 +543,17 @@ export function AppProvider({ children }) {
    */
   const runAdminAction = useCallback(
     async (action, errorLabel, { clearSelection = false } = {}) => {
-      if (!token || !adminQueueId) return;
+      if (!token || !adminQueueId) return false;
       setAdminActionError("");
       setAdminActionBusy(true);
       try {
         await action();
         if (clearSelection) setSelectedEntryId(null);
         await loadWaitingList(token, adminQueueId, { silent: true });
+        return true;
       } catch (err) {
         setAdminActionError(err.message || errorLabel);
+        return false;
       } finally {
         setAdminActionBusy(false);
       }
@@ -617,6 +620,19 @@ export function AppProvider({ children }) {
       runAdminAction(
         () => extendAcceptingSession(token, adminQueueId, payload),
         "Extend failed"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
+  /**
+   * Replace daily service windows (campus IST HH:mm).
+   * @param {{ start: string, end: string }[]} serviceWindows
+   */
+  const adminUpdateServiceWindows = useCallback(
+    (serviceWindows) =>
+      runAdminAction(
+        () => updateServiceWindows(token, adminQueueId, serviceWindows),
+        "Update service windows failed"
       ),
     [token, adminQueueId, runAdminAction]
   );
@@ -711,6 +727,7 @@ export function AppProvider({ children }) {
     adminStopAccepting,
     adminStartAccepting,
     adminExtend,
+    adminUpdateServiceWindows,
     adminReset,
     adminWalkIn,
     realtimeConnected,

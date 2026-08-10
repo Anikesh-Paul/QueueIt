@@ -22,7 +22,8 @@ const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
  */
 export function parseHhmmToMinutes(hhmm) {
   if (typeof hhmm !== "string") return null;
-  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(hhmm.trim());
+  // Accept HH:mm or HH:mm:ss (HTML time inputs may include seconds).
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(hhmm.trim());
   if (!m) return null;
   return Number(m[1]) * 60 + Number(m[2]);
 }
@@ -38,17 +39,26 @@ export function formatMinutesAsHhmm(minutes) {
 }
 
 /**
+ * Coerce array-like window input to a plain array.
+ * @param {unknown} windows
+ * @returns {unknown[]}
+ */
+function coerceWindowList(windows) {
+  if (Array.isArray(windows)) return windows;
+  if (windows && typeof windows === "object" && typeof windows.length === "number") {
+    return Array.from(windows);
+  }
+  return [];
+}
+
+/**
  * Normalize API/DB window rows; drop invalid.
  * @param {unknown} windows
  * @returns {ServiceWindow[]}
  */
 export function normalizeServiceWindows(windows) {
   // Mongoose DocumentArrays are array-like; coerce for safety.
-  const list = Array.isArray(windows)
-    ? windows
-    : windows && typeof windows === "object" && typeof windows.length === "number"
-      ? Array.from(windows)
-      : [];
+  const list = coerceWindowList(windows);
   /** @type {ServiceWindow[]} */
   const out = [];
   for (const row of list) {
@@ -67,6 +77,70 @@ export function normalizeServiceWindows(windows) {
   }
   out.sort((a, b) => parseHhmmToMinutes(a.start) - parseHhmmToMinutes(b.start));
   return out;
+}
+
+/**
+ * Strict validate for Admin edit: reject invalid times and overlaps.
+ * Adjacent windows (end === next start) are allowed. Overlaps are not.
+ * Empty list is allowed (no schedule → no auto-close on start).
+ *
+ * @param {unknown} windows
+ * @returns {{ ok: true, windows: ServiceWindow[] } | { ok: false, error: string }}
+ */
+export function validateServiceWindows(windows) {
+  if (windows == null) {
+    return { ok: false, error: "serviceWindows is required" };
+  }
+  if (!Array.isArray(windows)) {
+    return { ok: false, error: "serviceWindows must be an array" };
+  }
+
+  /** @type {ServiceWindow[]} */
+  const out = [];
+  for (let i = 0; i < windows.length; i += 1) {
+    const row = windows[i];
+    if (!row || typeof row !== "object") {
+      return {
+        ok: false,
+        error: `Invalid service window at index ${i}`,
+      };
+    }
+    const start = typeof row.start === "string" ? row.start.trim() : "";
+    const end = typeof row.end === "string" ? row.end.trim() : "";
+    const startMin = parseHhmmToMinutes(start);
+    const endMin = parseHhmmToMinutes(end);
+    if (startMin == null || endMin == null) {
+      return {
+        ok: false,
+        error: `Invalid time format at index ${i}; use HH:mm`,
+      };
+    }
+    if (endMin <= startMin) {
+      return {
+        ok: false,
+        error: `Window end must be after start (index ${i})`,
+      };
+    }
+    out.push({
+      start: formatMinutesAsHhmm(startMin),
+      end: formatMinutesAsHhmm(endMin),
+    });
+  }
+
+  out.sort((a, b) => parseHhmmToMinutes(a.start) - parseHhmmToMinutes(b.start));
+
+  for (let i = 1; i < out.length; i += 1) {
+    const prevEnd = /** @type {number} */ (parseHhmmToMinutes(out[i - 1].end));
+    const curStart = /** @type {number} */ (parseHhmmToMinutes(out[i].start));
+    if (curStart < prevEnd) {
+      return {
+        ok: false,
+        error: "Service windows must not overlap",
+      };
+    }
+  }
+
+  return { ok: true, windows: out };
 }
 
 /**

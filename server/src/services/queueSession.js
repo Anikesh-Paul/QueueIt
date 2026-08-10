@@ -9,6 +9,7 @@ import {
   nextWindowStartAfter,
   normalizeServiceWindows,
   resolveTargetWindow,
+  validateServiceWindows,
 } from "./serviceWindows.js";
 import { emitQueueChanged } from "./realtime.js";
 
@@ -183,6 +184,31 @@ export function applyExtend(queue, body = {}) {
     error: "Provide minutes (15|30) or endsAt",
     status: 400,
   };
+}
+
+/**
+ * Replace daily service windows. When Closed, recompute schedule-based reopenAt
+ * so catalog messaging follows the new plan. Does not rebind an active session end.
+ *
+ * @param {import("mongoose").Document} queue
+ * @param {unknown} serviceWindows
+ * @returns {{ ok: true } | { ok: false, error: string, status: number }}
+ */
+export function applyServiceWindowsUpdate(queue, serviceWindows) {
+  const validated = validateServiceWindows(serviceWindows);
+  if (!validated.ok) {
+    return { ok: false, error: validated.error, status: 400 };
+  }
+
+  queue.serviceWindows = validated.windows;
+
+  // Closed: student-facing reopen follows the new schedule (default next window).
+  // Active accepting session keeps its bound sessionEndsAt until stop/extend/auto-close.
+  if (queue.acceptingTokens === false) {
+    queue.reopenAt = nextWindowStartAfter(validated.windows, clockNow());
+  }
+
+  return { ok: true };
 }
 
 /**

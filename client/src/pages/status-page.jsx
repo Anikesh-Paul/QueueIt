@@ -19,7 +19,11 @@ import { PageToolbar } from "@/components/shell/page-toolbar";
 import { ShellContent } from "@/components/shell/shell-content";
 import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
-import { formatCampusDateTime } from "@/lib/campus-time";
+import {
+  formatCampusDateTime,
+  formatPaceLine,
+  presentLiveEta,
+} from "@/lib/campus-time";
 import { buildArrivalPass } from "@/lib/arrival-pass";
 
 function formatNowServing(value) {
@@ -67,6 +71,8 @@ export function StatusPage() {
   } = useAppStatus();
   const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
+  /** Pin ETA as-of while Paused so polls/wall clock cannot slide the primary. */
+  const [frozenEtaAsOfMs, setFrozenEtaAsOfMs] = useState(null);
 
   useEffect(() => {
     if (!inQueue) navigate("/queues", { replace: true });
@@ -78,9 +84,18 @@ export function StatusPage() {
     return () => clearInterval(id);
   }, [inQueue, statusLastUpdatedAt]);
 
+  const paused = liveStatus?.queue?.status === "paused";
+
+  useEffect(() => {
+    if (!paused) {
+      setFrozenEtaAsOfMs(null);
+      return;
+    }
+    setFrozenEtaAsOfMs((prev) => prev ?? statusLastUpdatedAt ?? Date.now());
+  }, [paused, statusLastUpdatedAt]);
+
   if (!inQueue || !liveStatus) return null;
 
-  const paused = liveStatus.queue?.status === "paused";
   const closed = liveStatus.queue?.acceptingTokens === false;
   const ageLabel = formatStatusAge(statusLastUpdatedAt, nowMs);
   const queueTitle = liveStatus.queue?.name || statusQueueName;
@@ -88,6 +103,21 @@ export function StatusPage() {
   // frozen, so "approach the counter" would be dishonest. Closed drain may still approach.
   const nearFront =
     !paused && Number.isInteger(liveStatus.position) && liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
+
+  const paceLine = formatPaceLine(
+    liveStatus.position,
+    liveStatus.averageServiceTime
+  );
+  // Live: wall clock (remaining wait). Paused: first pinned snapshot for this pause.
+  const etaAsOfMs = paused
+    ? (frozenEtaAsOfMs ?? statusLastUpdatedAt ?? nowMs)
+    : nowMs;
+  const etaPresented = presentLiveEta({
+    etaMinutes: liveStatus.etaMinutes,
+    asOfMs: etaAsOfMs,
+    paused,
+  });
+  const sessionEndsAt = liveStatus.queue?.sessionEndsAt;
 
   async function handleLeave() {
     const ok = await leave();
@@ -215,6 +245,16 @@ export function StatusPage() {
           </Alert>
         )}
 
+        {!closed && sessionEndsAt ? (
+          <p
+            className="mb-4 text-sm text-text-secondary"
+            data-testid="accepting-until"
+            role="status"
+          >
+            Accepting until {formatCampusDateTime(sessionEndsAt)}.
+          </p>
+        ) : null}
+
         {nearFront && (
           <div className="mb-4">
             <NearFrontBanner position={liveStatus.position} />
@@ -242,12 +282,29 @@ export function StatusPage() {
               <StatusMetric
                 label="ETA"
                 value={
-                  <>
-                    {liveStatus.etaMinutes}
-                    <span className="ml-1 text-sm font-medium tracking-normal text-text-muted">
-                      min
+                  <span
+                    className="flex flex-col items-start gap-0.5"
+                    data-eta-mode={etaPresented.mode}
+                  >
+                    <span data-testid="eta-clock" className="leading-none">
+                      {etaPresented.primary}
                     </span>
-                  </>
+                    {etaPresented.secondary ? (
+                      <span
+                        data-testid="eta-minutes"
+                        className="text-sm font-medium tracking-normal text-text-muted"
+                      >
+                        {etaPresented.secondary}
+                      </span>
+                    ) : paused ? (
+                      <span
+                        data-testid="eta-paused"
+                        className="text-sm font-medium tracking-normal text-text-muted"
+                      >
+                        Paused
+                      </span>
+                    ) : null}
+                  </span>
                 }
                 testId="eta"
               />
@@ -257,6 +314,14 @@ export function StatusPage() {
                 testId="now-serving"
               />
             </div>
+            {paceLine ? (
+              <p
+                data-testid="status-pace"
+                className="text-sm text-text-secondary"
+              >
+                {paceLine}
+              </p>
+            ) : null}
           </section>
 
           <section data-testid="status-pass-column" className="flex flex-col gap-4">

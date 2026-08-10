@@ -1,23 +1,29 @@
 import { Badge as BadgePrimitive } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+/** Display labels for identity chips — title case per DESIGN.md. */
+const ROLE_LABELS = {
+  user: "User",
+  admin: "Admin",
+  guest: "Guest",
+};
+
 /**
- * Not widely: tiny initial-based avatar + name + role badge.
- * The name is its own text node so `getByText("Demo User", { exact: true })`
- * matches the chip (Playwright smoke contract).
+ * Identity chip for the shared shell.
+ * Works for JWT User/Admin today and Guest later (P5) — does not assume JWT-only forever.
+ * Callers pass `{ name, role }` where role is `user` | `admin` | `guest`.
+ * The name is its own text node so `getByText("Demo User", { exact: true })` matches (smoke).
  */
 export function UserChip({ user, className }) {
   if (!user) return null;
-  const isAdmin = user.role === "admin";
-  const initials = (user.name || "?")
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const role = normalizeRole(user.role);
+  const label = user.name?.trim() || (role === "guest" ? "Guest" : "Account");
+  const initials = initialsFrom(label);
 
   return (
     <div
+      data-testid="identity-chip"
+      data-role={role}
       className={cn(
         "inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-card",
         className
@@ -27,29 +33,57 @@ export function UserChip({ user, className }) {
         {initials}
       </span>
       <span className="hidden max-w-32 truncate text-sm font-medium text-foreground sm:block">
-        {user.name}
+        {label}
       </span>
-      <RoleBadge role={isAdmin ? "admin" : "user"} />
+      <RoleBadge role={role} />
     </div>
   );
 }
 
 /**
- * Role chip — forest mist wash for user, warm amber for admin (identity, not error).
+ * Role chip — forest for User, warm amber for Admin, neutral mist for Guest (identity, not error).
+ * Title case labels: User / Admin / Guest. Class hooks stay for e2e (`.badge--user` etc.).
  */
 export function RoleBadge({ role, className }) {
-  const isAdmin = role === "admin";
+  const normalized = normalizeRole(role);
+  const label = ROLE_LABELS[normalized] || ROLE_LABELS.user;
+
   return (
     <BadgePrimitive
       className={cn(
-        "rounded-full text-xs font-semibold lowercase",
-        isAdmin
-          ? "badge--admin border-transparent bg-[#FEF3C7] text-[#92400E]"
-          : "badge--user border-transparent bg-primary-muted text-primary",
+        "rounded-full text-xs font-semibold normal-case",
+        badgeClassFor(normalized),
         className
       )}
     >
-      {role}
+      {label}
     </BadgePrimitive>
   );
+}
+
+function normalizeRole(role) {
+  const value = String(role || "user").toLowerCase();
+  if (value === "admin") return "admin";
+  if (value === "guest") return "guest";
+  return "user";
+}
+
+function badgeClassFor(role) {
+  if (role === "admin") {
+    return "badge--admin border-transparent bg-[#FEF3C7] text-[#92400E]";
+  }
+  if (role === "guest") {
+    return "badge--guest border-transparent bg-secondary text-text-secondary";
+  }
+  return "badge--user border-transparent bg-primary-muted text-primary";
+}
+
+function initialsFrom(name) {
+  return String(name || "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }

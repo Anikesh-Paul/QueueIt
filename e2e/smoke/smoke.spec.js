@@ -53,7 +53,7 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
     });
     await expect(page).toHaveURL(/\/queues$/);
     await expect(page.getByText("Demo User", { exact: true })).toBeVisible();
-    await expect(page.locator(".badge--user")).toHaveText("user");
+    await expect(page.locator(".badge--user")).toHaveText("User");
 
     // Queue cards only (join CTA also includes the queue name).
     const cafeteria = page.locator(".queue-card", { hasText: "Cafeteria" });
@@ -82,7 +82,7 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
     await expect(page.getByRole("heading", { name: "Available queues" })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.locator(".badge--admin")).toHaveText("admin");
+    await expect(page.locator(".badge--admin")).toHaveText("Admin");
     // No "Admin API ok/denied" after the overhaul shell.
     await expect(page.getByText(/Admin API/i)).toHaveCount(0);
     await expect(page.locator(".queue-card", { hasText: "Cafeteria" })).toBeVisible({

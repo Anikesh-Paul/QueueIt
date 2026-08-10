@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
+import { ShellContent } from "@/components/shell/shell-content";
 import { cn } from "@/lib/utils";
 
 /**
@@ -51,7 +52,7 @@ export function QueuesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+    <ShellContent tier="student">
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h1 className="font-heading text-display leading-tight text-foreground">
@@ -186,6 +187,6 @@ export function QueuesPage() {
           </Button>
         )}
       </div>
-    </div>
+    </ShellContent>
   );
 }

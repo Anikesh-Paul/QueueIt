@@ -15,6 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
+import { PageToolbar } from "@/components/shell/page-toolbar";
+import { ShellContent } from "@/components/shell/shell-content";
 import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
 import { buildArrivalPass } from "@/lib/arrival-pass";
@@ -86,47 +88,30 @@ export function StatusPage() {
     !paused && Number.isInteger(liveStatus.position) && liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-      <header className="mb-6">
-        <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground">
-          Your place in line
-        </h1>
-      </header>
-
-      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-        <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-heading text-sm font-semibold text-foreground">
-              {queueTitle}
-            </p>
-            <p className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs leading-5 text-text-muted">
-              <span className="shrink-0">
-                {realtimeConnected ? "Instant updates" : "Updates every few seconds"}
+    <>
+      <PageToolbar
+        tier="student"
+        title={<span data-testid="status-queue-name">{queueTitle}</span>}
+        meta={
+          <>
+            <span className="shrink-0">
+              {realtimeConnected ? "Instant updates" : "Updates every few seconds"}
+            </span>
+            <RealtimeIndicator connected={realtimeConnected} testId="realtime-status" />
+            {ageLabel ? (
+              <span className="inline-block min-w-[4.75rem] shrink-0 tabular-nums tracking-tight text-text-muted">
+                · {ageLabel}
               </span>
-              <RealtimeIndicator
-                connected={realtimeConnected}
-                testId="realtime-status"
-              />
-              {ageLabel ? (
-                <span
-                  className="inline-block min-w-[4.75rem] shrink-0 tabular-nums tracking-tight text-text-muted"
-                  title={
-                    statusLastUpdatedAt
-                      ? `Last successful update ${new Date(statusLastUpdatedAt).toLocaleTimeString()}`
-                      : undefined
-                  }
-                >
-                  · {ageLabel}
-                </span>
-              ) : null}
-              {statusUpdating ? (
-                <span aria-live="polite" className="shrink-0">
-                  · Updating…
-                </span>
-              ) : null}
-            </p>
-          </div>
-          {paused ? (
+            ) : null}
+            {statusUpdating ? (
+              <span aria-live="polite" className="shrink-0">
+                · Updating…
+              </span>
+            ) : null}
+          </>
+        }
+        status={
+          paused ? (
             <span
               aria-live="polite"
               data-testid="queue-paused"
@@ -140,10 +125,70 @@ export function StatusPage() {
               <span className="size-1.5 rounded-full bg-primary" />
               Live
             </span>
-          )}
-        </div>
+          )
+        }
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => refreshStatus(token, statusQueueId)}
+              disabled={statusUpdating}
+            >
+              Refresh
+            </Button>
+            {user?.role !== "admin" && (
+              <Button variant="secondary" size="sm" onClick={() => navigate("/history")}>
+                History
+              </Button>
+            )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={leaveBusy}
+                  data-testid="leave-queue"
+                  className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                >
+                  {leaveBusy ? "Leaving…" : "Leave queue"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Leave your place in line?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You&apos;ll free your spot and lose this token. You can rejoin
+                    the line later if plans change.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+                  <AlertDialogCancel>Keep my place</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructiveSolid"
+                    onClick={async () => {
+                      const ok = await leave();
+                      if (ok) navigate("/queues");
+                    }}
+                  >
+                    Leave
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        }
+      />
 
-        {nearFront && <NearFrontBanner position={liveStatus.position} />}
+      <ShellContent tier="student">
+        <header className="mb-6">
+          <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground">
+            Your place in line
+          </h1>
+        </header>
+
+        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+          {nearFront && <NearFrontBanner position={liveStatus.position} />}
 
           <div className="flex flex-col gap-4 px-5 py-5">
             <StatusMetric
@@ -185,69 +230,15 @@ export function StatusPage() {
             {paused ? " · line paused (advancement frozen)" : ""}
           </p>
 
-        {(statusError || leaveError) && (
-          <div className="px-5 pb-4">
-            {statusError && <Alert variant="destructive">{statusError}</Alert>}
-            {leaveError && <Alert variant="destructive">{leaveError}</Alert>}
-          </div>
-        )}
-
-        {/* Utilities first; Leave last (full-width on mobile, trailing on sm+). */}
-        <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => refreshStatus(token, statusQueueId)}
-              disabled={statusUpdating}
-            >
-              Refresh status
-            </Button>
-            {user?.role !== "admin" && (
-              <Button variant="secondary" size="sm" onClick={() => navigate("/history")}>
-                View history
-              </Button>
-            )}
-          </div>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={leaveBusy}
-                data-testid="leave-queue"
-                className="w-full shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive sm:w-auto"
-              >
-                {leaveBusy ? "Leaving…" : "Leave queue"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Leave your place in line?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You&apos;ll free your spot and lose this token. You can rejoin
-                  the line later if plans change.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              {/* Stay preferred first on all breakpoints (overrides default col-reverse). */}
-              <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-                <AlertDialogCancel>Keep my place</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructiveSolid"
-                  onClick={async () => {
-                    const ok = await leave();
-                    if (ok) navigate("/queues");
-                  }}
-                >
-                  Leave
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </section>
-    </div>
+          {(statusError || leaveError) && (
+            <div className="border-t border-border px-5 py-4">
+              {statusError && <Alert variant="destructive">{statusError}</Alert>}
+              {leaveError && <Alert variant="destructive">{leaveError}</Alert>}
+            </div>
+          )}
+        </section>
+      </ShellContent>
+    </>
   );
 }
 
@@ -259,7 +250,7 @@ function NearFrontBanner({ position }) {
       role="status"
       aria-live="polite"
       data-testid="near-front-banner"
-      className="mx-5 mt-4 flex items-start gap-2.5 rounded-lg border border-[#FCD34D] bg-[#FEF3C7] px-4 py-3"
+      className="mx-5 mt-5 flex items-start gap-2.5 rounded-lg border border-[#FCD34D] bg-[#FEF3C7] px-4 py-3"
     >
       <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#D97706]" aria-hidden="true" />
       <div>

@@ -17,6 +17,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useApp } from "@/context/app-context";
+import { PageToolbar } from "@/components/shell/page-toolbar";
+import { ShellContent } from "@/components/shell/shell-content";
 import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
 import { verifyArrival } from "@/api";
@@ -116,79 +118,22 @@ export function AdminConsolePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-display leading-tight text-foreground">
-            Admin control
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Serve, skip, or pause {queueName} — the list updates every few seconds.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={adminActionBusy}
-                data-testid="admin-reset"
-                className="w-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive sm:w-auto"
-              >
-                Reset queue
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent data-testid="admin-reset-dialog">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Reset {queueName}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Closes the waiting list, clears now serving, and restarts tokens
-                  at 1. The queue re-opens ready for the next session.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructiveSolid"
-                  data-testid="admin-reset-confirm"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setResetOpen(false);
-                    adminReset();
-                  }}
-                >
-                  {adminActionBusy ? "Working…" : "Reset queue"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/admin/queues/${queueId}/analytics`)}
-            data-testid="open-analytics"
-          >
-            Analytics
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate("/queues")}>
-            Back to queues
-          </Button>
-        </div>
-      </header>
-
-      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
-          <div>
-            <p className="font-heading text-sm font-semibold text-foreground">
-              <span data-testid="admin-queue-name">{queueName}</span>
-            </p>
-            <p className="mt-0.5 text-xs text-text-muted">
-              {realtimeConnected ? "Instant updates" : "Waiting list updates every few seconds"}
-              <RealtimeIndicator connected={realtimeConnected} testId="admin-realtime-status" />
-              {waitingLoading ? " · loading…" : ""}
-            </p>
-          </div>
+    <>
+      <PageToolbar
+        tier="admin"
+        title={<span data-testid="admin-queue-name">{queueName}</span>}
+        meta={
+          <>
+            <span className="shrink-0">
+              {realtimeConnected
+                ? "Instant updates"
+                : "Waiting list updates every few seconds"}
+            </span>
+            <RealtimeIndicator connected={realtimeConnected} testId="admin-realtime-status" />
+            {waitingLoading ? <span className="shrink-0">· loading…</span> : null}
+          </>
+        }
+        status={
           <span
             data-testid="admin-queue-status"
             className={cn(
@@ -199,8 +144,71 @@ export function AdminConsolePage() {
             <span className={cn("size-1.5 rounded-full", paused ? "bg-[#D97706]" : "bg-primary")} />
             {paused ? "Paused" : "Open"}
           </span>
-        </div>
+        }
+        actions={
+          <>
+            <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={adminActionBusy}
+                  data-testid="admin-reset"
+                  className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                >
+                  Reset queue
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent data-testid="admin-reset-dialog">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset {queueName}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Closes the waiting list, clears now serving, and restarts tokens
+                    at 1. The queue re-opens ready for the next session.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructiveSolid"
+                    data-testid="admin-reset-confirm"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setResetOpen(false);
+                      adminReset();
+                    }}
+                  >
+                    {adminActionBusy ? "Working…" : "Reset queue"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/admin/queues/${queueId}/analytics`)}
+              data-testid="open-analytics"
+            >
+              Analytics
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/queues")}>
+              Back to queues
+            </Button>
+          </>
+        }
+      />
 
+      <ShellContent tier="admin">
+        <header className="mb-6">
+          <h1 className="font-heading text-display leading-tight text-foreground">
+            Admin control
+          </h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            Serve, skip, or pause {queueName} — the list updates every few seconds.
+          </p>
+        </header>
+
+        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <div className="grid grid-cols-2 gap-3 px-5 py-5 sm:max-w-sm">
           <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary px-4 py-3">
             <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -502,6 +510,7 @@ export function AdminConsolePage() {
           )}
         </div>
       </section>
-    </div>
+      </ShellContent>
+    </>
   );
 }

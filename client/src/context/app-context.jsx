@@ -21,6 +21,8 @@ import {
   resumeQueue,
   serveQueue,
   skipQueue,
+  startAcceptingTokens,
+  stopAcceptingTokens,
   walkInQueue,
   API_URL,
 } from "@/api";
@@ -585,9 +587,29 @@ export function AppProvider({ children }) {
     [token, adminQueueId, runAdminAction]
   );
 
+  /** Stop accepting tokens (Closed + drain). Orthogonal to Pause. */
+  const adminStopAccepting = useCallback(
+    () =>
+      runAdminAction(
+        () => stopAcceptingTokens(token, adminQueueId),
+        "Stop accepting failed"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
+  /** Start accepting tokens again after Closed. Does not unpause. */
+  const adminStartAccepting = useCallback(
+    () =>
+      runAdminAction(
+        () => startAcceptingTokens(token, adminQueueId),
+        "Start accepting failed"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
   /**
    * Reset the queue for end-of-session / day close: clears the waiting list,
-   * resets now serving + tokens, re-opens the queue.
+   * resets now serving + tokens, re-opens advancement. Not start-accepting.
    */
   const adminReset = useCallback(
     () => runAdminAction(() => resetQueue(token, adminQueueId), "Reset failed"),
@@ -672,6 +694,8 @@ export function AppProvider({ children }) {
     adminSkip,
     adminPause,
     adminResume,
+    adminStopAccepting,
+    adminStartAccepting,
     adminReset,
     adminWalkIn,
     realtimeConnected,

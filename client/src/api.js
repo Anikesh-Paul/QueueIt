@@ -158,9 +158,31 @@ export function resumeQueue(token, queueId) {
 }
 
 /**
+ * POST /api/admin/queues/:queueId/stop-accepting
+ * Sets Closed: refuse new app tokens; drain waiting list. Not Pause / not Reset.
+ */
+export function stopAcceptingTokens(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/stop-accepting`, {
+    method: "POST",
+    token,
+  });
+}
+
+/**
+ * POST /api/admin/queues/:queueId/start-accepting
+ * Leaves Closed and begins issuing tokens again.
+ */
+export function startAcceptingTokens(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/start-accepting`, {
+    method: "POST",
+    token,
+  });
+}
+
+/**
  * POST /api/admin/queues/:queueId/reset
  * End-of-session / day close: clears waiting list, resets tokens + now serving,
- * re-opens the queue.
+ * re-opens advancement. Does not flip accepting tokens.
  */
 export function resetQueue(token, queueId) {
   return apiRequest(`/api/admin/queues/${queueId}/reset`, {

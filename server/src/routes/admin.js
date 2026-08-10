@@ -24,6 +24,7 @@ function toAdminQueueJSON(queue) {
     id: queue._id.toString(),
     name: queue.name,
     status: queue.status,
+    acceptingTokens: queue.acceptingTokens !== false,
     nowServing: queue.nowServing ?? null,
     averageServiceTime: queue.averageServiceTime,
   };
@@ -400,10 +401,11 @@ router.post("/queues/:queueId/verify-qr", requireAuth, requireAdmin, async (req,
 
 /**
  * POST /api/admin/queues/:queueId/reset
- * End-of-session / day close. Closes every waiting entry as left (users keep a
- * history event and can rejoin), clears now serving, restarts tokens at 1, and
- * re-opens the queue. Works while paused. Idempotent: clearing an empty list
- * returns cleared: 0 with the same reset outcome.
+ * Clear-line: closes every waiting entry as left (users keep a history event
+ * and can rejoin), clears now serving, restarts tokens at 1, and unpauses
+ * advancement (status open). Does not change acceptingTokens — use
+ * start-accepting for that. Works while paused. Idempotent: empty list →
+ * cleared: 0 with the same reset outcome.
  */
 router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res, next) => {
   try {
@@ -412,6 +414,7 @@ router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res
 
     // Reset the queue atomically first (same $set discipline as token issuance)
     // so a join landing mid-reset cannot reuse a token number already reset to 1.
+    // Does not flip acceptingTokens — Reset is clear-line, not start-accepting.
     const updated = await Queue.findByIdAndUpdate(
       queue._id,
       { $set: { status: "open", nowServing: null, nextTokenNumber: 1 } },
@@ -534,6 +537,7 @@ router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, 
 /**
  * POST /api/admin/queues/:queueId/pause
  * Freezes advancement; waiting list is preserved.
+ * Orthogonal to Closed: join may still take tokens while paused.
  */
 router.post("/queues/:queueId/pause", requireAuth, requireAdmin, async (req, res, next) => {
   try {
@@ -555,7 +559,7 @@ router.post("/queues/:queueId/pause", requireAuth, requireAdmin, async (req, res
 
 /**
  * POST /api/admin/queues/:queueId/resume
- * Re-opens service after pause.
+ * Re-opens service after pause (advancement only; does not change accepting tokens).
  */
 router.post("/queues/:queueId/resume", requireAuth, requireAdmin, async (req, res, next) => {
   try {
@@ -574,5 +578,61 @@ router.post("/queues/:queueId/resume", requireAuth, requireAdmin, async (req, re
     return next(err);
   }
 });
+
+/**
+ * POST /api/admin/queues/:queueId/stop-accepting
+ * Sets Closed: refuse new app joins; preserve waiting list (drain).
+ * Orthogonal to Pause. Walk-in still allowed. Not Reset.
+ */
+router.post(
+  "/queues/:queueId/stop-accepting",
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const queue = await loadQueueOr404(req.params.queueId, res);
+      if (!queue) return;
+
+      queue.acceptingTokens = false;
+      await queue.save();
+
+      emitQueueChanged(queue._id, "stop-accepting");
+
+      return res.status(200).json({
+        queue: toAdminQueueJSON(queue),
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/admin/queues/:queueId/start-accepting
+ * Leaves Closed and begins issuing tokens again.
+ * Does not unpause — Pause remains independent.
+ */
+router.post(
+  "/queues/:queueId/start-accepting",
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const queue = await loadQueueOr404(req.params.queueId, res);
+      if (!queue) return;
+
+      queue.acceptingTokens = true;
+      await queue.save();
+
+      emitQueueChanged(queue._id, "start-accepting");
+
+      return res.status(200).json({
+        queue: toAdminQueueJSON(queue),
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
 
 export default router;

@@ -59,6 +59,8 @@ export function AdminConsolePage() {
     adminSkip,
     adminPause,
     adminResume,
+    adminStopAccepting,
+    adminStartAccepting,
     adminReset,
     adminWalkIn,
     realtimeConnected,
@@ -202,6 +204,7 @@ export function AdminConsolePage() {
   }, [scanActive]);
 
   const paused = adminQueueMeta?.status === "paused";
+  const acceptingTokens = adminQueueMeta?.acceptingTokens !== false;
   const queueName = adminQueueMeta?.name || "Queue";
   const empty = waitingList.length === 0;
 
@@ -299,15 +302,28 @@ export function AdminConsolePage() {
           </>
         }
         status={
-          <span
-            data-testid="admin-queue-status"
-            className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-              paused ? "bg-[#FEF3C7] text-[#92400E]" : "bg-primary-muted text-primary"
-            )}
-          >
-            <span className={cn("size-1.5 rounded-full", paused ? "bg-[#D97706]" : "bg-primary")} />
-            {paused ? "Paused" : "Open"}
+          <span className="flex flex-wrap items-center gap-1.5">
+            {!acceptingTokens ? (
+              <span
+                data-testid="admin-queue-accepting"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary"
+              >
+                <span className="size-1.5 rounded-full bg-text-muted" />
+                Closed
+              </span>
+            ) : null}
+            <span
+              data-testid="admin-queue-status"
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+                paused ? "bg-[#FEF3C7] text-[#92400E]" : "bg-primary-muted text-primary"
+              )}
+            >
+              <span
+                className={cn("size-1.5 rounded-full", paused ? "bg-[#D97706]" : "bg-primary")}
+              />
+              {paused ? "Paused" : "Open"}
+            </span>
           </span>
         }
         actions={
@@ -455,7 +471,7 @@ export function AdminConsolePage() {
                       onClick={adminResume}
                       disabled={adminActionBusy}
                       data-testid="admin-resume"
-                      className="col-span-2 w-full sm:col-auto sm:ml-auto sm:w-auto"
+                      className="w-full sm:w-auto"
                     >
                       {adminActionBusy ? "Working…" : "Resume"}
                     </Button>
@@ -466,9 +482,32 @@ export function AdminConsolePage() {
                       onClick={adminPause}
                       disabled={adminActionBusy}
                       data-testid="admin-pause"
-                      className="col-span-2 w-full sm:col-auto sm:ml-auto sm:w-auto"
+                      className="w-full sm:w-auto"
                     >
                       {adminActionBusy ? "Working…" : "Pause"}
+                    </Button>
+                  )}
+                  {acceptingTokens ? (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={adminStopAccepting}
+                      disabled={adminActionBusy}
+                      data-testid="admin-stop-accepting"
+                      className="col-span-2 w-full sm:col-auto sm:w-auto"
+                    >
+                      {adminActionBusy ? "Working…" : "Stop accepting tokens"}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={adminStartAccepting}
+                      disabled={adminActionBusy}
+                      data-testid="admin-start-accepting"
+                      className="col-span-2 w-full sm:col-auto sm:w-auto"
+                    >
+                      {adminActionBusy ? "Working…" : "Start accepting tokens"}
                     </Button>
                   )}
                 </div>

@@ -37,6 +37,16 @@ const queueSchema = new mongoose.Schema(
       default: "open",
       required: true,
     },
+    /**
+     * Whether app join may take a Token right now.
+     * Orthogonal to status (Paused): Closed = acceptingTokens false; drain continues.
+     * Walk-in may still create a membership while not accepting.
+     */
+    acceptingTokens: {
+      type: Boolean,
+      default: true,
+      required: true,
+    },
     /** Next token to issue on join (monotonic per queue). */
     nextTokenNumber: {
       type: Number,
@@ -72,6 +82,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     name: this.name,
     averageServiceTime: this.averageServiceTime,
     status: this.status,
+    acceptingTokens: this.acceptingTokens !== false,
     venue,
   };
 };

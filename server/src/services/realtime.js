@@ -25,7 +25,7 @@ export function roomForQueue(queueId) {
  * No-op when realtime is not attached (serverless path).
  *
  * @param {import("mongoose").Types.ObjectId | string} queueId
- * @param {"join" | "leave" | "served" | "skipped" | "walk-in" | "reset" | "pause" | "resume"} change
+ * @param {"join" | "leave" | "served" | "skipped" | "walk-in" | "reset" | "pause" | "resume" | "stop-accepting" | "start-accepting"} change
  */
 export function emitQueueChanged(queueId, change) {
   if (!io) return;

@@ -80,10 +80,11 @@ export function StatusPage() {
   if (!inQueue || !liveStatus) return null;
 
   const paused = liveStatus.queue?.status === "paused";
+  const closed = liveStatus.queue?.acceptingTokens === false;
   const ageLabel = formatStatusAge(statusLastUpdatedAt, nowMs);
   const queueTitle = liveStatus.queue?.name || statusQueueName;
   // Banner suppressed while paused: position is near the front but the line is
-  // frozen, so "approach the counter" would be dishonest.
+  // frozen, so "approach the counter" would be dishonest. Closed drain may still approach.
   const nearFront =
     !paused && Number.isInteger(liveStatus.position) && liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
 
@@ -119,24 +120,44 @@ export function StatusPage() {
           </>
         }
         status={
-          paused ? (
-            <span
-              aria-live="polite"
-              data-testid="queue-paused"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#FEF3C7] px-2.5 py-1 text-xs font-semibold text-[#92400E]"
-            >
-              <span className="size-1.5 rounded-full bg-[#D97706]" />
-              Paused
-            </span>
-          ) : (
-            <span
-              data-testid="queue-live"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary"
-            >
-              <span className="size-1.5 rounded-full bg-primary" />
-              Live
-            </span>
-          )
+          <span className="flex flex-wrap items-center gap-1.5">
+            {closed ? (
+              <span
+                aria-live="polite"
+                data-testid="queue-closed"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary"
+              >
+                <span className="size-1.5 rounded-full bg-text-muted" />
+                Closed for new tokens
+              </span>
+            ) : null}
+            {paused ? (
+              <span
+                aria-live="polite"
+                data-testid="queue-paused"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#FEF3C7] px-2.5 py-1 text-xs font-semibold text-[#92400E]"
+              >
+                <span className="size-1.5 rounded-full bg-[#D97706]" />
+                Paused
+              </span>
+            ) : !closed ? (
+              <span
+                data-testid="queue-live"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary"
+              >
+                <span className="size-1.5 rounded-full bg-primary" />
+                Live
+              </span>
+            ) : (
+              <span
+                data-testid="queue-live"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary"
+              >
+                <span className="size-1.5 rounded-full bg-primary" />
+                Still in line
+              </span>
+            )}
+          </span>
         }
         actions={
           <>
@@ -176,6 +197,17 @@ export function StatusPage() {
             Your place in line
           </h1>
         </header>
+
+        {closed && (
+          <Alert
+            className="mb-4"
+            data-testid="closed-drain-notice"
+            role="status"
+          >
+            This queue is closed for new tokens. You are still in line and will be
+            served.
+          </Alert>
+        )}
 
         {nearFront && (
           <div className="mb-4">

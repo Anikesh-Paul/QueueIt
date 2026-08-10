@@ -22,8 +22,8 @@ const router = Router();
  */
 router.get("/", async (_req, res, next) => {
   try {
-    // Catalog of available (open) queues for the seeded venue(s).
-    // Include paused so users can still see lines; join allows open + paused.
+    // Catalog lists open, paused, and closed (not accepting) queues honestly.
+    // status is advancement-only (open|paused); acceptingTokens is orthogonal.
     const queues = await Queue.find({ status: { $in: ["open", "paused"] } })
       .populate("venue")
       .sort({ name: 1 })
@@ -101,6 +101,13 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
     const queue = await Queue.findById(queueId);
     if (!queue) {
       return res.status(404).json({ error: "Queue not found" });
+    }
+
+    // Closed: refuse new app tokens. Paused still allows join. Walk-in is admin-only.
+    if (queue.acceptingTokens === false) {
+      return res.status(409).json({
+        error: "Queue is closed; not accepting tokens",
+      });
     }
 
     let guest = null;

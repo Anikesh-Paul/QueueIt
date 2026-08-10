@@ -143,12 +143,22 @@ export function QueuesPage() {
         >
           {queues.map((queue) => {
             const isSelected = queue.id === selectedQueueId;
+            const closed = queue.acceptingTokens === false;
+            const paused = queue.status === "paused";
+            // Closed and Paused are orthogonal — show both when both apply.
+            const primaryLabel = closed ? "Closed" : paused ? "Paused" : "Open";
+            const primaryTestId = closed
+              ? "queue-state-closed"
+              : paused
+                ? "queue-state-paused"
+                : "queue-state-open";
             return (
               <li key={queue.id}>
                 <button
                   type="button"
                   data-testid="queue-card"
                   data-queue-id={queue.id}
+                  data-accepting-tokens={closed ? "false" : "true"}
                   className={cn(
                     "queue-card flex w-full flex-col items-start gap-0.5 rounded-lg border bg-card px-4 py-3 text-left shadow-card transition-[border,background-color] outline-none hover:border-border-strong focus-visible:ring-3 focus-visible:ring-ring/50",
                     isSelected && "border-primary bg-primary-muted/60"
@@ -159,7 +169,30 @@ export function QueuesPage() {
                   }}
                   aria-pressed={isSelected}
                 >
-                  <span className="font-heading text-title text-foreground">{queue.name}</span>
+                  <span className="flex w-full items-center justify-between gap-2">
+                    <span className="font-heading text-title text-foreground">{queue.name}</span>
+                    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                      <span
+                        data-testid={primaryTestId}
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-xs font-semibold",
+                          closed && "bg-secondary text-text-secondary",
+                          !closed && paused && "bg-[#FEF3C7] text-[#92400E]",
+                          !closed && !paused && "bg-primary-muted text-primary"
+                        )}
+                      >
+                        {primaryLabel}
+                      </span>
+                      {closed && paused ? (
+                        <span
+                          data-testid="queue-state-paused"
+                          className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-semibold text-[#92400E]"
+                        >
+                          Paused
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
                   <span className="text-sm text-text-muted">
                     {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
                   </span>
@@ -185,11 +218,15 @@ export function QueuesPage() {
             <Button
               size="lg"
               onClick={handleJoin}
-              disabled={joinBusy}
+              disabled={joinBusy || selected.acceptingTokens === false}
               data-testid="join-queue"
               className="w-full sm:w-auto"
             >
-              {joinBusy ? "Joining…" : `Join ${selected.name}`}
+              {joinBusy
+                ? "Joining…"
+                : selected.acceptingTokens === false
+                  ? `${selected.name} is closed`
+                  : `Join ${selected.name}`}
             </Button>
           )}
         </div>

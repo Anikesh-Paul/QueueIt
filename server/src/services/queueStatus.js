@@ -39,6 +39,7 @@ export async function buildStatusPayload(queue, entry) {
       id: queue._id.toString(),
       name: queue.name,
       status: queue.status,
+      acceptingTokens: queue.acceptingTokens !== false,
     },
   };
 }

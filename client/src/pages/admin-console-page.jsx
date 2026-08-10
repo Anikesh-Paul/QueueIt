@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,11 @@ import { ShellContent } from "@/components/shell/shell-content";
 import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
 import { verifyArrival } from "@/api";
+import {
+  getCameraAvailability,
+  SCAN_COPY,
+  startQrScan,
+} from "@/lib/qr-scanner";
 
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
@@ -31,8 +36,8 @@ function formatNowServing(value) {
 /**
  * Admin console — medium-density waiting list + operate | Check arrival (lg+).
  * Phone: list first, arrival below (optional in-page jump — not sticky bottom bar).
- * Manual Pass or token + Verify always first-class; camera Scan is ticket 07.
- * Serve stays on the list (no serve-from-scan / F8).
+ * Scan pass (camera) primary; Pass or token + Verify always first-class.
+ * Serve stays on the list (verify-only — no serve-from-scan / F8).
  * No motif wallpaper; no production Admin API diagnostics.
  */
 export function AdminConsolePage() {
@@ -69,6 +74,25 @@ export function AdminConsolePage() {
   /** System/network failures are errors — never a counter "No match". */
   const [verifyError, setVerifyError] = useState("");
 
+  /** Camera scan panel open (inline video + Stop). */
+  const [scanActive, setScanActive] = useState(false);
+  /** Permanent disable after permission / no-camera / insecure (ticket 10). */
+  const [scanDisabled, setScanDisabled] = useState(
+    () => !getCameraAvailability().ok
+  );
+  const [scanMessage, setScanMessage] = useState(() => {
+    const a = getCameraAvailability();
+    return a.ok ? "" : a.message;
+  });
+  const videoRef = useRef(null);
+  const scanSessionRef = useRef(null);
+  /** Avoid double auto-verify if decode races stop. */
+  const scanDecodeLockRef = useRef(false);
+  const verifyBusyRef = useRef(false);
+  /** Latest auth/queue for scan callbacks (avoid stale closures). */
+  const verifyCtxRef = useRef({ token, queueId, setSelectedEntryId });
+  verifyCtxRef.current = { token, queueId, setSelectedEntryId };
+
   useEffect(() => {
     if (queueId) openAdminConsole(queueId);
   }, [queueId, openAdminConsole]);
@@ -77,13 +101,126 @@ export function AdminConsolePage() {
     setVerifyValue("");
     setVerifyResult(null);
     setVerifyError("");
+    {
+      const a = getCameraAvailability();
+      setScanMessage(a.ok ? "" : a.message);
+      setScanDisabled(!a.ok);
+    }
+    // Leaving a queue must not leave the camera running.
+    try {
+      scanSessionRef.current?.stop?.();
+    } catch {
+      /* ignore */
+    }
+    scanSessionRef.current = null;
+    setScanActive(false);
+    scanDecodeLockRef.current = false;
   }, [queueId]);
 
-  useEffect(() => () => clearAdminConsole(), [clearAdminConsole]);
+  useEffect(() => {
+    return () => {
+      try {
+        scanSessionRef.current?.stop?.();
+      } catch {
+        /* ignore */
+      }
+      scanSessionRef.current = null;
+      clearAdminConsole();
+    };
+  }, [clearAdminConsole]);
+
+  /**
+   * When Scan opens the inline panel, bind camera after <video> mounts.
+   * First good decode → stop → fill field → auto-verify; no auto re-arm.
+   */
+  useEffect(() => {
+    if (!scanActive) return undefined;
+
+    let cancelled = false;
+
+    (async () => {
+      const videoEl = videoRef.current;
+      if (!videoEl) {
+        if (!cancelled) {
+          setScanActive(false);
+          setScanDisabled(true);
+          setScanMessage(SCAN_COPY.unavailable);
+          focusVerifyField();
+        }
+        return;
+      }
+
+      const session = await startQrScan({
+        videoEl,
+        onDecode: (raw) => {
+          if (cancelled || scanDecodeLockRef.current) return;
+          scanDecodeLockRef.current = true;
+          try {
+            scanSessionRef.current?.stop?.();
+          } catch {
+            /* ignore */
+          }
+          scanSessionRef.current = null;
+          setScanActive(false);
+          const value = String(raw ?? "").trim();
+          setVerifyValue(value);
+          void runVerify(value);
+        },
+        onError: ({ message, kind }) => {
+          if (cancelled) return;
+          scanSessionRef.current = null;
+          setScanActive(false);
+          if (kind === "denied" || kind === "noCamera" || kind === "insecure") {
+            setScanDisabled(true);
+          }
+          setScanMessage(message);
+          focusVerifyField();
+        },
+      });
+
+      if (cancelled || scanDecodeLockRef.current) {
+        try {
+          session?.stop?.();
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      scanSessionRef.current = session;
+    })();
+
+    return () => {
+      cancelled = true;
+      try {
+        scanSessionRef.current?.stop?.();
+      } catch {
+        /* ignore */
+      }
+      scanSessionRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- start only when panel opens
+  }, [scanActive]);
 
   const paused = adminQueueMeta?.status === "paused";
   const queueName = adminQueueMeta?.name || "Queue";
   const empty = waitingList.length === 0;
+
+  function focusVerifyField() {
+    requestAnimationFrame(() => {
+      document.getElementById("verify-value")?.focus?.();
+    });
+  }
+
+  function stopScanSession() {
+    try {
+      scanSessionRef.current?.stop?.();
+    } catch {
+      /* ignore */
+    }
+    scanSessionRef.current = null;
+    setScanActive(false);
+    scanDecodeLockRef.current = false;
+  }
 
   async function handleWalkIn(event) {
     event.preventDefault();
@@ -101,25 +238,48 @@ export function AdminConsolePage() {
     }
   }
 
-  async function handleVerify(event) {
-    event.preventDefault();
-    const value = verifyValue.trim();
-    if (!value || verifyBusy) return;
+  /**
+   * Shared verify path for manual submit and post-scan auto-verify.
+   * Does not serve (F8 out) — only selects the wait row on success.
+   */
+  async function runVerify(rawValue) {
+    const value = String(rawValue ?? "").trim();
+    if (!value || verifyBusyRef.current) return;
+    const { token: authToken, queueId: qid, setSelectedEntryId: select } =
+      verifyCtxRef.current;
+    verifyBusyRef.current = true;
     setVerifyBusy(true);
     setVerifyResult(null);
     setVerifyError("");
     try {
-      const data = await verifyArrival(token, queueId, value);
+      const data = await verifyArrival(authToken, qid, value);
       setVerifyResult(data);
-      // Select matching wait row when present — Serve stays a deliberate list action.
       if (data?.verified && data.entry?.id) {
-        setSelectedEntryId(data.entry.id);
+        select(data.entry.id);
       }
     } catch (err) {
       setVerifyError(err.message || "Could not check arrival");
     } finally {
+      verifyBusyRef.current = false;
       setVerifyBusy(false);
     }
+  }
+
+  async function handleVerify(event) {
+    event.preventDefault();
+    await runVerify(verifyValue);
+  }
+
+  function handleScanPass() {
+    if (scanDisabled || scanActive || verifyBusyRef.current) return;
+    setScanMessage("");
+    setVerifyError("");
+    scanDecodeLockRef.current = false;
+    setScanActive(true);
+  }
+
+  function handleScanStop() {
+    stopScanSession();
   }
 
   return (
@@ -451,7 +611,62 @@ export function AdminConsolePage() {
             <h2 className="text-label uppercase tracking-wide text-text-muted">
               Check arrival
             </h2>
-            {/* Manual path always first-class; Scan pass lands in ticket 07 */}
+
+            {/* Scan pass primary; manual Pass or token + Verify always secondary. */}
+            <div className="mt-3 flex flex-col gap-3">
+              <Button
+                type="button"
+                variant="default"
+                size="lg"
+                onClick={handleScanPass}
+                disabled={scanDisabled || scanActive || verifyBusy}
+                data-testid="scan-pass"
+                className="w-full"
+              >
+                Scan pass
+              </Button>
+
+              {scanActive ? (
+                <div
+                  className="flex flex-col gap-2"
+                  data-testid="scan-panel"
+                >
+                  {/* Forest frame on camera viewport (signature flourish). */}
+                  <div className="overflow-hidden rounded-lg border-2 border-primary bg-secondary shadow-inner">
+                    <video
+                      ref={videoRef}
+                      className="aspect-video max-h-[280px] w-full object-cover"
+                      playsInline
+                      muted
+                      autoPlay
+                      data-testid="scan-video"
+                      aria-label="Camera preview for pass scan"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={handleScanStop}
+                    data-testid="scan-stop"
+                    className="w-full"
+                  >
+                    Stop
+                  </Button>
+                </div>
+              ) : null}
+
+              {scanMessage ? (
+                <p
+                  className="text-sm text-text-muted"
+                  data-testid="scan-message"
+                  role="status"
+                >
+                  {scanMessage}
+                </p>
+              ) : null}
+            </div>
+
             <form
               className="mt-3 flex flex-col gap-3"
               onSubmit={handleVerify}

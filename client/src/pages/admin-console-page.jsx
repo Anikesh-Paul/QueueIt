@@ -27,6 +27,10 @@ import {
   SCAN_COPY,
   startQrScan,
 } from "@/lib/qr-scanner";
+import {
+  campusDatetimeLocalToIso,
+  formatCampusDateTime,
+} from "@/lib/campus-time";
 
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
@@ -61,6 +65,7 @@ export function AdminConsolePage() {
     adminResume,
     adminStopAccepting,
     adminStartAccepting,
+    adminExtend,
     adminReset,
     adminWalkIn,
     realtimeConnected,
@@ -68,6 +73,8 @@ export function AdminConsolePage() {
 
   const [walkInName, setWalkInName] = useState("");
   const [walkInToken, setWalkInToken] = useState("");
+  const [extendEndsAt, setExtendEndsAt] = useState("");
+  const [reopenOverride, setReopenOverride] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
   const [verifyValue, setVerifyValue] = useState("");
   const [verifyBusy, setVerifyBusy] = useState(false);
@@ -491,7 +498,11 @@ export function AdminConsolePage() {
                     <Button
                       variant="outline"
                       size="lg"
-                      onClick={adminStopAccepting}
+                      onClick={() => {
+                        const reopenAt = campusDatetimeLocalToIso(reopenOverride);
+                        adminStopAccepting(reopenAt ? { reopenAt } : {});
+                        setReopenOverride("");
+                      }}
                       disabled={adminActionBusy}
                       data-testid="admin-stop-accepting"
                       className="col-span-2 w-full sm:col-auto sm:w-auto"
@@ -511,6 +522,96 @@ export function AdminConsolePage() {
                     </Button>
                   )}
                 </div>
+
+                {acceptingTokens ? (
+                  <div className="mt-3 flex flex-col gap-3">
+                    <div
+                      className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
+                      data-testid="admin-stop-reopen-panel"
+                    >
+                      <div className="flex min-w-[12rem] flex-1 flex-col gap-1">
+                        <Label
+                          htmlFor="reopen-override"
+                          className="text-xs text-text-muted"
+                        >
+                          Reopen override (optional, campus IST)
+                        </Label>
+                        <Input
+                          id="reopen-override"
+                          type="datetime-local"
+                          value={reopenOverride}
+                          onChange={(e) => setReopenOverride(e.target.value)}
+                          data-testid="admin-reopen-override"
+                          disabled={adminActionBusy}
+                        />
+                      </div>
+                      <p className="text-xs text-text-muted sm:pb-2">
+                        Leave empty for next scheduled window start.
+                      </p>
+                    </div>
+                    <div
+                      className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
+                      data-testid="admin-extend-panel"
+                    >
+                      <p className="w-full text-sm text-text-muted">
+                        Extend auto-close
+                        {adminQueueMeta?.sessionEndsAt
+                          ? ` · ends ${formatCampusDateTime(adminQueueMeta.sessionEndsAt)}`
+                          : ""}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={adminActionBusy}
+                        data-testid="admin-extend-15"
+                        onClick={() => adminExtend({ minutes: 15 })}
+                      >
+                        +15 min
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={adminActionBusy}
+                        data-testid="admin-extend-30"
+                        onClick={() => adminExtend({ minutes: 30 })}
+                      >
+                        +30 min
+                      </Button>
+                      <div className="flex min-w-[12rem] flex-1 flex-col gap-1">
+                        <Label
+                          htmlFor="extend-ends-at"
+                          className="text-xs text-text-muted"
+                        >
+                          Explicit end (campus IST)
+                        </Label>
+                        <Input
+                          id="extend-ends-at"
+                          type="datetime-local"
+                          value={extendEndsAt}
+                          onChange={(e) => setExtendEndsAt(e.target.value)}
+                          data-testid="admin-extend-ends-at"
+                          disabled={adminActionBusy}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={adminActionBusy || !extendEndsAt}
+                        data-testid="admin-extend-apply"
+                        onClick={() => {
+                          const endsAt = campusDatetimeLocalToIso(extendEndsAt);
+                          if (!endsAt) return;
+                          adminExtend({ endsAt });
+                        }}
+                      >
+                        Set end
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {(waitingError || adminActionError) && (
                   <div className="mt-3 flex flex-col gap-2">

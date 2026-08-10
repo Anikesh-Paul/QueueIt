@@ -11,6 +11,7 @@ import {
   toHistoryEvent,
 } from "../services/queueStatus.js";
 import { emitQueueChanged } from "../services/realtime.js";
+import { ensureQueueSessionState } from "../services/queueSession.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
 
@@ -28,6 +29,10 @@ router.get("/", async (_req, res, next) => {
       .populate("venue")
       .sort({ name: 1 })
       .exec();
+
+    for (const q of queues) {
+      await ensureQueueSessionState(q);
+    }
 
     return res.status(200).json({
       queues: queues.map((q) => q.toPublicJSON()),
@@ -103,10 +108,14 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
       return res.status(404).json({ error: "Queue not found" });
     }
 
+    // Lazy auto-close at bound session end before join gate.
+    await ensureQueueSessionState(queue);
+
     // Closed: refuse new app tokens. Paused still allows join. Walk-in is admin-only.
     if (queue.acceptingTokens === false) {
       return res.status(409).json({
         error: "Queue is closed; not accepting tokens",
+        reopenAt: queue.reopenAt ? new Date(queue.reopenAt).toISOString() : null,
       });
     }
 
@@ -226,6 +235,8 @@ router.get("/:queueId/status", attachJoiner, requireJoiner, async (req, res, nex
     if (!queue) {
       return res.status(404).json({ error: "Not in this queue" });
     }
+
+    await ensureQueueSessionState(queue);
 
     const entry = await findJoinerActiveEntry(queue._id, req);
     if (!entry) {

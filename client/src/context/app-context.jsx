@@ -23,6 +23,7 @@ import {
   skipQueue,
   startAcceptingTokens,
   stopAcceptingTokens,
+  extendAcceptingSession,
   walkInQueue,
   API_URL,
 } from "@/api";
@@ -589,20 +590,33 @@ export function AppProvider({ children }) {
 
   /** Stop accepting tokens (Closed + drain). Orthogonal to Pause. */
   const adminStopAccepting = useCallback(
-    () =>
+    (opts = {}) =>
       runAdminAction(
-        () => stopAcceptingTokens(token, adminQueueId),
+        () => stopAcceptingTokens(token, adminQueueId, opts),
         "Stop accepting failed"
       ),
     [token, adminQueueId, runAdminAction]
   );
 
-  /** Start accepting tokens again after Closed. Does not unpause. */
+  /** Start accepting tokens again after Closed. Binds target window. Does not unpause. */
   const adminStartAccepting = useCallback(
     () =>
       runAdminAction(
         () => startAcceptingTokens(token, adminQueueId),
         "Start accepting failed"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
+  /**
+   * Extend auto-close while accepting tokens.
+   * @param {{ minutes?: 15|30, endsAt?: string }} payload
+   */
+  const adminExtend = useCallback(
+    (payload) =>
+      runAdminAction(
+        () => extendAcceptingSession(token, adminQueueId, payload),
+        "Extend failed"
       ),
     [token, adminQueueId, runAdminAction]
   );
@@ -696,6 +710,7 @@ export function AppProvider({ children }) {
     adminResume,
     adminStopAccepting,
     adminStartAccepting,
+    adminExtend,
     adminReset,
     adminWalkIn,
     realtimeConnected,

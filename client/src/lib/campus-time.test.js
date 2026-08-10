@@ -1,6 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { formatCampusDateTime } from "./campus-time.js";
+import {
+  campusDatetimeLocalToIso,
+  formatCampusDateTime,
+} from "./campus-time.js";
 
 describe("formatCampusDateTime (campus IST present)", () => {
   it("formats absolute campus clocks as day mon year, 12h + IST", () => {
@@ -23,5 +26,20 @@ describe("formatCampusDateTime (campus IST present)", () => {
     assert.equal(formatCampusDateTime(null), "—");
     assert.equal(formatCampusDateTime(undefined), "—");
     assert.equal(formatCampusDateTime(""), "—");
+  });
+});
+
+describe("campusDatetimeLocalToIso", () => {
+  it("treats datetime-local values as Asia/Kolkata wall time", () => {
+    // 14:30 IST = 09:00 UTC
+    assert.equal(
+      campusDatetimeLocalToIso("2026-08-10T14:30"),
+      "2026-08-10T09:00:00.000Z"
+    );
+  });
+
+  it("returns null for empty input", () => {
+    assert.equal(campusDatetimeLocalToIso(""), null);
+    assert.equal(campusDatetimeLocalToIso(null), null);
   });
 });

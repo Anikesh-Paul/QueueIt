@@ -5,6 +5,14 @@ import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { parseArrivalValue } from "../services/arrivalPass.js";
 import { emitQueueChanged } from "../services/realtime.js";
+import {
+  applyExtend,
+  applyStartAccepting,
+  applyStopAccepting,
+  autoPrepareIfClosedEmpty,
+  ensureQueueSessionState,
+  sessionFieldsForJson,
+} from "../services/queueSession.js";
 
 const router = Router();
 
@@ -27,6 +35,7 @@ function toAdminQueueJSON(queue) {
     acceptingTokens: queue.acceptingTokens !== false,
     nowServing: queue.nowServing ?? null,
     averageServiceTime: queue.averageServiceTime,
+    ...sessionFieldsForJson(queue),
   };
 }
 
@@ -89,6 +98,8 @@ async function loadQueueOr404(queueId, res) {
     res.status(404).json({ error: "Queue not found" });
     return null;
   }
+  // Lazy auto-close when past bound session end.
+  await ensureQueueSessionState(queue);
   return queue;
 }
 
@@ -156,6 +167,8 @@ async function advanceWaitingEntry(queue, { entryId } = {}, terminalStatus) {
   await entry.save();
 
   queue.nowServing = entry.tokenNumber;
+  // Closed + empty after drain step → prepare next session numbering.
+  await autoPrepareIfClosedEmpty(queue);
   await queue.save();
 
   emitQueueChanged(queue._id, terminalStatus);
@@ -582,6 +595,7 @@ router.post("/queues/:queueId/resume", requireAuth, requireAdmin, async (req, re
 /**
  * POST /api/admin/queues/:queueId/stop-accepting
  * Sets Closed: refuse new app joins; preserve waiting list (drain).
+ * Default student reopen = next scheduled window start; body.reopenAt overrides.
  * Orthogonal to Pause. Walk-in still allowed. Not Reset.
  */
 router.post(
@@ -593,7 +607,11 @@ router.post(
       const queue = await loadQueueOr404(req.params.queueId, res);
       if (!queue) return;
 
-      queue.acceptingTokens = false;
+      const applied = applyStopAccepting(queue, req.body || {});
+      if (!applied.ok) {
+        return res.status(applied.status).json({ error: applied.error });
+      }
+      await autoPrepareIfClosedEmpty(queue);
       await queue.save();
 
       emitQueueChanged(queue._id, "stop-accepting");
@@ -609,8 +627,8 @@ router.post(
 
 /**
  * POST /api/admin/queues/:queueId/start-accepting
- * Leaves Closed and begins issuing tokens again.
- * Does not unpause — Pause remains independent.
+ * Leaves Closed and begins issuing tokens, bound to the target service window.
+ * Does not unpause — Pause remains independent. No auto-open at window start.
  */
 router.post(
   "/queues/:queueId/start-accepting",
@@ -621,10 +639,41 @@ router.post(
       const queue = await loadQueueOr404(req.params.queueId, res);
       if (!queue) return;
 
-      queue.acceptingTokens = true;
+      applyStartAccepting(queue);
       await queue.save();
 
       emitQueueChanged(queue._id, "start-accepting");
+
+      return res.status(200).json({
+        queue: toAdminQueueJSON(queue),
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/admin/queues/:queueId/extend
+ * Push auto-close end while accepting tokens.
+ * Body: { minutes: 15|30 } or { endsAt: ISO string }.
+ */
+router.post(
+  "/queues/:queueId/extend",
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const queue = await loadQueueOr404(req.params.queueId, res);
+      if (!queue) return;
+
+      const applied = applyExtend(queue, req.body || {});
+      if (!applied.ok) {
+        return res.status(applied.status).json({ error: applied.error });
+      }
+      await queue.save();
+
+      emitQueueChanged(queue._id, "extend");
 
       return res.status(200).json({
         queue: toAdminQueueJSON(queue),

@@ -7,6 +7,7 @@ import { useApp, SOFT_UPGRADE_POST_LEAVE_KEY } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
+import { formatCampusDateTime } from "@/lib/campus-time";
 import { cn } from "@/lib/utils";
 
 /**
@@ -196,6 +197,14 @@ export function QueuesPage() {
                   <span className="text-sm text-text-muted">
                     {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
                   </span>
+                  {closed && queue.reopenAt ? (
+                    <span
+                      data-testid="queue-reopen"
+                      className="text-sm text-text-secondary"
+                    >
+                      Reopens {formatCampusDateTime(queue.reopenAt)}
+                    </span>
+                  ) : null}
                 </button>
               </li>
             );
@@ -225,7 +234,9 @@ export function QueuesPage() {
               {joinBusy
                 ? "Joining…"
                 : selected.acceptingTokens === false
-                  ? `${selected.name} is closed`
+                  ? selected.reopenAt
+                    ? `${selected.name} closed · reopens ${formatCampusDateTime(selected.reopenAt)}`
+                    : `${selected.name} is closed`
                   : `Join ${selected.name}`}
             </Button>
           )}

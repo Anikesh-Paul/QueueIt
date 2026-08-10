@@ -160,22 +160,38 @@ export function resumeQueue(token, queueId) {
 /**
  * POST /api/admin/queues/:queueId/stop-accepting
  * Sets Closed: refuse new app tokens; drain waiting list. Not Pause / not Reset.
+ * Optional body: { reopenAt: ISO string } to override default next-window reopen.
  */
-export function stopAcceptingTokens(token, queueId) {
+export function stopAcceptingTokens(token, queueId, { reopenAt } = {}) {
+  const body = {};
+  if (reopenAt != null && reopenAt !== "") body.reopenAt = reopenAt;
   return apiRequest(`/api/admin/queues/${queueId}/stop-accepting`, {
+    method: "POST",
+    token,
+    body: Object.keys(body).length ? body : undefined,
+  });
+}
+
+/**
+ * POST /api/admin/queues/:queueId/start-accepting
+ * Leaves Closed and begins issuing tokens (binds target service window).
+ */
+export function startAcceptingTokens(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/start-accepting`, {
     method: "POST",
     token,
   });
 }
 
 /**
- * POST /api/admin/queues/:queueId/start-accepting
- * Leaves Closed and begins issuing tokens again.
+ * POST /api/admin/queues/:queueId/extend
+ * Push auto-close end while accepting. Body: { minutes: 15|30 } or { endsAt: ISO }.
  */
-export function startAcceptingTokens(token, queueId) {
-  return apiRequest(`/api/admin/queues/${queueId}/start-accepting`, {
+export function extendAcceptingSession(token, queueId, payload) {
+  return apiRequest(`/api/admin/queues/${queueId}/extend`, {
     method: "POST",
     token,
+    body: payload,
   });
 }
 

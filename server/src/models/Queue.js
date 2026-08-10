@@ -1,8 +1,18 @@
 import mongoose from "mongoose";
 // Ensure Venue is registered whenever Queue is loaded (needed for populate).
 import "./Venue.js";
+import { normalizeServiceWindows } from "../services/serviceWindows.js";
 
 const QUEUE_STATUSES = ["open", "paused"];
+
+const serviceWindowSchema = new mongoose.Schema(
+  {
+    /** Campus wall time HH:mm (Asia/Kolkata). */
+    start: { type: String, required: true, trim: true },
+    end: { type: String, required: true, trim: true },
+  },
+  { _id: false }
+);
 
 const queueSchema = new mongoose.Schema(
   {
@@ -47,6 +57,29 @@ const queueSchema = new mongoose.Schema(
       default: true,
       required: true,
     },
+    /**
+     * Daily service windows (same pattern every day), campus IST wall times.
+     * Window start does not auto-open; bound session end auto-closes.
+     */
+    serviceWindows: {
+      type: [serviceWindowSchema],
+      default: [],
+    },
+    /**
+     * When accepting: absolute instant when auto-close fires (bound target window end,
+     * or extended). Null when Closed or no auto-close bound.
+     */
+    sessionEndsAt: {
+      type: Date,
+      default: null,
+    },
+    /**
+     * Student-facing reopen guidance when Closed (default next window start, or Admin override).
+     */
+    reopenAt: {
+      type: Date,
+      default: null,
+    },
     /** Next token to issue on join (monotonic per queue). */
     nextTokenNumber: {
       type: Number,
@@ -69,6 +102,13 @@ const queueSchema = new mongoose.Schema(
 
 queueSchema.index({ venue: 1, slug: 1 }, { unique: true });
 
+function toIsoOrNull(value) {
+  if (value == null) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 queueSchema.methods.toPublicJSON = function toPublicJSON() {
   let venue = null;
   if (this.populated("venue") && this.venue) {
@@ -83,6 +123,9 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     averageServiceTime: this.averageServiceTime,
     status: this.status,
     acceptingTokens: this.acceptingTokens !== false,
+    serviceWindows: normalizeServiceWindows(this.serviceWindows),
+    sessionEndsAt: toIsoOrNull(this.sessionEndsAt),
+    reopenAt: toIsoOrNull(this.reopenAt),
     venue,
   };
 };

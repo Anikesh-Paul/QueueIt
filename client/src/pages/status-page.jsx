@@ -19,6 +19,7 @@ import { PageToolbar } from "@/components/shell/page-toolbar";
 import { ShellContent } from "@/components/shell/shell-content";
 import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
+import { formatCampusDateTime } from "@/lib/campus-time";
 import { buildArrivalPass } from "@/lib/arrival-pass";
 
 function formatNowServing(value) {
@@ -206,6 +207,11 @@ export function StatusPage() {
           >
             This queue is closed for new tokens. You are still in line and will be
             served.
+            {liveStatus.queue?.reopenAt ? (
+              <span data-testid="status-reopen" className="mt-1 block">
+                New tokens reopen {formatCampusDateTime(liveStatus.queue.reopenAt)}.
+              </span>
+            ) : null}
           </Alert>
         )}
 

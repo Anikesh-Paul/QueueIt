@@ -1,6 +1,7 @@
 import { User } from "./models/User.js";
 import { Venue } from "./models/Venue.js";
 import { Queue } from "./models/Queue.js";
+import { DEFAULT_SERVICE_WINDOWS } from "./services/serviceWindows.js";
 
 /** Deterministic demo venue + queues (no Super Admin multi-venue UI). */
 const DEMO_VENUE = {
@@ -9,8 +10,18 @@ const DEMO_VENUE = {
 };
 
 const DEMO_QUEUES = [
-  { slug: "cafeteria", name: "Cafeteria", averageServiceTime: 3 },
-  { slug: "gym", name: "Gym", averageServiceTime: 5 },
+  {
+    slug: "cafeteria",
+    name: "Cafeteria",
+    averageServiceTime: 3,
+    serviceWindows: DEFAULT_SERVICE_WINDOWS.cafeteria,
+  },
+  {
+    slug: "gym",
+    name: "Gym",
+    averageServiceTime: 5,
+    serviceWindows: DEFAULT_SERVICE_WINDOWS.gym,
+  },
 ];
 
 /**
@@ -72,6 +83,7 @@ export async function seedVenueAndQueues() {
     if (queue) {
       queue.name = def.name;
       queue.averageServiceTime = def.averageServiceTime;
+      queue.serviceWindows = def.serviceWindows;
       queue.status = "open";
       await queue.save();
     } else {

@@ -1,4 +1,5 @@
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "../models/QueueEntry.js";
+import { sessionFieldsForJson } from "./queueSession.js";
 
 /**
  * Live position among active waiters (1 = front of waiting line).
@@ -40,6 +41,7 @@ export async function buildStatusPayload(queue, entry) {
       name: queue.name,
       status: queue.status,
       acceptingTokens: queue.acceptingTokens !== false,
+      ...sessionFieldsForJson(queue),
     },
   };
 }

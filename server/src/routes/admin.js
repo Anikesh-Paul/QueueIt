@@ -29,15 +29,26 @@ function toAdminQueueJSON(queue) {
   };
 }
 
-/** Waiting-list row for one entry (user may be populated; walk-ins have no User). */
+/**
+ * Waiting-list row for one entry.
+ * Guest rows: token-first + isGuest (no name/email; not walk-in).
+ * Walk-ins remain isWalkIn with walkInName — never labeled Guest.
+ */
 function toWaitingRow(entry, position) {
   const isWalkIn = Boolean(entry.isWalkIn);
+  const isGuest = Boolean(entry.guest) && !isWalkIn;
   let user;
 
   if (isWalkIn) {
     user = {
       id: null,
       name: entry.walkInName || "Walk-in",
+      email: null,
+    };
+  } else if (isGuest) {
+    user = {
+      id: null,
+      name: null,
       email: null,
     };
   } else {
@@ -62,6 +73,7 @@ function toWaitingRow(entry, position) {
     position,
     user,
     isWalkIn,
+    isGuest,
     joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
   };
 }

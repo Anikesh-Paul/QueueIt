@@ -2,14 +2,17 @@ export const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000")
 
 /**
  * Low-level JSON fetch against the QueueIt API.
+ * JWT (token) wins over Guest credential when both are set.
  * @param {string} path
- * @param {{ method?: string, body?: unknown, token?: string | null }} [options]
+ * @param {{ method?: string, body?: unknown, token?: string | null, guestCredential?: string | null }} [options]
  */
 export async function apiRequest(path, options = {}) {
-  const { method = "GET", body, token } = options;
+  const { method = "GET", body, token, guestCredential } = options;
   const headers = { "Content-Type": "application/json" };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+  } else if (guestCredential) {
+    headers["X-Guest-Credential"] = guestCredential;
   }
 
   const res = await fetch(`${API_URL}${path}`, {
@@ -61,35 +64,40 @@ export function adminPing(token) {
   return apiRequest("/api/admin/ping", { token });
 }
 
-/** GET /api/queues — authenticated catalog of available queues. */
-export function fetchQueues(token) {
-  return apiRequest("/api/queues", { token });
+/** GET /api/queues — public catalog (User JWT or Guest credential optional). */
+export function fetchQueues(token, guestCredential) {
+  return apiRequest("/api/queues", { token, guestCredential });
 }
 
-/** POST /api/queues/:queueId/join — take a place; receive token + live status. */
-export function joinQueue(token, queueId) {
+/** POST /api/queues/:queueId/join — take a place; Guest mints credential on first join. */
+export function joinQueue(token, queueId, guestCredential) {
   return apiRequest(`/api/queues/${queueId}/join`, {
     method: "POST",
     token,
+    guestCredential,
   });
 }
 
 /** GET /api/queues/:queueId/status — poll token, position, ETA, now serving. */
-export function fetchQueueStatus(token, queueId) {
-  return apiRequest(`/api/queues/${queueId}/status`, { token });
-}
-
-/** POST /api/queues/:queueId/leave — free the caller's active place in line. */
-export function leaveQueue(token, queueId) {
-  return apiRequest(`/api/queues/${queueId}/leave`, {
-    method: "POST",
+export function fetchQueueStatus(token, queueId, guestCredential) {
+  return apiRequest(`/api/queues/${queueId}/status`, {
     token,
+    guestCredential,
   });
 }
 
-/** GET /api/queues/history — caller's queue events (joined / left / served / skipped). */
-export function fetchHistory(token) {
-  return apiRequest("/api/queues/history", { token });
+/** POST /api/queues/:queueId/leave — free the caller's active place in line. */
+export function leaveQueue(token, queueId, guestCredential) {
+  return apiRequest(`/api/queues/${queueId}/leave`, {
+    method: "POST",
+    token,
+    guestCredential,
+  });
+}
+
+/** GET /api/queues/history — User History or Guest device-local history. */
+export function fetchHistory(token, guestCredential) {
+  return apiRequest("/api/queues/history", { token, guestCredential });
 }
 
 /** GET /api/admin/queues/:queueId/waiting-list — admin waiting list + queue meta. */

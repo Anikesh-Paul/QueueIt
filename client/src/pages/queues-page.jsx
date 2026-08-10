@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 export function QueuesPage() {
   const {
     token,
+    guestCredential,
     isAdmin,
     queues,
     queuesLoading,
@@ -38,6 +39,10 @@ export function QueuesPage() {
   }, [inQueue, navigate]);
 
   const selected = queues.find((q) => q.id === selectedQueueId) || null;
+
+  function refreshCatalog() {
+    loadQueues(token || null, { guestCred: guestCredential || null });
+  }
 
   async function handleJoin() {
     if (!selectedQueueId || joinBusy) return;
@@ -64,7 +69,7 @@ export function QueuesPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => loadQueues(token)}
+          onClick={refreshCatalog}
           disabled={queuesLoading}
           className="hidden sm:inline-flex"
           data-testid="queues-refresh"
@@ -163,7 +168,7 @@ export function QueuesPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => loadQueues(token)}
+          onClick={refreshCatalog}
           disabled={queuesLoading}
           className="sm:hidden"
           data-testid="queues-refresh-mobile"

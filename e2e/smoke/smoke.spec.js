@@ -20,9 +20,12 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
     await expect(page.getByLabel("Password")).toBeVisible();
   });
 
-  test("unauthenticated API rejects queue list", async ({ request }) => {
+  test("public API returns queue catalog without auth (Guest browse)", async ({ request }) => {
+    // Catalog browse needs no credential; join mints Guest credential later.
     const res = await request.get("http://localhost:5000/api/queues");
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.queues).toHaveLength(2);
   });
 
   test("authenticated API returns seeded queues", async ({ request }) => {

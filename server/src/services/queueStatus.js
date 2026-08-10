@@ -55,6 +55,18 @@ export async function findActiveEntry(queueId, userId) {
 }
 
 /**
+ * Find a Guest's active membership in a queue (waiting or serving).
+ * Peer fairness: one active membership per queue, same as User.
+ */
+export async function findActiveGuestEntry(queueId, guestId) {
+  return QueueEntry.findOne({
+    queue: queueId,
+    guest: guestId,
+    status: { $in: ACTIVE_ENTRY_STATUSES },
+  });
+}
+
+/**
  * Map entry status to a user-facing history outcome.
  * Active membership (waiting/serving) surfaces as "joined".
  */

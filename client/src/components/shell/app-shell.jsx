@@ -31,20 +31,21 @@ function resolveAdminQueueId(adminQueueId, pathname) {
 }
 
 /**
- * Shared hybrid chrome for User, Admin, and (later) Guest.
+ * Shared hybrid chrome for User, Admin, and Guest.
  * Top bar only — page toolbars are composed by Live / Admin / Analytics pages.
- * Primitives stay session-shape agnostic so P5 can reuse without JWT-only assumptions.
  */
 export function AppShell() {
-  const { user, isAdmin, inQueue, adminQueueId, logout } = useApp();
+  const { user, isAdmin, isGuest, inQueue, adminQueueId, logout } = useApp();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const openAdminQueueId = resolveAdminQueueId(adminQueueId, pathname);
 
-  // JWT session today; Guest identity may render the same chip without a JWT (P5).
+  // JWT User/Admin wins; otherwise Guest chip on the student peer path.
   const identity = user
     ? { name: user.name, role: user.role === "admin" ? "admin" : "user" }
-    : null;
+    : isGuest
+      ? { name: "Guest", role: "guest" }
+      : null;
   const showLogout = Boolean(user);
 
   function handleLogout() {

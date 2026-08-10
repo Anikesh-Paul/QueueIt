@@ -27,15 +27,35 @@ import {
 import { createRealtimeClient } from "@/lib/realtime";
 
 export const TOKEN_KEY = "queueit_token";
+/** Device-bound Guest credential (survives refresh on this browser). */
+export const GUEST_CREDENTIAL_KEY = "queueit_guest_credential";
+/** Client flag: entered student path as Guest before first join. */
+export const GUEST_MODE_KEY = "queueit_guest_mode";
 /** Poll interval for live status and admin waiting list (safe fallback baseline). */
 const STATUS_POLL_MS = 3000;
 
 const AppContext = createContext(null);
 
+function readStoredGuestCredential() {
+  return localStorage.getItem(GUEST_CREDENTIAL_KEY) || "";
+}
+
+function readStoredGuestMode() {
+  return localStorage.getItem(GUEST_MODE_KEY) === "1";
+}
+
 export function AppProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || "");
   const [user, setUser] = useState(null);
-  const [booting, setBooting] = useState(Boolean(localStorage.getItem(TOKEN_KEY)));
+  const [guestCredential, setGuestCredential] = useState(() => readStoredGuestCredential());
+  const [guestMode, setGuestMode] = useState(() => readStoredGuestMode());
+  const [booting, setBooting] = useState(
+    Boolean(
+      localStorage.getItem(TOKEN_KEY) ||
+        readStoredGuestCredential() ||
+        readStoredGuestMode()
+    )
+  );
 
   const [queues, setQueues] = useState([]);
   const [queuesLoading, setQueuesLoading] = useState(false);
@@ -96,6 +116,24 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  const persistGuestCredential = useCallback((credential) => {
+    const value = credential || "";
+    setGuestCredential(value);
+    if (value) {
+      localStorage.setItem(GUEST_CREDENTIAL_KEY, value);
+      localStorage.setItem(GUEST_MODE_KEY, "1");
+      setGuestMode(true);
+    } else {
+      localStorage.removeItem(GUEST_CREDENTIAL_KEY);
+    }
+  }, []);
+
+  /** Enter student path as Guest without a User account (catalog before first join). */
+  const enterGuestMode = useCallback(() => {
+    localStorage.setItem(GUEST_MODE_KEY, "1");
+    setGuestMode(true);
+  }, []);
+
   const clearLiveStatus = useCallback(() => {
     setLiveStatus(null);
     setStatusQueueId(null);
@@ -126,6 +164,9 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  /**
+   * Log out JWT User/Admin. Unclaimed Guest credential may still power Guest path.
+   */
   const logout = useCallback(() => {
     persistSession("", null);
     setQueues([]);
@@ -142,11 +183,17 @@ export function AppProvider({ children }) {
     clearAdminConsole();
   }, [persistSession, clearLiveStatus, clearAdminConsole]);
 
-  const restoreActiveMembership = useCallback(async (sessionToken, catalog) => {
-    if (!sessionToken || !Array.isArray(catalog)) return false;
+  /** JWT when present; else Guest credential for student join APIs. */
+  const joinerAuth = useCallback(() => {
+    if (token) return { token, guestCredential: null };
+    return { token: null, guestCredential: guestCredential || null };
+  }, [token, guestCredential]);
+
+  const restoreActiveMembership = useCallback(async (sessionToken, catalog, guestCred) => {
+    if ((!sessionToken && !guestCred) || !Array.isArray(catalog)) return false;
     for (const queue of catalog) {
       try {
-        const data = await fetchQueueStatus(sessionToken, queue.id);
+        const data = await fetchQueueStatus(sessionToken, queue.id, guestCred);
         setLiveStatus(data);
         setStatusQueueId(queue.id);
         setStatusLastUpdatedAt(Date.now());
@@ -160,15 +207,15 @@ export function AppProvider({ children }) {
   }, []);
 
   const loadQueues = useCallback(
-    async (sessionToken, { restoreStatus = false } = {}) => {
+    async (sessionToken, { restoreStatus = false, guestCred } = {}) => {
       setQueuesLoading(true);
       setQueuesError("");
       try {
-        const data = await fetchQueues(sessionToken);
+        const data = await fetchQueues(sessionToken, guestCred);
         const catalog = Array.isArray(data.queues) ? data.queues : [];
         setQueues(catalog);
         if (restoreStatus) {
-          await restoreActiveMembership(sessionToken, catalog);
+          await restoreActiveMembership(sessionToken, catalog, guestCred);
         }
       } catch (err) {
         setQueues([]);
@@ -181,11 +228,11 @@ export function AppProvider({ children }) {
   );
 
   const refreshStatus = useCallback(
-    async (sessionToken, queueId, { silent } = {}) => {
-      if (!sessionToken || !queueId) return;
+    async (sessionToken, queueId, { silent, guestCred } = {}) => {
+      if ((!sessionToken && !guestCred) || !queueId) return;
       if (!silent) setStatusUpdating(true);
       try {
-        const data = await fetchQueueStatus(sessionToken, queueId);
+        const data = await fetchQueueStatus(sessionToken, queueId, guestCred);
         setLiveStatus(data);
         setStatusQueueId(queueId);
         setStatusLastUpdatedAt(Date.now());
@@ -203,35 +250,51 @@ export function AppProvider({ children }) {
     [clearLiveStatus]
   );
 
-  // Restore session on boot (and after re-login).
+  // Restore JWT session or Guest path on boot.
   useEffect(() => {
-    if (!token) {
-      setBooting(false);
-      return;
-    }
-
     let cancelled = false;
+
     (async () => {
-      try {
-        const data = await fetchMe(token);
-        if (cancelled) return;
-        setUser(data.user);
-        if (!cancelled) {
-          await loadQueues(token, { restoreStatus: true });
+      if (token) {
+        try {
+          const data = await fetchMe(token);
+          if (cancelled) return;
+          setUser(data.user);
+          if (!cancelled) {
+            await loadQueues(token, { restoreStatus: true });
+          }
+        } catch {
+          if (!cancelled) {
+            logout();
+          }
+        } finally {
+          if (!cancelled) setBooting(false);
         }
-      } catch {
-        if (!cancelled) {
-          logout();
-        }
-      } finally {
-        if (!cancelled) setBooting(false);
+        return;
       }
+
+      // Guest path: mode and/or stored credential (no JWT).
+      if (guestMode || guestCredential) {
+        try {
+          await loadQueues(null, {
+            restoreStatus: Boolean(guestCredential),
+            guestCred: guestCredential || null,
+          });
+        } catch {
+          // Catalog errors surface via queuesError.
+        } finally {
+          if (!cancelled) setBooting(false);
+        }
+        return;
+      }
+
+      if (!cancelled) setBooting(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [token, logout, loadQueues]);
+  }, [token, guestMode, guestCredential, logout, loadQueues]);
 
   const loadWaitingList = useCallback(
     async (sessionToken, queueId, { silent } = {}) => {
@@ -252,9 +315,8 @@ export function AppProvider({ children }) {
     []
   );
 
-  // Realtime lifecycle: one socket per session token. On queue:changed the
-  // matching surface re-fetches through the normal REST APIs; polling stays
-  // active underneath as the documented fallback.
+  // Realtime lifecycle: Socket.IO is JWT-only (F16 Guest credential out).
+  // Guest path relies on polling honesty as the live baseline.
   useEffect(() => {
     if (!token) {
       if (realtimeRef.current) {
@@ -296,12 +358,12 @@ export function AppProvider({ children }) {
     client.setSubscriptions(targets);
   }, [statusQueueId, adminQueueId]);
 
-  const loadHistory = useCallback(async (sessionToken) => {
-    if (!sessionToken) return;
+  const loadHistory = useCallback(async (sessionToken, guestCred) => {
+    if (!sessionToken && !guestCred) return;
     setHistoryLoading(true);
     setHistoryError("");
     try {
-      const data = await fetchHistory(sessionToken);
+      const data = await fetchHistory(sessionToken, guestCred);
       setHistoryEvents(Array.isArray(data.events) ? data.events : []);
     } catch (err) {
       setHistoryEvents([]);
@@ -330,9 +392,10 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  // Poll live status while the user holds a place in line.
+  // Poll live status while the joiner holds a place in line (User JWT or Guest).
   useEffect(() => {
-    if (!token || !statusQueueId || !liveStatus) {
+    const auth = joinerAuth();
+    if ((!auth.token && !auth.guestCredential) || !statusQueueId || !liveStatus) {
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
@@ -341,7 +404,10 @@ export function AppProvider({ children }) {
     }
 
     pollRef.current = setInterval(() => {
-      refreshStatus(token, statusQueueId, { silent: true });
+      refreshStatus(auth.token, statusQueueId, {
+        silent: true,
+        guestCred: auth.guestCredential,
+      });
     }, STATUS_POLL_MS);
 
     return () => {
@@ -350,7 +416,7 @@ export function AppProvider({ children }) {
         pollRef.current = null;
       }
     };
-  }, [token, statusQueueId, liveStatus, refreshStatus]);
+  }, [token, guestCredential, statusQueueId, liveStatus, refreshStatus, joinerAuth]);
 
   // Poll admin waiting list while the console is open.
   useEffect(() => {
@@ -376,11 +442,17 @@ export function AppProvider({ children }) {
 
   const join = useCallback(
     async (queueId) => {
-      if (!token || !queueId) return false;
+      if (!queueId) return false;
+      // JWT User/Admin, existing Guest credential, or mint on first Guest join.
+      const auth = joinerAuth();
+      if (user?.role === "admin") return false;
       setJoinError("");
       setJoinBusy(true);
       try {
-        const data = await joinQueue(token, queueId);
+        const data = await joinQueue(auth.token, queueId, auth.guestCredential);
+        if (data.guestCredential) {
+          persistGuestCredential(data.guestCredential);
+        }
         setLiveStatus(data);
         setStatusQueueId(queueId);
         setStatusLastUpdatedAt(Date.now());
@@ -390,7 +462,9 @@ export function AppProvider({ children }) {
         // Already waiting — resume live status instead of a dead-end error.
         if (err.status === 409) {
           try {
-            await refreshStatus(token, queueId);
+            await refreshStatus(auth.token, queueId, {
+              guestCred: auth.guestCredential,
+            });
             return true;
           } catch {
             // fall through to message
@@ -402,15 +476,16 @@ export function AppProvider({ children }) {
         setJoinBusy(false);
       }
     },
-    [token, refreshStatus]
+    [joinerAuth, user?.role, refreshStatus, persistGuestCredential]
   );
 
   const leave = useCallback(async () => {
-    if (!token || !statusQueueId) return false;
+    const auth = joinerAuth();
+    if ((!auth.token && !auth.guestCredential) || !statusQueueId) return false;
     setLeaveError("");
     setLeaveBusy(true);
     try {
-      await leaveQueue(token, statusQueueId);
+      await leaveQueue(auth.token, statusQueueId, auth.guestCredential);
       clearLiveStatus();
       setSelectedQueueId(null);
       return true;
@@ -424,7 +499,7 @@ export function AppProvider({ children }) {
     } finally {
       setLeaveBusy(false);
     }
-  }, [token, statusQueueId, clearLiveStatus]);
+  }, [joinerAuth, statusQueueId, clearLiveStatus]);
 
   const openAdminConsole = useCallback(
     async (queueId) => {
@@ -524,12 +599,20 @@ export function AppProvider({ children }) {
     [token, adminQueueId, loadWaitingList]
   );
 
+  // Guest persona when no JWT User/Admin and (mode or credential) is present.
+  const isGuest = !user && (guestMode || Boolean(guestCredential));
+
   const value = {
     token,
     user,
+    guestCredential,
+    guestMode,
+    isGuest,
     booting,
     isAdmin: user?.role === "admin",
     persistSession,
+    persistGuestCredential,
+    enterGuestMode,
     queues,
     queuesLoading,
     queuesError,

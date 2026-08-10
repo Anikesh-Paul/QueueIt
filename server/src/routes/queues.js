@@ -1,11 +1,13 @@
 import { Router } from "express";
 import mongoose from "mongoose";
-import { requireAuth } from "../middleware/auth.js";
+import { attachJoiner, requireJoiner } from "../middleware/auth.js";
+import { Guest } from "../models/Guest.js";
 import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import {
   buildStatusPayload,
   findActiveEntry,
+  findActiveGuestEntry,
   toHistoryEvent,
 } from "../services/queueStatus.js";
 import { emitQueueChanged } from "../services/realtime.js";
@@ -16,9 +18,9 @@ const router = Router();
 
 /**
  * GET /api/queues — list available queues (seeded catalog).
- * Any authenticated role may list; join/admin controls are later tickets.
+ * Public: Guests may browse without a credential; JWT optional.
  */
-router.get("/", requireAuth, async (_req, res, next) => {
+router.get("/", async (_req, res, next) => {
   try {
     // Catalog of available (open) queues for the seeded venue(s).
     // Include paused so users can still see lines; join allows open + paused.
@@ -36,13 +38,17 @@ router.get("/", requireAuth, async (_req, res, next) => {
 });
 
 /**
- * GET /api/queues/history — authenticated user's queue events (newest first).
+ * GET /api/queues/history — User History or Guest device-local history (newest first).
  * Outcomes: joined (active waiting/serving), left, served, skipped.
  * Registered before /:queueId routes so "history" is not parsed as an id.
  */
-router.get("/history", requireAuth, async (req, res, next) => {
+router.get("/history", attachJoiner, requireJoiner, async (req, res, next) => {
   try {
-    const entries = await QueueEntry.find({ user: req.user._id })
+    const filter = req.user
+      ? { user: req.user._id }
+      : { guest: req.guest._id };
+
+    const entries = await QueueEntry.find(filter)
       .populate("queue")
       .sort({ updatedAt: -1, createdAt: -1 })
       .exec();
@@ -56,9 +62,36 @@ router.get("/history", requireAuth, async (req, res, next) => {
 });
 
 /**
- * POST /api/queues/:queueId/join — take a place in line; issue token + live status.
+ * Resolve active membership for the current joiner (User or Guest).
  */
-router.post("/:queueId/join", requireAuth, async (req, res, next) => {
+async function findJoinerActiveEntry(queueId, req) {
+  if (req.user) {
+    return findActiveEntry(queueId, req.user._id);
+  }
+  if (req.guest) {
+    return findActiveGuestEntry(queueId, req.guest._id);
+  }
+  return null;
+}
+
+/**
+ * Ensure a Guest document for join. Reuses req.guest or mints a new credential.
+ * @returns {Promise<{ guest: import("mongoose").Document, minted: boolean }>}
+ */
+async function resolveGuestForJoin(req) {
+  if (req.guest) {
+    return { guest: req.guest, minted: false };
+  }
+  const credential = Guest.mintCredential();
+  const guest = await Guest.create({ credential });
+  return { guest, minted: true };
+}
+
+/**
+ * POST /api/queues/:queueId/join — take a place in line; issue token + live status.
+ * User (JWT) or Guest (existing credential or mint on first join).
+ */
+router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
   try {
     const { queueId } = req.params;
     if (!mongoose.isValidObjectId(queueId)) {
@@ -70,7 +103,18 @@ router.post("/:queueId/join", requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: "Queue not found" });
     }
 
-    const existing = await findActiveEntry(queue._id, req.user._id);
+    let guest = null;
+    let guestMinted = false;
+
+    if (!req.user) {
+      const resolved = await resolveGuestForJoin(req);
+      guest = resolved.guest;
+      guestMinted = resolved.minted;
+      // So findJoinerActiveEntry sees the guest for double-join checks.
+      req.guest = guest;
+    }
+
+    const existing = await findJoinerActiveEntry(queue._id, req);
     if (existing) {
       return res.status(409).json({
         error: "Already in this queue",
@@ -88,17 +132,34 @@ router.post("/:queueId/join", requireAuth, async (req, res, next) => {
     }
 
     const tokenNumber = updated.nextTokenNumber;
-    const entry = await QueueEntry.create({
+    const entryFields = {
       queue: queue._id,
-      user: req.user._id,
       tokenNumber,
       status: "waiting",
-    });
+      isWalkIn: false,
+    };
+    if (req.user) {
+      entryFields.user = req.user._id;
+    } else {
+      entryFields.guest = guest._id;
+    }
+
+    const entry = await QueueEntry.create(entryFields);
 
     // Reload queue for current nowServing / averageServiceTime after token bump.
     const freshQueue = await Queue.findById(queue._id);
     emitQueueChanged(queue._id, "join");
     const payload = await buildStatusPayload(freshQueue, entry);
+
+    if (!req.user && guest) {
+      // Always echo credential so the client can persist after first join.
+      payload.guestCredential = guest.credential;
+      // Hint whether this response minted (clients may ignore).
+      if (guestMinted) {
+        payload.guestCredentialMinted = true;
+      }
+    }
+
     return res.status(201).json(payload);
   } catch (err) {
     return next(err);
@@ -108,7 +169,7 @@ router.post("/:queueId/join", requireAuth, async (req, res, next) => {
 /**
  * POST /api/queues/:queueId/leave — free the caller's active place in line.
  */
-router.post("/:queueId/leave", requireAuth, async (req, res, next) => {
+router.post("/:queueId/leave", attachJoiner, requireJoiner, async (req, res, next) => {
   try {
     const { queueId } = req.params;
     if (!mongoose.isValidObjectId(queueId)) {
@@ -120,7 +181,7 @@ router.post("/:queueId/leave", requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: "Not in this queue" });
     }
 
-    const entry = await findActiveEntry(queue._id, req.user._id);
+    const entry = await findJoinerActiveEntry(queue._id, req);
     if (!entry) {
       return res.status(404).json({ error: "Not in this queue" });
     }
@@ -147,7 +208,7 @@ router.post("/:queueId/leave", requireAuth, async (req, res, next) => {
  * GET /api/queues/:queueId/status — poll token, position, ETA, now serving.
  * Requires the caller to hold an active membership in this queue.
  */
-router.get("/:queueId/status", requireAuth, async (req, res, next) => {
+router.get("/:queueId/status", attachJoiner, requireJoiner, async (req, res, next) => {
   try {
     const { queueId } = req.params;
     if (!mongoose.isValidObjectId(queueId)) {
@@ -159,7 +220,7 @@ router.get("/:queueId/status", requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: "Not in this queue" });
     }
 
-    const entry = await findActiveEntry(queue._id, req.user._id);
+    const entry = await findJoinerActiveEntry(queue._id, req);
     if (!entry) {
       return res.status(404).json({ error: "Not in this queue" });
     }

@@ -5,8 +5,8 @@ import { Wordmark } from "@/components/brand/wordmark";
 import {
   HomeRedirect,
   RequireAdmin,
-  RequireAuth,
-  RequireGuest,
+  RequireLoggedOut,
+  RequireShellAccess,
   RequireUser,
 } from "@/routes/guards";
 import { QueuesPage } from "@/pages/queues-page";
@@ -25,14 +25,14 @@ const router = createBrowserRouter([
     element: <BootGate />,
     children: [
       {
-        element: <RequireGuest />,
+        element: <RequireLoggedOut />,
         children: [
           { path: "/login", element: <LoginPage /> },
           { path: "/register", element: <RegisterPage /> },
         ],
       },
       {
-        element: <RequireAuth />,
+        element: <RequireShellAccess />,
         children: [
           {
             element: <AppShell />,

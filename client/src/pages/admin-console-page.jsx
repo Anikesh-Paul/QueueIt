@@ -560,7 +560,11 @@ export function AdminConsolePage() {
                   {waitingList.map((entry) => {
                     const isSelected = entry.id === selectedEntryId;
                     const isWalkIn = Boolean(entry.isWalkIn);
-                    const displayName = entry.user?.name || (isWalkIn ? "Walk-in" : "User");
+                    const isGuest = Boolean(entry.isGuest) && !isWalkIn;
+                    // Token-first rows: Guest badge only (no name/email); walk-in keeps name.
+                    const displayName = isGuest
+                      ? null
+                      : entry.user?.name || (isWalkIn ? "Walk-in" : "User");
                     return (
                       <li key={entry.id}>
                         <button
@@ -576,22 +580,31 @@ export function AdminConsolePage() {
                           data-testid="waiting-entry"
                           data-token={entry.tokenNumber}
                           data-walk-in={isWalkIn ? "true" : "false"}
+                          data-guest={isGuest ? "true" : "false"}
                         >
                           <span className="w-10 shrink-0 font-metric text-base font-bold tabular-nums text-foreground">
                             #{entry.tokenNumber}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-foreground">
-                              {displayName}
+                            <span className="flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
+                              {displayName ? <span className="truncate">{displayName}</span> : null}
+                              {isGuest ? (
+                                <span
+                                  className="badge--guest shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-text-secondary ring-1 ring-border"
+                                  data-testid="waiting-guest-badge"
+                                >
+                                  Guest
+                                </span>
+                              ) : null}
                               {isWalkIn ? (
-                                <span className="ml-1.5 text-xs font-semibold text-text-muted">
+                                <span className="ml-0.5 text-xs font-semibold text-text-muted">
                                   · Walk-in
                                 </span>
                               ) : null}
                             </span>
                             <span className="block truncate text-xs text-text-muted">
                               Position {entry.position}
-                              {entry.user?.email ? ` · ${entry.user.email}` : ""}
+                              {!isGuest && entry.user?.email ? ` · ${entry.user.email}` : ""}
                             </span>
                           </span>
                         </button>
@@ -727,7 +740,10 @@ export function AdminConsolePage() {
                       Arrival confirmed
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {verifyResult.entry?.user?.name || "Walk-in"}
+                      {verifyResult.entry?.isGuest
+                        ? "Guest"
+                        : verifyResult.entry?.user?.name ||
+                          (verifyResult.entry?.isWalkIn ? "Walk-in" : "User")}
                     </p>
                     <p className="text-xs text-text-muted">
                       Token{" "}
@@ -738,7 +754,7 @@ export function AdminConsolePage() {
                         {verifyResult.entry?.tokenNumber}
                       </span>
                       {" · "}Position {verifyResult.entry?.position}
-                      {verifyResult.entry?.user?.email
+                      {!verifyResult.entry?.isGuest && verifyResult.entry?.user?.email
                         ? ` · ${verifyResult.entry.user.email}`
                         : ""}
                     </p>

@@ -49,6 +49,7 @@ function formatStatusAge(updatedAt, nowMs) {
 export function StatusPage() {
   const {
     token,
+    guestCredential,
     user,
     inQueue,
     liveStatus,
@@ -142,7 +143,11 @@ export function StatusPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => refreshStatus(token, statusQueueId)}
+              onClick={() =>
+                refreshStatus(token || null, statusQueueId, {
+                  guestCred: guestCredential || null,
+                })
+              }
               disabled={statusUpdating}
               data-testid="status-refresh"
             >

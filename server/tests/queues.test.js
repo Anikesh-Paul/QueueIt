@@ -76,11 +76,14 @@ describe("Venue seed + list queues (HTTP API)", () => {
   });
 
   describe("GET /api/queues", () => {
-    it("rejects unauthenticated access", async () => {
+    it("allows public catalog browse without auth (Guest path)", async () => {
+      await seedVenueAndQueues();
       const app = testApp();
       const res = await request(app).get("/api/queues");
 
-      assert.equal(res.status, 401);
+      assert.equal(res.status, 200);
+      assert.ok(Array.isArray(res.body.queues));
+      assert.equal(res.body.queues.length, 2);
     });
 
     it("returns seeded queues for an authenticated user", async () => {

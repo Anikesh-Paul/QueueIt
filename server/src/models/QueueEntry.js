@@ -15,12 +15,23 @@ const queueEntrySchema = new mongoose.Schema(
       index: true,
     },
     /**
-     * Authenticated joiner. Optional for admin walk-ins (counter arrivals without app join).
-     * Walk-ins set isWalkIn + walkInName instead.
+     * Authenticated joiner. Optional for admin walk-ins and Guest app joins.
+     * Walk-ins set isWalkIn + walkInName; Guests set guest instead.
      */
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+      required: false,
+      default: null,
+      index: true,
+    },
+    /**
+     * Guest joiner (device-bound credential). Mutually exclusive with user and walk-in.
+     * Not the same as isWalkIn (admin counter-created).
+     */
+    guest: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Guest",
       required: false,
       default: null,
       index: true,
@@ -31,7 +42,7 @@ const queueEntrySchema = new mongoose.Schema(
       default: false,
       required: true,
     },
-    /** Display name for walk-in entries (counter guest). Ignored when user is set. */
+    /** Display name for walk-in entries (admin counter-created). Ignored when user/guest is set. */
     walkInName: {
       type: String,
       trim: true,
@@ -60,13 +71,31 @@ queueEntrySchema.pre("validate", function ensureMembershipIdentity() {
       this.invalidate("walkInName", "Walk-in name is required");
     }
     this.user = null;
-  } else if (!this.user) {
-    this.invalidate("user", "User is required for app-joined entries");
+    this.guest = null;
+    return;
   }
+
+  const hasUser = Boolean(this.user);
+  const hasGuest = Boolean(this.guest);
+
+  if (hasUser && hasGuest) {
+    this.invalidate("guest", "Entry cannot belong to both User and Guest");
+    return;
+  }
+  if (hasGuest) {
+    this.user = null;
+    return;
+  }
+  if (hasUser) {
+    this.guest = null;
+    return;
+  }
+  this.invalidate("user", "User or Guest is required for app-joined entries");
 });
 
 queueEntrySchema.index({ queue: 1, tokenNumber: 1 });
 queueEntrySchema.index({ queue: 1, user: 1, status: 1 });
+queueEntrySchema.index({ queue: 1, guest: 1, status: 1 });
 
 export const QueueEntry =
   mongoose.models.QueueEntry || mongoose.model("QueueEntry", queueEntrySchema);

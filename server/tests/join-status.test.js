@@ -36,13 +36,16 @@ describe("Join queue + live status (HTTP API)", () => {
   });
 
   describe("POST /api/queues/:queueId/join", () => {
-    it("rejects unauthenticated join", async () => {
+    it("allows unauthenticated join as Guest (mints credential)", async () => {
       const queueId = await seedAndGetCafeteriaId();
       const app = testApp();
 
       const res = await request(app).post(`/api/queues/${queueId}/join`);
 
-      assert.equal(res.status, 401);
+      // Guest peer path: first join without JWT mints a device credential.
+      assert.equal(res.status, 201);
+      assert.equal(typeof res.body.guestCredential, "string");
+      assert.equal(res.body.tokenNumber, 1);
     });
 
     it("rejects join for a non-existent queue", async () => {

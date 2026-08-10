@@ -11,10 +11,11 @@ import { Alert } from "@/components/ui/alert";
  * Auth form (login | register). Keeps scaffold form behavior; renders inside
  * the shared AuthLayout. On success the session persists and the router
  * redirects "/" to /status (in queue) or /queues.
+ * Continue as Guest enters the student path without a User account (credential on first join).
  */
 export function AuthForm({ mode }) {
   const navigate = useNavigate();
-  const { persistSession } = useApp();
+  const { persistSession, enterGuestMode } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -38,6 +39,11 @@ export function AuthForm({ mode }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleContinueAsGuest() {
+    enterGuestMode();
+    navigate("/queues", { replace: true });
   }
 
   return (
@@ -129,6 +135,22 @@ export function AuthForm({ mode }) {
           </>
         )}
       </p>
+
+      <div className="mt-4 border-t border-border pt-4 text-center">
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          className="w-full"
+          onClick={handleContinueAsGuest}
+          data-testid="continue-as-guest"
+        >
+          Continue as Guest
+        </Button>
+        <p className="mt-2 text-xs text-text-muted">
+          Join a line without an account. Soft upgrade is optional later.
+        </p>
+      </div>
     </div>
   );
 }

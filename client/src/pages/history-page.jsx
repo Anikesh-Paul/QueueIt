@@ -14,15 +14,19 @@ function formatOutcomeLabel(outcome) {
 }
 
 /**
- * User History — past queue events (joined / left / served / skipped).
+ * History (User, portable) or device-local history (Guest, this device).
+ * Same surface + IST formatter; soft upgrade (09) later merges onto User History.
  * Ruthless copy: H1 History; empty primary + one secondary only.
  */
 export function HistoryPage() {
-  const { token, historyEvents, historyLoading, historyError, loadHistory } = useApp();
+  const { token, guestCredential, historyEvents, historyLoading, historyError, loadHistory } =
+    useApp();
 
   useEffect(() => {
-    if (token) loadHistory(token);
-  }, [token, loadHistory]);
+    if (token || guestCredential) {
+      loadHistory(token || null, guestCredential || null);
+    }
+  }, [token, guestCredential, loadHistory]);
 
   return (
     <ShellContent tier="student">
@@ -36,7 +40,7 @@ export function HistoryPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => loadHistory(token)}
+          onClick={() => loadHistory(token || null, guestCredential || null)}
           disabled={historyLoading}
           className="hidden sm:inline-flex"
           data-testid="history-refresh"

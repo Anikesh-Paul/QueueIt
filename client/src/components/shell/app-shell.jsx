@@ -47,6 +47,8 @@ export function AppShell() {
       ? { name: "Guest", role: "guest" }
       : null;
   const showLogout = Boolean(user);
+  // Soft upgrade entry: Guest chip menu only (no persistent full-width banner).
+  const guestSoftUpgrade = Boolean(isGuest && !user);
 
   function handleLogout() {
     logout();
@@ -81,7 +83,7 @@ export function AppShell() {
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <UserChip user={identity} />
+            <UserChip user={identity} softUpgrade={guestSoftUpgrade} />
             {showLogout ? (
               <Button
                 variant="ghost"

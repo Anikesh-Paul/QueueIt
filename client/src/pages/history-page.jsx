@@ -5,6 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { useApp } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
+import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { cn } from "@/lib/utils";
 
@@ -15,12 +16,19 @@ function formatOutcomeLabel(outcome) {
 
 /**
  * History (User, portable) or device-local history (Guest, this device).
- * Same surface + IST formatter; soft upgrade (09) later merges onto User History.
- * Ruthless copy: H1 History; empty primary + one secondary only.
+ * After soft upgrade, events are claimed onto portable User History.
+ * Ruthless copy: H1 History; empty primary + one secondary; Guest empty may reinforce upgrade.
  */
 export function HistoryPage() {
-  const { token, guestCredential, historyEvents, historyLoading, historyError, loadHistory } =
-    useApp();
+  const {
+    token,
+    guestCredential,
+    isGuest,
+    historyEvents,
+    historyLoading,
+    historyError,
+    loadHistory,
+  } = useApp();
 
   useEffect(() => {
     if (token || guestCredential) {
@@ -67,7 +75,17 @@ export function HistoryPage() {
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
             No history yet
           </p>
-          <p className="mt-1 text-sm text-text-secondary">Join a queue to start one.</p>
+          <p className="mt-1 text-sm text-text-secondary">
+            {isGuest
+              ? "Register or log in to keep history across devices."
+              : "Join a queue to start one."}
+          </p>
+          {isGuest ? (
+            <SoftUpgradePrompt
+              className="mx-auto mt-6 max-w-sm text-left"
+              testId="soft-upgrade-history-empty"
+            />
+          ) : null}
         </div>
       )}
 

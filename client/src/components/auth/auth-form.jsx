@@ -15,7 +15,7 @@ import { Alert } from "@/components/ui/alert";
  */
 export function AuthForm({ mode }) {
   const navigate = useNavigate();
-  const { persistSession, enterGuestMode } = useApp();
+  const { persistSession, enterGuestMode, guestCredential, isGuest } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -27,10 +27,17 @@ export function AuthForm({ mode }) {
     setError("");
     setBusy(true);
     try {
+      // Soft upgrade: present Guest credential is claimed + retired on the server.
+      const guestCred = guestCredential || null;
       const data =
         mode === "login"
-          ? await login({ email, password })
-          : await register({ email, password, name: name || "User" });
+          ? await login({ email, password, guestCredential: guestCred })
+          : await register({
+              email,
+              password,
+              name: name || "User",
+              guestCredential: guestCred,
+            });
       persistSession(data.token, data.user);
       setPassword("");
       navigate("/", { replace: true });
@@ -54,6 +61,12 @@ export function AuthForm({ mode }) {
       <p className="mt-1.5 text-sm text-text-secondary">
         {mode === "login" ? "Sign in to QueueIt." : "Create a student account."}
       </p>
+      {isGuest ? (
+        <div className="mt-3 rounded-lg border border-border bg-card px-3 py-2" data-testid="soft-upgrade-auth-hint">
+          <p className="text-sm font-semibold text-foreground">Keep your history</p>
+          <p className="mt-0.5 text-xs text-text-secondary">Register or log in on this device.</p>
+        </div>
+      ) : null}
 
       <form className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit}>
         {mode === "register" && (
@@ -136,21 +149,20 @@ export function AuthForm({ mode }) {
         )}
       </p>
 
-      <div className="mt-4 border-t border-border pt-4 text-center">
-        <Button
-          type="button"
-          variant="secondary"
-          size="lg"
-          className="w-full"
-          onClick={handleContinueAsGuest}
-          data-testid="continue-as-guest"
-        >
-          Continue as Guest
-        </Button>
-        <p className="mt-2 text-xs text-text-muted">
-          Join a line without an account. Soft upgrade is optional later.
-        </p>
-      </div>
+      {!isGuest ? (
+        <div className="mt-4 border-t border-border pt-4 text-center">
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            className="w-full"
+            onClick={handleContinueAsGuest}
+            data-testid="continue-as-guest"
+          >
+            Continue as Guest
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

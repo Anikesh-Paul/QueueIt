@@ -1,4 +1,6 @@
+import { useEffect, useId, useRef, useState } from "react";
 import { Badge as BadgePrimitive } from "@/components/ui/badge";
+import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { cn } from "@/lib/utils";
 
 /** Display labels for identity chips — title case per DESIGN.md. */
@@ -10,25 +12,40 @@ const ROLE_LABELS = {
 
 /**
  * Identity chip for the shared shell.
- * Works for JWT User/Admin today and Guest later (P5) — does not assume JWT-only forever.
+ * Guest: opens soft-upgrade chip menu (locked copy). User/Admin: static chip.
  * Callers pass `{ name, role }` where role is `user` | `admin` | `guest`.
- * The name is its own text node so `getByText("Demo User", { exact: true })` matches (smoke).
  */
-export function UserChip({ user, className }) {
+export function UserChip({ user, className, softUpgrade = false }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const rootRef = useRef(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    function onDocPointerDown(event) {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    }
+    function onKeyDown(event) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onDocPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
   if (!user) return null;
   const role = normalizeRole(user.role);
   const label = user.name?.trim() || (role === "guest" ? "Guest" : "Account");
   const initials = initialsFrom(label);
+  const isGuestChip = role === "guest" && softUpgrade;
 
-  return (
-    <div
-      data-testid="identity-chip"
-      data-role={role}
-      className={cn(
-        "inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-card",
-        className
-      )}
-    >
+  const chipBody = (
+    <>
       <span className="grid size-6 place-items-center rounded-full bg-primary-muted text-[0.6875rem] font-semibold text-primary">
         {initials}
       </span>
@@ -36,6 +53,56 @@ export function UserChip({ user, className }) {
         {label}
       </span>
       <RoleBadge role={role} />
+    </>
+  );
+
+  if (!isGuestChip) {
+    return (
+      <div
+        data-testid="identity-chip"
+        data-role={role}
+        className={cn(
+          "inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-card",
+          className
+        )}
+      >
+        {chipBody}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={rootRef} className={cn("relative", className)}>
+      <button
+        type="button"
+        data-testid="identity-chip"
+        data-role={role}
+        data-menu-open={menuOpen ? "true" : "false"}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-controls={menuId}
+        onClick={() => setMenuOpen((open) => !open)}
+        className={cn(
+          "inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-card",
+          "outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          menuOpen && "ring-2 ring-ring/40"
+        )}
+      >
+        {chipBody}
+      </button>
+      {menuOpen ? (
+        <div
+          id={menuId}
+          role="menu"
+          data-testid="soft-upgrade-menu"
+          className="absolute right-0 top-full z-50 mt-2 w-64"
+        >
+          <SoftUpgradePrompt
+            testId="soft-upgrade-menu-body"
+            onNavigate={() => setMenuOpen(false)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -31,6 +31,8 @@ export const TOKEN_KEY = "queueit_token";
 export const GUEST_CREDENTIAL_KEY = "queueit_guest_credential";
 /** Client flag: entered student path as Guest before first join. */
 export const GUEST_MODE_KEY = "queueit_guest_mode";
+/** Session flag: show one-shot soft-upgrade reinforce after Guest leave. */
+export const SOFT_UPGRADE_POST_LEAVE_KEY = "queueit_soft_upgrade_post_leave";
 /** Poll interval for live status and admin waiting list (safe fallback baseline). */
 const STATUS_POLL_MS = 3000;
 
@@ -106,11 +108,20 @@ export function AppProvider({ children }) {
     adminQueueIdRef.current = adminQueueId;
   }, [statusQueueId, adminQueueId]);
 
+  /**
+   * Persist JWT User/Admin session. When establishing a session, clears the
+   * device Guest path (JWT wins; soft upgrade retires credential client-side).
+   */
   const persistSession = useCallback((nextToken, nextUser) => {
     setToken(nextToken);
     setUser(nextUser);
     if (nextToken) {
       localStorage.setItem(TOKEN_KEY, nextToken);
+      // Soft upgrade / login: Guest credential no longer powers this device.
+      setGuestCredential("");
+      setGuestMode(false);
+      localStorage.removeItem(GUEST_CREDENTIAL_KEY);
+      localStorage.removeItem(GUEST_MODE_KEY);
     } else {
       localStorage.removeItem(TOKEN_KEY);
     }
@@ -486,6 +497,14 @@ export function AppProvider({ children }) {
     setLeaveBusy(true);
     try {
       await leaveQueue(auth.token, statusQueueId, auth.guestCredential);
+      // Optional post-leave soft-upgrade reinforce (Guest only; not a banner).
+      if (!auth.token && auth.guestCredential) {
+        try {
+          sessionStorage.setItem(SOFT_UPGRADE_POST_LEAVE_KEY, "1");
+        } catch {
+          // Private mode / blocked storage — skip reinforce.
+        }
+      }
       clearLiveStatus();
       setSelectedQueueId(null);
       return true;

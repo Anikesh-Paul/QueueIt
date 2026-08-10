@@ -1,21 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
-import { useApp } from "@/context/app-context";
+import { useApp, SOFT_UPGRADE_POST_LEAVE_KEY } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
+import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { cn } from "@/lib/utils";
 
 /**
  * Queue catalog — joinable queues for the seeded venue.
  * Ruthless copy: H1 Queues, button context only (no selection essays).
+ * Guest may see a one-shot soft-upgrade reinforce after leave (not a banner).
  */
 export function QueuesPage() {
   const {
     token,
     guestCredential,
+    isGuest,
     isAdmin,
     queues,
     queuesLoading,
@@ -31,12 +34,36 @@ export function QueuesPage() {
     inQueue,
   } = useApp();
   const navigate = useNavigate();
+  const [showPostLeaveUpgrade, setShowPostLeaveUpgrade] = useState(() => {
+    if (typeof sessionStorage === "undefined") return false;
+    try {
+      return sessionStorage.getItem(SOFT_UPGRADE_POST_LEAVE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
 
   // Session restore can resolve an active membership after the router landed
   // on /queues — bounce queued users back to their live status view.
   useEffect(() => {
     if (inQueue) navigate("/status", { replace: true });
   }, [inQueue, navigate]);
+
+  // Soft upgrade clears Guest path — drop any leftover post-leave reinforce.
+  useEffect(() => {
+    if (!isGuest && showPostLeaveUpgrade) {
+      dismissPostLeaveUpgrade();
+    }
+  }, [isGuest, showPostLeaveUpgrade]);
+
+  function dismissPostLeaveUpgrade() {
+    try {
+      sessionStorage.removeItem(SOFT_UPGRADE_POST_LEAVE_KEY);
+    } catch {
+      // ignore
+    }
+    setShowPostLeaveUpgrade(false);
+  }
 
   const selected = queues.find((q) => q.id === selectedQueueId) || null;
 
@@ -77,6 +104,12 @@ export function QueuesPage() {
           Refresh
         </Button>
       </header>
+
+      {isGuest && showPostLeaveUpgrade ? (
+        <div className="mb-5" data-testid="soft-upgrade-post-leave">
+          <SoftUpgradePrompt onNavigate={dismissPostLeaveUpgrade} />
+        </div>
+      ) : null}
 
       {queuesLoading && (
         <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading queues">

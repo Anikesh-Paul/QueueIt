@@ -42,17 +42,27 @@ export async function apiRequest(path, options = {}) {
   return data;
 }
 
-export function register({ email, password, name }) {
+/**
+ * POST /api/auth/register — optional Guest credential triggers soft upgrade (claim + retire).
+ * @param {{ email: string, password: string, name?: string, guestCredential?: string | null }}
+ */
+export function register({ email, password, name, guestCredential }) {
   return apiRequest("/api/auth/register", {
     method: "POST",
     body: { email, password, name },
+    guestCredential: guestCredential || null,
   });
 }
 
-export function login({ email, password }) {
+/**
+ * POST /api/auth/login — optional Guest credential triggers soft upgrade (claim + retire).
+ * @param {{ email: string, password: string, guestCredential?: string | null }}
+ */
+export function login({ email, password, guestCredential }) {
   return apiRequest("/api/auth/login", {
     method: "POST",
     body: { email, password },
+    guestCredential: guestCredential || null,
   });
 }
 

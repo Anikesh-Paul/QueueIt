@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
  * Decorative only — product UI must work if assets fail to load.
  */
 export const MOTIF = {
-  /** Quiet service window — auth ≥md column + full-page error dimmer reuse */
+  /** Quiet service window — auth column/band + full-page error dimmer reuse */
   serviceWindow: "/motifs/quiet-service-window.webp",
   /** Empty waiting hall — empty catalog */
   waitingHall: "/motifs/empty-waiting-hall.webp",

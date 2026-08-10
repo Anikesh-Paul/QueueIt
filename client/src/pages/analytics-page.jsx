@@ -13,7 +13,7 @@ function formatMinutes(value) {
   return `${Number(value).toFixed(1)} min`;
 }
 
-function MetricCard({ label, caption, value, testId, hero = false, valueClassName }) {
+function MetricCard({ label, value, testId, hero = false }) {
   return (
     <div
       className={cn(
@@ -24,14 +24,10 @@ function MetricCard({ label, caption, value, testId, hero = false, valueClassNam
       <span className="text-xs font-medium uppercase tracking-wide text-text-muted">{label}</span>
       <span
         data-testid={testId}
-        className={cn(
-          "font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground",
-          valueClassName
-        )}
+        className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
       >
         {value}
       </span>
-      <span className="text-xs text-text-muted">{caption}</span>
     </div>
   );
 }
@@ -39,7 +35,8 @@ function MetricCard({ label, caption, value, testId, hero = false, valueClassNam
 /**
  * Admin ops analytics for one queue: served count, average wait, and simple
  * peaks (busiest hours). Numeric-first storytelling — no chart library, no
- * BI claims; refresh is manual + on mount.
+ * BI claims; refresh is manual + on mount. No motif wallpaper on empty.
+ * Ruthless chrome: **Analytics** / **Busiest hours** / **Campus time · IST**.
  */
 export function AnalyticsPage() {
   const { queueId } = useParams();
@@ -61,7 +58,6 @@ export function AnalyticsPage() {
       <PageToolbar
         tier="admin"
         title={<span data-testid="analytics-queue-name">{queueName}</span>}
-        meta={<span className="shrink-0">Served count, wait, and busy hours</span>}
         actions={
           <>
             <Button
@@ -87,13 +83,12 @@ export function AnalyticsPage() {
 
       <ShellContent tier="admin">
         <header className="mb-6">
-          <h1 className="font-heading text-display leading-tight text-foreground">
-            Queue analytics
+          <h1
+            data-testid="analytics-heading"
+            className="font-heading text-headline leading-tight text-foreground"
+          >
+            Analytics
           </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            {queueName} — served count, average wait, and busy hours. Enough for
-            ops storytelling, not a BI tool.
-          </p>
         </header>
 
         {analyticsLoading && (
@@ -114,26 +109,22 @@ export function AnalyticsPage() {
             <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <MetricCard
                 label="Served"
-                caption="tokens completed"
                 value={servedCount}
                 testId="analytics-served"
                 hero
               />
               <MetricCard
                 label="Average wait"
-                caption="per served token"
                 value={formatMinutes(metrics.averageWaitMinutes)}
                 testId="analytics-average-wait"
               />
               <MetricCard
                 label="Longest wait"
-                caption="of any served token"
                 value={formatMinutes(metrics.longestWaitMinutes)}
                 testId="analytics-longest-wait"
               />
               <MetricCard
                 label="Waiting now"
-                caption="in line right now"
                 value={metrics.waitingCount}
                 testId="analytics-waiting"
               />
@@ -157,7 +148,7 @@ export function AnalyticsPage() {
                     className="text-sm text-text-muted"
                     data-testid="analytics-peak-empty"
                   >
-                    No served tokens yet — serve someone and the busiest hour shows up here.
+                    No served tokens yet.
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-4" data-testid="analytics-peak-hours">
@@ -195,11 +186,6 @@ export function AnalyticsPage() {
                 )}
               </div>
             </section>
-
-            <p className="mt-4 text-xs text-text-muted">
-              Wait = time from joining until served. Stats are cumulative over the
-              queue&apos;s history — served entries are kept even after a queue reset.
-            </p>
           </>
         )}
       </ShellContent>

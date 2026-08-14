@@ -48,7 +48,6 @@ Demo logins are created from **host environment variables** (`SEED_*`). Password
 ├── client/          # React (Vite) frontend
 ├── server/          # Express API
 ├── e2e/             # Playwright smoke + feature specs
-├── render.yaml      # Optional Render Blueprint for the API
 └── package.json     # npm workspaces root
 ```
 
@@ -228,7 +227,7 @@ Set on the project:
 
 Confirm: `GET https://<api-host>/api/health` → `{"status":"ok","service":"queueit-server"}`.
 
-**Alternative:** Render Blueprint — connect the repo and use root `render.yaml` (set secret env vars in the Render UI). Socket.IO works on Render; it does not on the Vercel serverless API.
+Socket.IO needs a long-running Node process (local, or a persistent host). It does not work on the Vercel serverless API.
 
 ### 3. Frontend (Vercel from `client/`)
 

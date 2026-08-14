@@ -47,7 +47,7 @@ Demo logins are created from **host environment variables** (`SEED_*`). Password
 .
 ├── client/          # React (Vite) frontend
 ├── server/          # Express API
-├── e2e/             # Playwright smoke + feature specs
+├── e2e/             # Playwright smoke
 └── package.json     # npm workspaces root
 ```
 
@@ -171,11 +171,7 @@ Covers auth and role gates, seed, join / leave / status / history, admin control
 Requires local MongoDB on `127.0.0.1:27017`. The e2e script **wipe-seeds** only `queueit-e2e` (never the developer `queueit` database), then starts API `:5000` and Vite `:5173`.
 
 ```bash
-# Smoke: login + queues list
 npm run test:e2e
-
-# Full browser suite
-npx playwright test
 ```
 
 Artifacts (gitignored): `playwright-report/index.html`, failure traces under `test-results/`.

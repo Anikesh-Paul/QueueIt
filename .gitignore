@@ -32,6 +32,7 @@ Thumbs.db
 
 playwright-report/
 test-results/
+e2e/tickets/
 
 *.pem
 

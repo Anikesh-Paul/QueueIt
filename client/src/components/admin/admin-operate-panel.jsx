@@ -254,7 +254,7 @@ export function AdminOperatePanel({
                         <AlertDialogHeader>
                           <AlertDialogTitle>Pause this line?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Serving and skip stop until you resume. People can still join.
+                            Serving and skip stop until you resume. People can still join. This is not the same as stop accepting, which refuses new tokens.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
@@ -290,7 +290,7 @@ export function AdminOperatePanel({
                         <AlertDialogHeader>
                           <AlertDialogTitle>Stop accepting tokens?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            New joins will be refused. People already in line keep their place. This is not a reset.
+                            New joins will be refused. People already in line keep their place. This is not a pause (serving can continue) and not a reset.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
@@ -323,6 +323,9 @@ export function AdminOperatePanel({
                     </Button>
                   )}
                 </div>
+                <p className="mt-3 text-xs text-text-muted" data-testid="admin-pause-stop-help">
+                  Pause stops serving, but people can still join. Stop accepting refuses new tokens and keeps the current line.
+                </p>
 
                 {acceptingTokens ? (
                   <div className="mt-3 flex flex-col gap-3">
@@ -335,11 +338,12 @@ export function AdminOperatePanel({
                           htmlFor="reopen-override"
                           className="text-xs text-text-muted"
                         >
-                          Reopen override (optional, campus IST)
+                          Reopen override (optional)
                         </Label>
                         <Input
                           id="reopen-override"
                           type="datetime-local"
+                          lang="en-GB"
                           value={reopenOverride}
                           onChange={(e) => setReopenOverride(e.target.value)}
                           data-testid="admin-reopen-override"
@@ -347,7 +351,7 @@ export function AdminOperatePanel({
                         />
                       </div>
                       <p className="text-xs text-text-muted sm:pb-2">
-                        Leave empty for next scheduled window start.
+                        Campus time (IST), day/month. Leave empty for the next scheduled window start.
                       </p>
                     </div>
                     <div
@@ -385,16 +389,18 @@ export function AdminOperatePanel({
                           htmlFor="extend-ends-at"
                           className="text-xs text-text-muted"
                         >
-                          Explicit end (campus IST)
+                          Explicit end
                         </Label>
                         <Input
                           id="extend-ends-at"
                           type="datetime-local"
+                          lang="en-GB"
                           value={extendEndsAt}
                           onChange={(e) => setExtendEndsAt(e.target.value)}
                           data-testid="admin-extend-ends-at"
                           disabled={adminActionBusy}
                         />
+                        <p className="text-xs text-text-muted">Campus time (IST), day/month.</p>
                       </div>
                       <Button
                         type="button"

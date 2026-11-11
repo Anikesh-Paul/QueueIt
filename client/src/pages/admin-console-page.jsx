@@ -76,12 +76,17 @@ export function AdminConsolePage() {
 
       <ShellContent tier="admin">
         <header className="mb-6 flex items-end justify-between gap-4">
-          <h1
-            data-testid="admin-heading"
-            className="font-heading text-headline leading-tight text-foreground"
-          >
-            Admin
-          </h1>
+          <div className="min-w-0">
+            <h1
+              data-testid="admin-heading"
+              className="font-heading text-headline leading-tight text-foreground"
+            >
+              {queueName}
+            </h1>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">
+              Admin console
+            </p>
+          </div>
           {/* Phone-only in-page jump — not a sticky bottom bar */}
           <a
             href="#check-arrival"

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { presentCounterServing } from "@/lib/now-serving";
+import { nextCounterPlaceholder } from "@/lib/counter-name";
 
 /**
  * Add, rename, or remove counters on the open queue.
@@ -99,7 +100,7 @@ export function AdminCounters({
             id="new-counter-name"
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
-            placeholder="Counter 2"
+            placeholder={nextCounterPlaceholder(list)}
             disabled={adminActionBusy}
             data-testid="counter-add-name"
           />

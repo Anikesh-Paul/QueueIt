@@ -321,7 +321,7 @@ export function QueuesPage() {
         >
           Refresh
         </Button>
-        {!isAdmin && (
+        {!isAdmin && !isGuest && (
           <Button
             variant="secondary"
             size="sm"

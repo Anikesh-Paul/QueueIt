@@ -12,6 +12,7 @@ import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
+import { OpenWatchControls } from "@/components/status/open-watch-controls";
 
 /**
  * Poster / deep-link landing — join a specific queue (or explain why not).
@@ -240,6 +241,10 @@ export function JoinPage() {
               {occupancyLine ? ` (${occupancyLine})` : ""}.
               Try again when someone is served.
             </p>
+          ) : null}
+
+          {closed && !isAdmin ? (
+            <OpenWatchControls queue={queue} className="mt-3" />
           ) : null}
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">

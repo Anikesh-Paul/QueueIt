@@ -224,7 +224,7 @@ The arrival-pass QR confirms that a token is waiting in a queue — it is a coun
 
 ## Notifications
 
-The live-status page can request the browser **Notification** permission and fire a one-shot alert when a student enters the top-3 (near the front), becomes next, or — if the status API still shows it — when their token is now serving. Polls do not re-notify the same state. Paused queues do not tell people to approach the counter. Optional sound and vibrate are user-controlled. Declining permission leaves the in-page banner working.
+The live-status page can request the browser **Notification** permission and fire a one-shot alert when a student enters the top-3 (near the front), becomes next, or — if the status API still shows it — when their token is now serving. Polls do not re-notify the same state. Paused queues do not tell people to approach the counter. Optional sound and vibrate are user-controlled. Declining permission leaves the in-page banner working. On a closed or not-yet-open catalog or join card, students and guests can also ask to be notified when the queue starts accepting tokens again (scheduled windows or staff start-accepting). That watch is stored in the browser and polled while this tab is open; there is no push/VAPID in this release. If notification permission is denied, the request quietly does nothing.
 
 These alerts only work while the QueueIt tab is open (including in the background). They do **not** arrive after the tab or browser is killed.
 

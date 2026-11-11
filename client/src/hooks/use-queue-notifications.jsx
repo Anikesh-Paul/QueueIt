@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/app-context";
+import { fetchQueues } from "@/api";
+import { STATUS_POLL_VISIBLE_MS } from "@/lib/poll-interval";
 import {
   NOTIFY_ENABLED_KEY,
   NOTIFY_SOUND_KEY,
@@ -8,6 +10,15 @@ import {
   isNotificationSupported,
   notificationCopy,
 } from "@/lib/queue-notifications";
+import {
+  cancelOpenWatch as removeOpenWatch,
+  decideOpenNotification,
+  isWatchingOpen as hasOpenWatch,
+  openNotificationCopy,
+  readOpenWatches,
+  subscribeOpenWatch as addOpenWatch,
+  writeOpenWatches,
+} from "@/lib/open-queue-watch";
 
 const NotifyContext = createContext(null);
 
@@ -64,6 +75,8 @@ function useQueueNotificationState() {
   const [sound, setSound] = useState(() => readFlag(NOTIFY_SOUND_KEY));
   const [vibrate, setVibrate] = useState(() => readFlag(NOTIFY_VIBRATE_KEY, true));
   const lastKeyByQueueRef = useRef(new Map());
+  const [openWatches, setOpenWatches] = useState(() => readOpenWatches());
+  const previousAcceptingRef = useRef(new Map());
 
   const supported = permission !== "unsupported";
 
@@ -102,6 +115,130 @@ function useQueueNotificationState() {
     writeFlag(NOTIFY_VIBRATE_KEY, on);
     setVibrate(Boolean(on));
   }, []);
+
+  const persistOpenWatches = useCallback((next) => {
+    const saved = writeOpenWatches(next);
+    setOpenWatches(saved);
+    return saved;
+  }, []);
+
+  const isWatchingOpen = useCallback(
+    (queueId) => hasOpenWatch(openWatches, queueId),
+    [openWatches]
+  );
+
+  const cancelOpenWatch = useCallback(
+    (queueId) => {
+      persistOpenWatches(removeOpenWatch(openWatches, queueId));
+      previousAcceptingRef.current.delete(queueId);
+    },
+    [openWatches, persistOpenWatches]
+  );
+
+  const requestOpenWatch = useCallback(
+    async (queueId) => {
+      if (!queueId || !isNotificationSupported()) return "unsupported";
+      let result = Notification.permission;
+      if (result === "default") {
+        result = await Notification.requestPermission();
+      }
+      setPermission(result);
+      if (result !== "granted") {
+        // Quietly no-op when permission is denied (or still default).
+        return result;
+      }
+      writeFlag(NOTIFY_ENABLED_KEY, true);
+      setEnabled(true);
+      previousAcceptingRef.current.set(queueId, false);
+      persistOpenWatches(addOpenWatch(openWatches, queueId));
+      return result;
+    },
+    [openWatches, persistOpenWatches]
+  );
+
+  useEffect(() => {
+    if (permission !== "granted" || openWatches.length === 0) return undefined;
+
+    let cancelled = false;
+    let timer = null;
+
+    const fireOpen = (queue) => {
+      const copy = openNotificationCopy({ queueName: queue?.name });
+      try {
+        new Notification(copy.title, {
+          body: copy.body,
+          tag: `queueit:open:${queue?.id || ""}`,
+        });
+      } catch {
+        // Some WebViews throw even after permission is granted.
+      }
+      if (sound) playBeep();
+      if (vibrate && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(200);
+      }
+    };
+
+    const tick = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      let catalog = [];
+      try {
+        const payload = await fetchQueues();
+        catalog = Array.isArray(payload) ? payload : payload?.queues || [];
+      } catch {
+        return;
+      }
+      if (cancelled) return;
+
+      const current = openWatches;
+      let next = current;
+      const toFire = [];
+      for (const queueId of current) {
+        const queue = catalog.find((row) => row.id === queueId);
+        if (!queue) continue;
+        const decision = decideOpenNotification({
+          watching: true,
+          previousAccepting: previousAcceptingRef.current.has(queueId)
+            ? previousAcceptingRef.current.get(queueId)
+            : null,
+          acceptingTokens: queue.acceptingTokens !== false,
+        });
+        previousAcceptingRef.current.set(queueId, decision.previousAccepting);
+        if (decision.fire) toFire.push(queue);
+        if (!decision.watching) {
+          next = removeOpenWatch(next, queueId);
+          previousAcceptingRef.current.delete(queueId);
+        }
+      }
+      if (next !== current) persistOpenWatches(next);
+      for (const queue of toFire) fireOpen(queue);
+    };
+
+    const start = () => {
+      if (timer) clearInterval(timer);
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        timer = null;
+        return;
+      }
+      tick();
+      timer = setInterval(tick, STATUS_POLL_VISIBLE_MS);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") start();
+      else if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [permission, openWatches, persistOpenWatches, sound, vibrate]);
 
   useEffect(() => {
     if (!enabled || permission !== "granted") return;
@@ -162,6 +299,10 @@ function useQueueNotificationState() {
     setSoundOn,
     setVibrateOn,
     refreshPermission,
+    openWatches,
+    isWatchingOpen,
+    requestOpenWatch,
+    cancelOpenWatch,
   };
 }
 

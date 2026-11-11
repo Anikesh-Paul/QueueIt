@@ -8,10 +8,13 @@ import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/context/i18n-context";
 
-function formatOutcomeLabel(outcome) {
+function formatOutcomeLabel(outcome, t) {
   if (!outcome) return "—";
-  return String(outcome).charAt(0).toUpperCase() + String(outcome).slice(1);
+  const key = `history.outcome.${outcome}`;
+  const label = t(key);
+  return label === key ? String(outcome).charAt(0).toUpperCase() + String(outcome).slice(1) : label;
 }
 
 /**
@@ -20,6 +23,7 @@ function formatOutcomeLabel(outcome) {
  * Ruthless copy: H1 History; empty primary + one secondary; Guest empty may reinforce upgrade.
  */
 export function HistoryPage() {
+  const { t, locale } = useI18n();
   const {
     token,
     guestCredential,
@@ -46,7 +50,7 @@ export function HistoryPage() {
           data-testid="history-heading"
           className="font-heading text-headline leading-tight text-foreground"
         >
-          History
+          {t("history.title")}
         </h1>
         <Button
           variant="ghost"
@@ -56,12 +60,12 @@ export function HistoryPage() {
           className="hidden sm:inline-flex"
           data-testid="history-refresh"
         >
-          Refresh
+          {t("common.refresh")}
         </Button>
       </header>
 
       {historyLoading && (
-        <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading history">
+        <div className="flex flex-col gap-3" aria-busy="true" aria-label={t("history.loading")}>
           <Skeleton className="h-20 rounded-lg" />
           <Skeleton className="h-20 rounded-lg" />
         </div>
@@ -76,12 +80,10 @@ export function HistoryPage() {
         >
           <MotifIllustration motif="foldedPass" variant="empty" className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
-            No history yet
+            {t("history.empty")}
           </p>
           <p className="mt-1 text-sm text-text-secondary">
-            {isGuest
-              ? "Register or log in to keep history across devices."
-              : "Join a queue to start one."}
+            {isGuest ? t("history.emptyGuest") : t("history.emptyUser")}
           </p>
           {isGuest ? (
             <SoftUpgradePrompt
@@ -93,7 +95,7 @@ export function HistoryPage() {
       )}
 
       {!historyLoading && !historyError && historyEvents.length > 0 && (
-        <ul className="flex flex-col gap-3" data-testid="history-list" aria-label="Queue history">
+        <ul className="flex flex-col gap-3" data-testid="history-list" aria-label={t("history.listLabel")}>
           {historyEvents.map((event) => (
             <li
               key={event.id}
@@ -109,18 +111,19 @@ export function HistoryPage() {
                   )}
                   data-testid="history-outcome"
                 >
-                  {formatOutcomeLabel(event.outcome)}
+                  {formatOutcomeLabel(event.outcome, t)}
                 </span>
                 <span className="text-xs font-semibold text-text-secondary">
-                  Token {event.tokenNumber}
+                  {t("history.token", { token: event.tokenNumber })}
                 </span>
               </div>
               <p className="mt-2 font-heading text-sm font-medium text-foreground">
-                {event.queue?.name || "Queue"}
+                {event.queue?.name || t("common.queue")}
               </p>
               <p className="mt-0.5 text-xs text-text-muted" data-testid="history-event-time">
                 {formatCampusDateTime(
-                  event.outcome === "joined" ? event.joinedAt : event.updatedAt || event.joinedAt
+                  event.outcome === "joined" ? event.joinedAt : event.updatedAt || event.joinedAt,
+                  locale
                 )}
               </p>
             </li>
@@ -143,7 +146,7 @@ export function HistoryPage() {
             data-testid="history-load-more"
             className="w-full sm:w-auto"
           >
-            {historyLoadingMore ? "Loading…" : "Load more"}
+            {historyLoadingMore ? t("history.loadingMore") : t("history.loadMore")}
           </Button>
         </div>
       ) : null}

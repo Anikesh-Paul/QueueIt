@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 /** Top-3 near-front rule: position <= 3 (1 = front of the waiting line). */
 export const NEAR_FRONT_POSITION_LIMIT = 3;
 
@@ -73,19 +75,19 @@ export function decideNotification({
  * @param {{ position?: number }} input
  * @returns {{ title: string, body: string, kind: "next"|"near" }}
  */
-export function nearFrontBannerCopy({ position } = {}) {
+export function nearFrontBannerCopy({ position, locale = "en" } = {}) {
   if (position === 1) {
     return {
       kind: "next",
-      title: "You're next",
-      body: "Stay nearby — you'll be called shortly.",
+      title: t(locale, "alert.nextTitle"),
+      body: t(locale, "alert.nextBody"),
     };
   }
   const ahead = Number.isInteger(position) ? Math.max(0, position - 1) : 0;
   return {
     kind: "near",
-    title: "Near the front",
-    body: ahead === 1 ? "1 person ahead." : `${ahead} people ahead.`,
+    title: t(locale, "alert.nearTitle"),
+    body: ahead === 1 ? t(locale, "alert.aheadOne") : t(locale, "alert.aheadMany", { count: ahead }),
   };
 }
 
@@ -94,16 +96,17 @@ export function nearFrontBannerCopy({ position } = {}) {
  * "Approach / come to the counter" is only used when kind is serving.
  * @param {{ kind: "serving"|"next"|"near", position?: number, queueName?: string }} input
  */
-export function notificationCopy({ kind, position, queueName } = {}) {
-  const queue = queueName || "Queue";
+export function notificationCopy({ kind, position, queueName, locale = "en" } = {}) {
+  const queue = queueName || t(locale, "common.queue");
   if (kind === "serving") {
     return {
-      title: `You're being called · ${queue}`,
-      body: "Please come to the counter.",
+      title: t(locale, "notify.servingTitle", { queue }),
+      body: t(locale, "notify.servingBody"),
     };
   }
   const banner = nearFrontBannerCopy({
     position: kind === "next" ? 1 : position,
+    locale,
   });
   return {
     title: `${banner.title} · ${queue}`,

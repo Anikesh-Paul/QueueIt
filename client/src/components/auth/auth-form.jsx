@@ -7,13 +7,8 @@ import { login, register } from "@/api";
 import { useApp } from "@/context/app-context";
 import { Alert } from "@/components/ui/alert";
 import { isSafeAppPath } from "@/lib/join-link";
-import { AUTH_SUBTITLE } from "@/lib/auth-copy";
+import { useI18n } from "@/context/i18n-context";
 import { clearOfflineStatusCache } from "@/lib/register-sw";
-
-const SUBTITLE = {
-  login: AUTH_SUBTITLE,
-  register: AUTH_SUBTITLE,
-};
 
 /**
  * Auth form (login | register). Shared layout; quiet elevation on kit primitives.
@@ -28,6 +23,7 @@ export function AuthForm({ mode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { persistSession, enterGuestMode, guestCredential, isGuest } = useApp();
+  const { t } = useI18n();
   const from = location.state?.from;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,7 +52,7 @@ export function AuthForm({ mode }) {
       setPassword("");
       navigate(pathAfterAuth(from, "/"), { replace: true });
     } catch (err) {
-      setError(err.message || "Request failed");
+      setError(err.message || t("auth.requestFailed"));
     } finally {
       setBusy(false);
     }
@@ -73,10 +69,10 @@ export function AuthForm({ mode }) {
   return (
     <div className="w-full max-w-[22rem]">
       <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.015em] text-foreground">
-        {mode === "login" ? "Log in" : "Register"}
+        {mode === "login" ? t("auth.login") : t("auth.register")}
       </h1>
       <p className="mt-2 text-[0.9375rem] leading-snug text-text-secondary">
-        {SUBTITLE[mode]}
+        {t("auth.subtitle")}
       </p>
 
       {isGuest ? (
@@ -84,9 +80,9 @@ export function AuthForm({ mode }) {
           className="mt-5 rounded-lg border border-primary-muted bg-primary-muted/40 px-3.5 py-3"
           data-testid="soft-upgrade-auth-hint"
         >
-          <p className="text-sm font-semibold text-foreground">Keep your history</p>
+          <p className="text-sm font-semibold text-foreground">{t("auth.keepHistory")}</p>
           <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
-            Register or log in on this device to claim your place and past events.
+            {t("auth.keepHistoryBody")}
           </p>
         </div>
       ) : null}
@@ -95,7 +91,7 @@ export function AuthForm({ mode }) {
         {mode === "register" && (
           <div className="flex flex-col gap-2">
             <Label htmlFor="name" className="text-label text-foreground">
-              Name
+              {t("auth.name")}
             </Label>
             <Input
               id="name"
@@ -107,7 +103,7 @@ export function AuthForm({ mode }) {
               maxLength={80}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder={t("auth.namePlaceholder")}
               className={fieldClass}
               data-testid="register-name"
             />
@@ -144,7 +140,7 @@ export function AuthForm({ mode }) {
             maxLength={128}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="8–128 characters"
+            placeholder={t("auth.passwordHint")}
             className={fieldClass}
           />
           {mode === "login" ? (
@@ -154,7 +150,7 @@ export function AuthForm({ mode }) {
                 className="font-medium text-primary underline-offset-4 hover:underline"
                 data-testid="forgot-password-link"
               >
-                Forgot password?
+                {t("auth.forgotLink")}
               </Link>
             </p>
           ) : null}
@@ -172,29 +168,29 @@ export function AuthForm({ mode }) {
           disabled={busy}
           className="mt-1 h-11 w-full text-[0.9375rem] font-semibold tracking-[-0.01em]"
         >
-          {busy ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
+          {busy ? t("auth.pleaseWait") : mode === "login" ? t("auth.login") : t("auth.createAccount")}
         </Button>
       </form>
 
       <p className="mt-6 text-center text-sm text-text-secondary">
         {mode === "login" ? (
           <>
-            No account?{" "}
+            {t("auth.noAccount")}{" "}
             <Link
               to="/register"
               className="font-medium text-primary underline-offset-4 hover:underline"
             >
-              Register
+              {t("auth.register")}
             </Link>
           </>
         ) : (
           <>
-            Already registered?{" "}
+            {t("auth.alreadyRegistered")}{" "}
             <Link
               to="/login"
               className="font-medium text-primary underline-offset-4 hover:underline"
             >
-              Log in
+              {t("auth.login")}
             </Link>
           </>
         )}
@@ -203,7 +199,7 @@ export function AuthForm({ mode }) {
       {!isGuest ? (
         <div className="mt-6 border-t border-border pt-6">
           <p className="mb-3 text-center text-xs text-text-muted">
-            No account needed to join a line
+            {t("auth.guestHint")}
           </p>
           <Button
             type="button"
@@ -213,7 +209,7 @@ export function AuthForm({ mode }) {
             onClick={handleContinueAsGuest}
             data-testid="continue-as-guest"
           >
-            Continue as Guest
+            {t("auth.continueGuest")}
           </Button>
         </div>
       ) : null}

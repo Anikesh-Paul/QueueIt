@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 /** Local, in-page watch list for "notify me when this closed queue opens". */
 export const OPEN_WATCH_KEY = "queueit_notify_open_queues";
 
@@ -103,10 +105,10 @@ export function decideOpenNotification({
   return { fire: false, watching: true, previousAccepting: false };
 }
 
-export function openNotificationCopy({ queueName } = {}) {
-  const queue = queueName || "Queue";
+export function openNotificationCopy({ queueName, locale = "en" } = {}) {
+  const queue = queueName || t(locale, "common.queue");
   return {
-    title: `${queue} is accepting tokens`,
-    body: `You can join ${queue} now.`,
+    title: t(locale, "openNotify.title", { queue }),
+    body: t(locale, "openNotify.body", { queue }),
   };
 }

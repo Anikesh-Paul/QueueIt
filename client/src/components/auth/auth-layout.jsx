@@ -1,6 +1,8 @@
 import { Wordmark } from "@/components/brand/wordmark";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { AUTH_MOTIF_LINE } from "@/lib/auth-copy";
+import { LanguageToggle } from "@/components/shell/language-toggle";
+import { useI18n } from "@/context/i18n-context";
 import { SkipToContent } from "@/components/shell/skip-to-content";
 import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
 
@@ -12,6 +14,8 @@ import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
 export { AUTH_MOTIF_LINE };
 
 export function AuthLayout({ children }) {
+  const { t } = useI18n();
+  const motif = t("auth.motif");
   return (
     <div className="auth-canvas relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-10 sm:px-6 sm:py-14">
       <SkipToContent />
@@ -36,7 +40,7 @@ export function AuthLayout({ children }) {
             </div>
             <div className="relative z-10 border-t border-primary-muted bg-secondary p-9 lg:p-10">
               <p className="max-w-[16ch] font-display text-[1.875rem] font-semibold leading-[1.2] tracking-[-0.015em] text-foreground">
-                {AUTH_MOTIF_LINE}
+                {motif}
               </p>
             </div>
           </aside>
@@ -55,7 +59,7 @@ export function AuthLayout({ children }) {
             </div>
             <div className="bg-secondary px-5 py-4">
               <p className="max-w-[18ch] font-display text-headline font-semibold leading-snug tracking-[-0.01em] text-foreground">
-                {AUTH_MOTIF_LINE}
+                {motif}
               </p>
             </div>
           </div>
@@ -65,7 +69,10 @@ export function AuthLayout({ children }) {
             tabIndex={-1}
             className="flex flex-col justify-center gap-9 px-6 py-8 outline-none sm:px-10 sm:py-12 lg:px-12 lg:py-14"
           >
-            <Wordmark to="/login" className="self-start" />
+            <div className="flex items-center justify-between gap-3">
+              <Wordmark to="/login" className="self-start" />
+              <LanguageToggle />
+            </div>
             {children}
           </main>
         </div>

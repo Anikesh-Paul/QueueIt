@@ -12,6 +12,7 @@ import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/context/i18n-context";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
 
 /**
@@ -19,6 +20,7 @@ import { OpenWatchControls } from "@/components/status/open-watch-controls";
  * Guests land here without visiting the catalog first.
  */
 export function JoinPage() {
+  const { t, locale } = useI18n();
   const { queueId } = useParams();
   const navigate = useNavigate();
   const {
@@ -62,11 +64,11 @@ export function JoinPage() {
   const queue = validId ? queues.find((row) => row.id === queueId) : null;
   const membership = activeMemberships.find((row) => row.queue?.id === queueId);
   const closed = queue?.acceptingTokens === false;
-  const occupancyLine = queue ? formatWaitingOccupancy(queue) : "";
-  const servingLine = queue ? formatCatalogServing(queue) : "";
+  const occupancyLine = queue ? formatWaitingOccupancy({ ...queue, locale }) : "";
+  const servingLine = queue ? formatCatalogServing({ ...queue, locale }) : "";
   const full = queue?.full === true;
   const paused = queue?.status === "paused";
-  const primaryLabel = !queue ? null : closed ? "Closed" : full ? "Full" : paused ? "Paused" : "Open";
+  const primaryLabel = !queue ? null : closed ? t("state.closed") : full ? t("state.full") : paused ? t("state.paused") : t("state.open");
 
   async function handleJoin() {
     if (!validId || joinBusy) return;
@@ -92,10 +94,10 @@ export function JoinPage() {
           data-testid="join-heading"
           className="font-heading text-headline leading-tight text-foreground"
         >
-          Join a queue
+          {t("join.title")}
         </h1>
         <p className="mt-1 text-sm text-text-secondary">
-          This poster link opens one line — it is not an arrival pass.
+          {t("join.intro")}
         </p>
       </header>
 
@@ -106,16 +108,16 @@ export function JoinPage() {
         >
           <MotifIllustration motif="serviceWindow" variant="error" dimmer className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
-            This join link isn’t valid
+            {t("join.invalid")}
           </p>
-          <p className="mt-1 text-sm text-text-secondary">Ask staff for a new poster QR.</p>
+          <p className="mt-1 text-sm text-text-secondary">{t("join.invalidHint")}</p>
           <Button
             variant="secondary"
             className="mt-5"
             onClick={() => navigate("/queues")}
             data-testid="join-back-to-queues"
           >
-            Browse queues
+            {t("join.browse")}
           </Button>
         </div>
       ) : null}
@@ -136,12 +138,12 @@ export function JoinPage() {
         >
           <MotifIllustration motif="waitingHall" variant="empty" className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
-            {queues.length === 0 ? "No queues open" : "Queue not found"}
+            {queues.length === 0 ? t("queues.empty") : t("join.notFound")}
           </p>
           <p className="mt-1 text-sm text-text-secondary">
             {queues.length === 0
-              ? "Seed the server, then try this link again."
-              : "This poster does not match a queue at this venue."}
+              ? t("join.emptyHint")
+              : t("join.notFoundHint")}
           </p>
           <Button
             variant="secondary"
@@ -149,7 +151,7 @@ export function JoinPage() {
             onClick={() => navigate("/queues")}
             data-testid="join-back-to-queues"
           >
-            Browse queues
+            {t("join.browse")}
           </Button>
         </div>
       ) : null}
@@ -169,7 +171,7 @@ export function JoinPage() {
                 {queue.name}
               </h2>
               <p className="mt-0.5 text-sm text-text-muted">
-                {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
+                {queue.venue?.name || t("common.venue")} · {t("queue.avgMinutes", { minutes: queue.averageServiceTime })}
                 {" · "}
                 <span data-testid="queue-occupancy">{occupancyLine}</span>
               </p>
@@ -203,7 +205,7 @@ export function JoinPage() {
                   data-testid="queue-state-paused"
                   className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-semibold text-[#92400E]"
                 >
-                  Paused
+                  {t("state.paused")}
                 </span>
               ) : null}
             </span>
@@ -211,35 +213,36 @@ export function JoinPage() {
 
           {membership ? (
             <p data-testid="queue-in-line" className="mt-3 text-sm font-medium text-primary">
-              You’re in this line
-              {membership.tokenNumber ? ` · token ${membership.tokenNumber}` : ""}
+              {membership.tokenNumber
+                ? t("queue.inLineToken", { token: membership.tokenNumber })
+                : t("queue.inLine")}
             </p>
           ) : null}
 
-          {describeTodayException(queue.serviceExceptions) ? (
+          {describeTodayException(queue.serviceExceptions, new Date(), locale) ? (
             <p data-testid="queue-holiday-hours" className="mt-3 text-sm text-text-secondary">
-              {describeTodayException(queue.serviceExceptions)}
+              {describeTodayException(queue.serviceExceptions, new Date(), locale)}
             </p>
           ) : null}
 
           {closed && !membership && !isAdmin ? (
             <p data-testid="join-closed-reason" className="mt-3 text-sm text-text-secondary">
-              This queue isn’t accepting tokens right now.
+              {t("join.closedReason")}
               {queue.reopenAt
-                ? ` It reopens ${formatCampusDateTime(queue.reopenAt)}.`
-                : " Try again later, or browse other queues."}
+                ? t("join.closedReopens", { when: formatCampusDateTime(queue.reopenAt, locale) })
+                : t("join.closedLater")}
             </p>
           ) : closed && queue.reopenAt ? (
             <p data-testid="queue-reopen" className="mt-3 text-sm text-text-secondary">
-              Reopens {formatCampusDateTime(queue.reopenAt)}
+              {t("queue.reopens", { when: formatCampusDateTime(queue.reopenAt, locale) })}
             </p>
           ) : null}
 
           {full && !closed && !membership && !isAdmin ? (
             <p data-testid="join-full-reason" className="mt-3 text-sm text-text-secondary">
-              This queue is full
-              {occupancyLine ? ` (${occupancyLine})` : ""}.
-              Try again when someone is served.
+              {t("join.fullReason", {
+                occupancy: occupancyLine ? t("join.fullOccupancy", { occupancy: occupancyLine }) : "",
+              })}
             </p>
           ) : null}
 
@@ -264,7 +267,7 @@ export function JoinPage() {
                 data-testid="view-place-in-line"
                 className="w-full sm:w-auto"
               >
-                View place in {queue.name}
+                {t("queue.viewPlace", { name: queue.name })}
               </Button>
             ) : (
               <Button
@@ -290,7 +293,7 @@ export function JoinPage() {
               data-testid="join-browse-queues"
               className="w-full sm:w-auto"
             >
-              Browse queues
+              {t("join.browse")}
             </Button>
           </div>
         </section>
@@ -300,16 +303,16 @@ export function JoinPage() {
 
       {isGuest && validId ? (
         <p className="mt-6 text-sm text-text-secondary">
-          Already have an account?{" "}
+          {t("join.haveAccount")}{" "}
           <Link
             to="/login"
             state={{ from: joinPath(queueId) }}
             className="font-medium text-primary underline-offset-4 hover:underline"
             data-testid="join-login-link"
           >
-            Log in
+            {t("auth.login")}
           </Link>{" "}
-          to keep this place on your account later.
+          {t("join.keepPlace")}
         </p>
       ) : null}
     </ShellContent>

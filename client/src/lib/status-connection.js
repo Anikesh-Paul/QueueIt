@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 /**
  * Honest connection copy for the student status toolbar.
  * Offline (browser or last fetch from cache/failure) must never claim
@@ -5,15 +7,15 @@
  */
 
 /** Quiet relative age for polling honesty (no absolute campus clocks here). */
-export function formatStatusAge(updatedAt, nowMs, { offline = false } = {}) {
+export function formatStatusAge(updatedAt, nowMs, { offline = false, locale = "en" } = {}) {
   if (updatedAt == null) return null;
   const sec = Math.max(0, Math.floor((nowMs - updatedAt) / 1000));
-  if (offline && sec < 5) return "last known";
-  if (sec < 5) return "just now";
-  if (sec < 60) return `${sec}s ago`;
+  if (offline && sec < 5) return t(locale, "status.age.lastKnown");
+  if (sec < 5) return t(locale, "status.age.justNow");
+  if (sec < 60) return t(locale, "status.age.seconds", { n: sec });
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  return `${Math.floor(min / 60)}h ago`;
+  if (min < 60) return t(locale, "status.age.minutes", { n: min });
+  return t(locale, "status.age.hours", { n: Math.floor(min / 60) });
 }
 
 /**
@@ -35,19 +37,22 @@ export function statusConnectionPresentation({
   realtimeConnected = false,
   statusLastUpdatedAt = null,
   nowMs = Date.now(),
+  locale = "en",
 } = {}) {
   if (offline) {
     return {
-      metaLabel: "Offline — last known place",
+      metaLabel: t(locale, "status.connection.offline"),
       indicator: "offline",
-      ageLabel: formatStatusAge(statusLastUpdatedAt, nowMs, { offline: true }),
+      ageLabel: formatStatusAge(statusLastUpdatedAt, nowMs, { offline: true, locale }),
       showLiveBadge: false,
     };
   }
   return {
-    metaLabel: realtimeConnected ? "Instant updates" : "Updates every few seconds",
+    metaLabel: realtimeConnected
+      ? t(locale, "status.connection.instant")
+      : t(locale, "status.connection.polling"),
     indicator: realtimeConnected ? "realtime" : "polling",
-    ageLabel: formatStatusAge(statusLastUpdatedAt, nowMs),
+    ageLabel: formatStatusAge(statusLastUpdatedAt, nowMs, { locale }),
     showLiveBadge: true,
   };
 }

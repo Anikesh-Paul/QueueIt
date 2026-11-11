@@ -29,6 +29,7 @@ import { nearFrontBannerCopy, NEAR_FRONT_POSITION_LIMIT } from "@/lib/queue-noti
 import { statusConnectionPresentation } from "@/lib/status-connection";
 import { presentServingBoard } from "@/lib/now-serving";
 import { NotifyControls } from "@/components/status/notify-controls";
+import { useI18n } from "@/context/i18n-context";
 import { acknowledgeArrival } from "@/api";
 
 /**
@@ -38,6 +39,7 @@ import { acknowledgeArrival } from "@/api";
  * No motif wallpaper; forest edge + mist on token hero; arrival stub + terracotta.
  */
 export function StatusPage() {
+  const { t, locale } = useI18n();
   const {
     token,
     guestCredential,
@@ -112,6 +114,7 @@ export function StatusPage() {
     realtimeConnected,
     statusLastUpdatedAt,
     nowMs,
+    locale,
   });
   const ageLabel = connection.ageLabel;
   const queueTitle = liveStatus.queue?.name || statusQueueName;
@@ -128,7 +131,8 @@ export function StatusPage() {
     ? null
     : formatPaceLine(
         liveStatus.position,
-        liveStatus.etaServiceTime ?? liveStatus.averageServiceTime
+        liveStatus.etaServiceTime ?? liveStatus.averageServiceTime,
+        locale
       );
   // Live: wall clock (remaining wait). Paused: first pinned snapshot for this pause.
   const etaAsOfMs = paused
@@ -138,9 +142,10 @@ export function StatusPage() {
     etaMinutes: liveStatus.etaMinutes,
     asOfMs: etaAsOfMs,
     paused,
+    locale,
   });
   const sessionEndsAt = liveStatus.queue?.sessionEndsAt;
-  const servingBoard = presentServingBoard(liveStatus.counters, liveStatus.nowServing);
+  const servingBoard = presentServingBoard(liveStatus.counters, liveStatus.nowServing, locale);
 
   async function handleLeave() {
     const ok = await leave();
@@ -155,7 +160,7 @@ export function StatusPage() {
       await acknowledgeArrival(token, statusQueueId, guestCredential);
       await refreshStatus?.();
     } catch (err) {
-      setHereError(err.message || "Could not check in");
+      setHereError(err.message || t("status.checkInFailed"));
     } finally {
       setHereBusy(false);
     }
@@ -222,7 +227,7 @@ export function StatusPage() {
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary"
               >
                 <span className="size-1.5 rounded-full bg-primary" />
-                Live
+                {t("status.live")}
               </span>
             ) : (
               <span
@@ -230,7 +235,7 @@ export function StatusPage() {
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary"
               >
                 <span className="size-1.5 rounded-full bg-primary" />
-                Still in line
+                {t("status.stillInLine")}
               </span>
             )}
           </span>
@@ -248,7 +253,7 @@ export function StatusPage() {
               disabled={statusUpdating}
               data-testid="status-refresh"
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
             {user?.role !== "admin" && (
               <Button
@@ -257,7 +262,7 @@ export function StatusPage() {
                 onClick={() => navigate("/history")}
                 data-testid="status-view-history"
               >
-                View history
+                {t("status.viewHistory")}
               </Button>
             )}
           </>
@@ -271,7 +276,7 @@ export function StatusPage() {
             className="mb-4 rounded-lg border border-border bg-secondary px-3.5 py-2.5 text-sm text-text-secondary"
             aria-live="polite"
           >
-            Offline — showing your last known place in line. Live updates resume when you’re back online.
+            {t("status.offlineBanner")}
           </p>
         ) : null}
         <header className="mb-4">
@@ -279,18 +284,18 @@ export function StatusPage() {
             data-testid="status-heading"
             className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground"
           >
-            Your place in line
+            {t("status.title")}
           </h1>
           {activeMemberships.length > 1 ? (
             <div
               className="mt-3 flex flex-wrap items-center gap-2"
               data-testid="status-membership-switcher"
               role="tablist"
-              aria-label="Your lines"
+              aria-label={t("status.yourLines")}
             >
               {activeMemberships.map((row) => {
                 const id = row.queue?.id;
-                const name = row.queue?.name || "Queue";
+                const name = row.queue?.name || t("common.queue");
                 const selected = id === statusQueueId;
                 return (
                   <button
@@ -322,11 +327,10 @@ export function StatusPage() {
             data-testid="closed-drain-notice"
             role="status"
           >
-            This queue is closed for new tokens. You are still in line and will be
-            served.
+            {t("status.closedDrain")}
             {liveStatus.queue?.reopenAt ? (
               <span data-testid="status-reopen" className="mt-1 block">
-                New tokens reopen {formatCampusDateTime(liveStatus.queue.reopenAt)}.
+                {t("status.reopen", { when: formatCampusDateTime(liveStatus.queue.reopenAt, locale) })}
               </span>
             ) : null}
           </Alert>
@@ -338,13 +342,15 @@ export function StatusPage() {
             data-testid="accepting-until"
             role="status"
           >
-            Accepting until {formatCampusDateTime(sessionEndsAt)}.
+            {t("status.acceptingUntil", { when: formatCampusDateTime(sessionEndsAt, locale) })}
           </p>
         ) : null}
 
         {isCalled && (
           <div className="mb-4">
             <CalledBanner
+              t={t}
+              locale={locale}
               remainingSeconds={
                 liveStatus.servingTimerFrozen
                   ? liveStatus.servingRemainingSeconds
@@ -366,7 +372,7 @@ export function StatusPage() {
 
         {nearFront && (
           <div className="mb-4">
-            <NearFrontBanner position={liveStatus.position} />
+            <NearFrontBanner position={liveStatus.position} locale={locale} />
           </div>
         )}
 
@@ -382,15 +388,15 @@ export function StatusPage() {
         >
           <section data-testid="status-metrics" className="flex flex-col gap-3">
             <StatusMetric
-              label="Token"
+              label={t("status.token")}
               value={liveStatus.tokenNumber}
               hero
               testId="token-number"
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
-              <StatusMetric label="Position" value={isCalled ? "Called" : liveStatus.position} testId="position" />
+              <StatusMetric label={t("status.position")} value={isCalled ? t("status.called") : liveStatus.position} testId="position" />
               <StatusMetric
-                label="ETA"
+                label={t("status.eta")}
                 value={
                   <span
                     className="flex flex-col items-start gap-0.5"
@@ -461,8 +467,9 @@ export function StatusPage() {
               queueId={statusQueueId}
               tokenNumber={liveStatus.tokenNumber}
               arrivalPass={liveStatus.arrivalPass}
+              t={t}
             />
-            <LeaveControl leaveBusy={leaveBusy} onLeave={handleLeave} />
+            <LeaveControl leaveBusy={leaveBusy} onLeave={handleLeave} t={t} />
           </section>
         </div>
 
@@ -482,7 +489,7 @@ export function StatusPage() {
   );
 }
 
-function LeaveControl({ leaveBusy, onLeave }) {
+function LeaveControl({ leaveBusy, onLeave, t }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -493,22 +500,22 @@ function LeaveControl({ leaveBusy, onLeave }) {
           data-testid="leave-queue"
           className="w-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
         >
-          {leaveBusy ? "Leaving…" : "Leave"}
+          {leaveBusy ? t("status.leaving") : t("status.leave")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent data-testid="leave-dialog">
         <AlertDialogHeader>
-          <AlertDialogTitle>Leave this line?</AlertDialogTitle>
-          <AlertDialogDescription>You lose this token.</AlertDialogDescription>
+          <AlertDialogTitle>{t("status.leaveTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("status.leaveBody")}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-          <AlertDialogCancel data-testid="leave-keep">Keep place</AlertDialogCancel>
+          <AlertDialogCancel data-testid="leave-keep">{t("status.leaveKeep")}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructiveSolid"
             data-testid="leave-confirm"
             onClick={onLeave}
           >
-            Leave
+            {t("status.leave")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -516,18 +523,18 @@ function LeaveControl({ leaveBusy, onLeave }) {
   );
 }
 
-function formatCallRemaining(seconds) {
+function formatCallRemaining(seconds, t) {
   if (seconds == null || !Number.isFinite(Number(seconds))) return null;
   const total = Math.max(0, Math.ceil(Number(seconds)));
   const minutes = Math.floor(total / 60);
   const secs = total % 60;
-  if (minutes <= 0) return `${secs}s left`;
-  return `${minutes}:${String(secs).padStart(2, "0")} left`;
+  if (minutes <= 0) return t("status.secsLeft", { secs });
+  return t("status.clockLeft", { clock: `${minutes}:${String(secs).padStart(2, "0")}` });
 }
 
-function CalledBanner({ remainingSeconds, frozen, counterName, here = false, hereBusy = false, onHere }) {
-  const remaining = formatCallRemaining(remainingSeconds);
-  const place = counterName ? counterName : "the counter";
+function CalledBanner({ remainingSeconds, frozen, counterName, here = false, hereBusy = false, onHere, t }) {
+  const remaining = formatCallRemaining(remainingSeconds, t);
+  const place = counterName ? counterName : t("status.theCounter");
   return (
     <div
       role="status"
@@ -538,20 +545,20 @@ function CalledBanner({ remainingSeconds, frozen, counterName, here = false, her
       <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="font-heading text-sm font-semibold text-foreground">
-          You&apos;re being called{counterName ? ` at ${counterName}` : ""}
+          {counterName ? t("status.calledAt", { counter: counterName }) : t("status.calledGeneric")}
         </p>
         <p className="mt-0.5 text-xs leading-5 text-text-secondary" data-testid="called-remaining">
           {here
-            ? `Staff know you’re here. Please come to ${place}.`
+            ? t("status.hereConfirmedCopy", { place })
             : frozen
-              ? "Timer paused until the line resumes."
+              ? t("status.timerPaused")
               : remaining
-                ? `${remaining} to arrive at ${place}.`
-                : `Please come to ${place}.`}
+                ? t("status.arriveIn", { remaining, place })
+                : t("status.pleaseCome", { place })}
         </p>
         {here ? (
           <p className="mt-2 text-sm font-medium text-primary" data-testid="here-confirmed">
-            You’re checked in
+            {t("status.hereConfirmed")}
           </p>
         ) : (
           <Button
@@ -562,7 +569,7 @@ function CalledBanner({ remainingSeconds, frozen, counterName, here = false, her
             data-testid="im-here"
             onClick={onHere}
           >
-            {hereBusy ? "Checking in…" : "I’m here"}
+            {hereBusy ? t("status.checkingIn") : t("status.imHere")}
           </Button>
         )}
       </div>
@@ -570,8 +577,8 @@ function CalledBanner({ remainingSeconds, frozen, counterName, here = false, her
   );
 }
 
-function NearFrontBanner({ position }) {
-  const { title, body, kind } = nearFrontBannerCopy({ position });
+function NearFrontBanner({ position, locale = "en" }) {
+  const { title, body, kind } = nearFrontBannerCopy({ position, locale });
   return (
     <div
       role="status"
@@ -597,7 +604,7 @@ function NearFrontBanner({ position }) {
  * Arrival pass — QR + token hierarchy; stub corner + terracotta edge (signature).
  * Prefers the signed payload from live status.
  */
-function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass }) {
+function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass, t }) {
   const payload = resolveArrivalPass({ arrivalPass, queueId, tokenNumber });
   return (
     <section
@@ -634,15 +641,15 @@ function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass }) {
             marginSize={0}
             className="block h-28 w-28"
             role="img"
-            aria-label={`Arrival pass QR for token ${tokenNumber}`}
+            aria-label={t("pass.qrLabel", { token: tokenNumber })}
           />
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-display text-headline font-semibold tracking-[-0.01em] text-foreground">
-            Arrival pass
+            {t("pass.title")}
           </p>
           <p className="mt-2 text-sm text-foreground">
-            Token{" "}
+            {t("pass.tokenQueue")}{" "}
             <span
               className="font-metric text-base font-bold tabular-nums text-primary"
               data-testid="arrival-token"
@@ -652,7 +659,7 @@ function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass }) {
             <span className="text-text-muted"> · {queueName}</span>
           </p>
           <p className="mt-2 text-xs leading-5 text-text-secondary" data-testid="arrival-disclaimer">
-            Show this at the counter. A scan confirms this token is waiting — not who you are.
+            {t("pass.disclaimer")}
           </p>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/app-context";
+import { useI18n } from "@/context/i18n-context";
 import { fetchQueues } from "@/api";
 import { STATUS_POLL_VISIBLE_MS } from "@/lib/poll-interval";
 import {
@@ -70,6 +71,7 @@ function playBeep() {
 
 function useQueueNotificationState() {
   const { liveStatus, statusQueueId, inQueue, activeMemberships } = useApp();
+  const { locale } = useI18n();
   const [permission, setPermission] = useState(() => currentPermission());
   const [enabled, setEnabled] = useState(() => readFlag(NOTIFY_ENABLED_KEY));
   const [sound, setSound] = useState(() => readFlag(NOTIFY_SOUND_KEY));
@@ -163,7 +165,7 @@ function useQueueNotificationState() {
     let timer = null;
 
     const fireOpen = (queue) => {
-      const copy = openNotificationCopy({ queueName: queue?.name });
+      const copy = openNotificationCopy({ queueName: queue?.name, locale });
       try {
         new Notification(copy.title, {
           body: copy.body,
@@ -238,7 +240,7 @@ function useQueueNotificationState() {
       if (timer) clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [permission, openWatches, persistOpenWatches, sound, vibrate]);
+  }, [permission, openWatches, persistOpenWatches, sound, vibrate, locale]);
 
   useEffect(() => {
     if (!enabled || permission !== "granted") return;
@@ -271,6 +273,7 @@ function useQueueNotificationState() {
         kind: decision.kind,
         position: row.position,
         queueName: row.queue?.name,
+        locale,
       });
       try {
         new Notification(copy.title, {
@@ -285,7 +288,7 @@ function useQueueNotificationState() {
         navigator.vibrate(200);
       }
     }
-  }, [enabled, permission, inQueue, liveStatus, activeMemberships, statusQueueId, sound, vibrate]);
+  }, [enabled, permission, inQueue, liveStatus, activeMemberships, statusQueueId, sound, vibrate, locale]);
 
   return {
     supported,

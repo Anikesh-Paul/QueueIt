@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useQueueNotify } from "@/hooks/use-queue-notifications";
+import { useI18n } from "@/context/i18n-context";
 
 /**
  * Student/guest control to watch a closed queue and be notified in-page
@@ -9,6 +10,7 @@ import { useQueueNotify } from "@/hooks/use-queue-notifications";
 export function OpenWatchControls({ queue, className = "" } = {}) {
   const { supported, permission, isWatchingOpen, requestOpenWatch, cancelOpenWatch } =
     useQueueNotify();
+  const { t } = useI18n();
 
   if (!queue?.id || queue.acceptingTokens !== false) return null;
   if (!supported || permission === "denied") return null;
@@ -19,7 +21,7 @@ export function OpenWatchControls({ queue, className = "" } = {}) {
     return (
       <div className={className} data-testid="open-watch-controls">
         <p className="text-sm text-text-secondary" data-testid="open-watch-pending">
-          We’ll notify you when {queue.name || "this queue"} starts accepting tokens.
+          {t("watch.pending", { name: queue.name || t("watch.thisQueue") })}
         </p>
         <Button
           type="button"
@@ -33,7 +35,7 @@ export function OpenWatchControls({ queue, className = "" } = {}) {
             cancelOpenWatch(queue.id);
           }}
         >
-          Cancel notification
+          {t("watch.cancel")}
         </Button>
       </div>
     );
@@ -52,7 +54,7 @@ export function OpenWatchControls({ queue, className = "" } = {}) {
           requestOpenWatch(queue.id);
         }}
       >
-        Notify me when it opens
+        {t("watch.subscribe")}
       </Button>
     </div>
   );

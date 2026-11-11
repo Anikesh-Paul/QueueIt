@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useQueueNotify } from "@/hooks/use-queue-notifications";
 import { notifyControlsMode } from "@/lib/notify-controls";
+import { useI18n } from "@/context/i18n-context";
 
 /**
  * Compact Web Notification control. Does not sit above the token hero.
@@ -18,6 +19,7 @@ export function NotifyControls({ called = false } = {}) {
     setSoundOn,
     setVibrateOn,
   } = useQueueNotify();
+  const { t } = useI18n();
 
   const mode = notifyControlsMode({ supported, permission, enabled, called });
 
@@ -29,8 +31,7 @@ export function NotifyControls({ called = false } = {}) {
         className="text-sm text-text-secondary"
         data-testid="notify-unsupported"
       >
-        This browser cannot show desktop notifications. The in-page banner still
-        works when this page is open.
+        {t("notify.unsupported")}
       </p>
     );
   }
@@ -39,8 +40,7 @@ export function NotifyControls({ called = false } = {}) {
     return (
       <div className="text-sm text-text-secondary" data-testid="notify-controls">
         <p data-testid="notify-permission-denied">
-          Notifications are blocked for this site. The in-page banner still works
-          while this page is open.
+          {t("notify.denied")}
         </p>
       </div>
     );
@@ -53,7 +53,7 @@ export function NotifyControls({ called = false } = {}) {
         data-testid="notify-controls"
       >
         <p className="font-medium text-foreground" data-testid="notify-enabled-copy">
-          Notifications on
+          {t("notify.enabled")}
         </p>
         <label className="inline-flex items-center gap-1.5 text-text-secondary">
           <input
@@ -62,7 +62,7 @@ export function NotifyControls({ called = false } = {}) {
             onChange={(e) => setSoundOn(e.target.checked)}
             data-testid="notify-sound"
           />
-          Sound
+          {t("notify.sound")}
         </label>
         <label className="inline-flex items-center gap-1.5 text-text-secondary">
           <input
@@ -71,7 +71,7 @@ export function NotifyControls({ called = false } = {}) {
             onChange={(e) => setVibrateOn(e.target.checked)}
             data-testid="notify-vibrate"
           />
-          Vibrate
+          {t("notify.vibrate")}
         </label>
         <Button
           type="button"
@@ -80,7 +80,7 @@ export function NotifyControls({ called = false } = {}) {
           data-testid="notify-disable"
           onClick={() => setNotificationsOn(false)}
         >
-          Turn off
+          {t("notify.turnOff")}
         </Button>
       </div>
     );
@@ -92,7 +92,7 @@ export function NotifyControls({ called = false } = {}) {
       data-testid="notify-controls"
     >
       <p className="text-sm text-text-secondary">
-        Get a notification when you’re near the front — the in-page banner still works if you decline.
+        {t("notify.upsell")}
       </p>
       <Button
         type="button"
@@ -102,7 +102,7 @@ export function NotifyControls({ called = false } = {}) {
         className="border-border-strong bg-card text-foreground hover:bg-muted"
         onClick={() => void requestEnable()}
       >
-        Enable notifications
+        {t("notify.enable")}
       </Button>
     </div>
   );

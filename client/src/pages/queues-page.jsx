@@ -13,6 +13,7 @@ import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/context/i18n-context";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
 
 /**
@@ -21,6 +22,7 @@ import { OpenWatchControls } from "@/components/status/open-watch-controls";
  * Guest may see a one-shot soft-upgrade reinforce after leave (not a banner).
  */
 export function QueuesPage() {
+  const { t, locale } = useI18n();
   const {
     token,
     guestCredential,
@@ -113,7 +115,7 @@ export function QueuesPage() {
           data-testid="queues-heading"
           className="font-heading text-headline leading-tight text-foreground"
         >
-          Queues
+          {t("queues.title")}
         </h1>
         <Button
           variant="ghost"
@@ -123,7 +125,7 @@ export function QueuesPage() {
           className="hidden sm:inline-flex"
           data-testid="queues-refresh"
         >
-          Refresh
+          {t("common.refresh")}
         </Button>
       </header>
 
@@ -134,7 +136,7 @@ export function QueuesPage() {
       ) : null}
 
       {queuesLoading && (
-        <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading queues">
+        <div className="flex flex-col gap-3" aria-busy="true" aria-label={t("queues.loading")}>
           <Skeleton className="h-20 rounded-lg" />
           <Skeleton className="h-20 rounded-lg" />
         </div>
@@ -151,16 +153,16 @@ export function QueuesPage() {
         >
           <MotifIllustration motif="waitingHall" variant="empty" className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
-            No queues open
+            {t("queues.empty")}
           </p>
-          <p className="mt-1 text-sm text-text-secondary">Seed the server, then refresh.</p>
+          <p className="mt-1 text-sm text-text-secondary">{t("queues.emptyHint")}</p>
         </div>
       )}
 
       {!queuesLoading && !queuesError && queues.length > 0 && (
         <ul
           className="flex flex-col gap-3"
-          aria-label="Queue catalog"
+          aria-label={t("queues.catalogLabel")}
           data-testid="queue-catalog"
         >
           {queues.map((queue) => {
@@ -169,9 +171,9 @@ export function QueuesPage() {
             const paused = queue.status === "paused";
             const full = queue.full === true;
             // Closed, Full, and Paused are orthogonal — Closed/Full affect join; Paused can still show beside them.
-            const primaryLabel = closed ? "Closed" : full ? "Full" : paused ? "Paused" : "Open";
-            const occupancyLine = formatWaitingOccupancy(queue);
-            const servingLine = formatCatalogServing(queue);
+            const primaryLabel = closed ? t("state.closed") : full ? t("state.full") : paused ? t("state.paused") : t("state.open");
+            const occupancyLine = formatWaitingOccupancy({ ...queue, locale });
+            const servingLine = formatCatalogServing({ ...queue, locale });
             const primaryTestId = closed
               ? "queue-state-closed"
               : full
@@ -222,13 +224,13 @@ export function QueuesPage() {
                           data-testid="queue-state-paused"
                           className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-semibold text-[#92400E]"
                         >
-                          Paused
+                          {t("state.paused")}
                         </span>
                       ) : null}
                     </span>
                   </span>
                   <span className="text-sm text-text-muted">
-                    {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
+                    {queue.venue?.name || t("common.venue")} · {t("queue.avgMinutes", { minutes: queue.averageServiceTime })}
                     {" · "}
                     <span data-testid="queue-occupancy">{occupancyLine}</span>
                   </span>
@@ -240,15 +242,16 @@ export function QueuesPage() {
                       data-testid="queue-in-line"
                       className="mt-1 text-sm font-medium text-primary"
                     >
-                      You’re in this line
                       {activeMemberships.find((row) => row.queue?.id === queue.id)?.tokenNumber
-                        ? ` · token ${activeMemberships.find((row) => row.queue?.id === queue.id).tokenNumber}`
-                        : ""}
+                        ? t("queue.inLineToken", {
+                            token: activeMemberships.find((row) => row.queue?.id === queue.id).tokenNumber,
+                          })
+                        : t("queue.inLine")}
                     </span>
                   ) : null}
-                  {describeTodayException(queue.serviceExceptions) ? (
+                  {describeTodayException(queue.serviceExceptions, new Date(), locale) ? (
                     <span data-testid="queue-holiday-hours" className="text-sm text-text-secondary">
-                      {describeTodayException(queue.serviceExceptions)}
+                      {describeTodayException(queue.serviceExceptions, new Date(), locale)}
                     </span>
                   ) : null}
                   {closed && queue.reopenAt ? (
@@ -256,7 +259,7 @@ export function QueuesPage() {
                       data-testid="queue-reopen"
                       className="text-sm text-text-secondary"
                     >
-                      Reopens {formatCampusDateTime(queue.reopenAt)}
+                      {t("queue.reopens", { when: formatCampusDateTime(queue.reopenAt, locale) })}
                     </span>
                   ) : null}
                 </button>
@@ -301,7 +304,7 @@ export function QueuesPage() {
               data-testid="view-place-in-line"
               className="w-full sm:w-auto"
             >
-              View place in {selected.name}
+              {t("queue.viewPlace", { name: selected.name })}
             </Button>
           ) : (
             <Button
@@ -312,14 +315,17 @@ export function QueuesPage() {
               className="w-full sm:w-auto"
             >
               {joinBusy
-                ? "Joining…"
+                ? t("queue.joining")
                 : selected.acceptingTokens === false
                   ? selected.reopenAt
-                    ? `${selected.name} closed · reopens ${formatCampusDateTime(selected.reopenAt)}`
-                    : `${selected.name} is closed`
+                    ? t("queue.closedReopens", {
+                        name: selected.name,
+                        when: formatCampusDateTime(selected.reopenAt, locale),
+                      })
+                    : t("queue.closed", { name: selected.name })
                   : selected.full === true
-                    ? `${selected.name} is full`
-                    : `Join ${selected.name}`}
+                    ? t("queue.full", { name: selected.name })
+                    : t("queue.join", { name: selected.name })}
             </Button>
           )}
         </div>
@@ -336,7 +342,7 @@ export function QueuesPage() {
           className="sm:hidden"
           data-testid="queues-refresh-mobile"
         >
-          Refresh
+          {t("common.refresh")}
         </Button>
         {!isAdmin && !isGuest && (
           <Button
@@ -345,7 +351,7 @@ export function QueuesPage() {
             onClick={() => navigate("/history")}
             data-testid="view-history"
           >
-            View history
+            {t("queues.viewHistory")}
           </Button>
         )}
       </div>

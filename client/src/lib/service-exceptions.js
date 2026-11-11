@@ -1,3 +1,4 @@
+import { t } from "./i18n.js";
 import { CAMPUS_TIME_ZONE } from "./campus-time.js";
 
 /**
@@ -20,15 +21,15 @@ export function campusTodayDateString(now = new Date()) {
  * @param {{ date?: string, closed?: boolean, windows?: { start: string, end: string }[] }[] | null | undefined} exceptions
  * @param {Date} [now]
  */
-export function describeTodayException(exceptions, now = new Date()) {
+export function describeTodayException(exceptions, now = new Date(), locale = "en") {
   if (!Array.isArray(exceptions) || exceptions.length === 0) return null;
   const today = campusTodayDateString(now);
   const match = exceptions.find((row) => row?.date === today);
   if (!match) return null;
-  if (match.closed) return "Closed today (holiday hours).";
+  if (match.closed) return t(locale, "holiday.closed");
   const hours = (match.windows || [])
     .map((window) => `${window.start}–${window.end}`)
     .filter(Boolean)
     .join(", ");
-  return hours ? `Holiday hours today: ${hours} IST.` : "Closed today (holiday hours).";
+  return hours ? t(locale, "holiday.hours", { hours }) : t(locale, "holiday.closed");
 }

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import { AppProvider, useApp } from "@/context/app-context";
+import { I18nProvider, useI18n } from "@/context/i18n-context";
 import { AppShell } from "@/components/shell/app-shell";
 import { Wordmark } from "@/components/brand/wordmark";
 import {
@@ -34,13 +35,14 @@ const CampusAnalyticsPage = lazy(() =>
 
 /** Calm placeholder while a lazy admin route chunk loads. */
 function RouteFallback() {
+  const { t } = useI18n();
   return (
     <div
       className="flex flex-1 flex-col items-center justify-center gap-3 py-24"
       data-testid="route-fallback"
     >
       <p className="text-sm text-text-muted" aria-live="polite">
-        Loading…
+        {t("common.loading")}
       </p>
     </div>
   );
@@ -122,11 +124,12 @@ const router = createBrowserRouter([
 
 /** Calm session-restore surface shown while the router boots. */
 function BootScreen() {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background">
       <Wordmark to="/login" />
       <p className="text-sm text-text-muted" aria-live="polite">
-        Restoring session…
+        {t("boot.restoring")}
       </p>
     </div>
   );
@@ -145,8 +148,10 @@ function AppRoot() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppRoot />
-    </AppProvider>
+    <I18nProvider>
+      <AppProvider>
+        <AppRoot />
+      </AppProvider>
+    </I18nProvider>
   );
 }

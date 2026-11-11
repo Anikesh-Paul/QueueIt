@@ -7,6 +7,7 @@ import {
   normalizeIdentityRole,
   shouldShowRoleBadge,
 } from "@/lib/identity-chip";
+import { useI18n } from "@/context/i18n-context";
 
 /** Display labels for identity chips — title case per DESIGN.md. */
 const ROLE_LABELS = {
@@ -44,10 +45,13 @@ export function UserChip({ user, className, softUpgrade = false }) {
     };
   }, [menuOpen]);
 
+  const { t } = useI18n();
   if (!user) return null;
   const role = normalizeIdentityRole(user.role);
-  const label = identityChipLabel(user);
-  const showRoleBadge = shouldShowRoleBadge(role, label);
+  const rawLabel = identityChipLabel(user);
+  const label =
+    rawLabel === "Guest" ? t("role.guest") : rawLabel === "Account" ? t("role.account") : rawLabel;
+  const showRoleBadge = shouldShowRoleBadge(role, rawLabel);
   const initials = initialsFrom(label);
   const isGuestChip = role === "guest" && softUpgrade;
 
@@ -122,8 +126,14 @@ export function UserChip({ user, className, softUpgrade = false }) {
  * Title case labels: User / Admin / Guest. Class hooks stay for e2e (`.badge--user` etc.).
  */
 export function RoleBadge({ role, className }) {
+  const { t } = useI18n();
   const normalized = normalizeIdentityRole(role);
-  const label = ROLE_LABELS[normalized] || ROLE_LABELS.user;
+  const label =
+    normalized === "guest"
+      ? t("role.guest")
+      : normalized === "user"
+        ? t("role.user")
+        : ROLE_LABELS[normalized] || ROLE_LABELS.user;
 
   return (
     <BadgePrimitive

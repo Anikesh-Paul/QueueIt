@@ -1,3 +1,5 @@
+import { intlLocale, t } from "./i18n.js";
+
 /** Campus wall clock for every user-facing absolute product time. */
 export const CAMPUS_TIME_ZONE = "Asia/Kolkata";
 
@@ -20,14 +22,14 @@ function toValidDate(iso) {
  * @param {string | number | Date | null | undefined} iso
  * @returns {string}
  */
-export function formatCampusDateTime(iso) {
+export function formatCampusDateTime(iso, locale = "en") {
   const date = toValidDate(iso);
   if (!date) {
     if (iso == null || iso === "") return "—";
     return String(iso);
   }
 
-  const parts = new Intl.DateTimeFormat("en-GB", {
+  const parts = new Intl.DateTimeFormat(intlLocale(locale), {
     timeZone: CAMPUS_TIME_ZONE,
     day: "numeric",
     month: "short",
@@ -43,7 +45,8 @@ export function formatCampusDateTime(iso) {
   const year = get("year");
   const hour = get("hour");
   const minute = get("minute");
-  const dayPeriod = get("dayPeriod").toUpperCase();
+  const rawPeriod = get("dayPeriod");
+  const dayPeriod = /am|pm/i.test(rawPeriod) ? rawPeriod.toUpperCase() : rawPeriod;
 
   return `${day} ${month} ${year}, ${hour}:${minute} ${dayPeriod} IST`;
 }
@@ -54,14 +57,14 @@ export function formatCampusDateTime(iso) {
  * @param {string | number | Date | null | undefined} iso
  * @returns {string}
  */
-export function formatCampusClockTime(iso) {
+export function formatCampusClockTime(iso, locale = "en") {
   const date = toValidDate(iso);
   if (!date) {
     if (iso == null || iso === "") return "—";
     return String(iso);
   }
 
-  const parts = new Intl.DateTimeFormat("en-GB", {
+  const parts = new Intl.DateTimeFormat(intlLocale(locale), {
     timeZone: CAMPUS_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
@@ -71,7 +74,8 @@ export function formatCampusClockTime(iso) {
   const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
   const hour = get("hour");
   const minute = get("minute");
-  const dayPeriod = get("dayPeriod").toUpperCase();
+  const rawPeriod = get("dayPeriod");
+  const dayPeriod = /am|pm/i.test(rawPeriod) ? rawPeriod.toUpperCase() : rawPeriod;
 
   return `${hour}:${minute} ${dayPeriod} IST`;
 }
@@ -86,14 +90,14 @@ export function formatCampusClockTime(iso) {
  * @param {number | null | undefined} servicePaceMinutes
  * @returns {string | null}
  */
-export function formatPaceLine(position, servicePaceMinutes) {
+export function formatPaceLine(position, servicePaceMinutes, locale = "en") {
   if (!Number.isFinite(position) || !Number.isFinite(servicePaceMinutes)) {
     return null;
   }
   const ahead = Math.max(0, Math.trunc(position) - 1);
   const rounded = Math.round(Number(servicePaceMinutes) * 10) / 10;
   const mins = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-  return `${ahead} ahead · ~${mins} min each`;
+  return t(locale, "status.pace", { ahead, mins });
 }
 
 /**
@@ -115,11 +119,11 @@ export function formatPaceLine(position, servicePaceMinutes) {
  *   etaMinutes: number,
  * }}
  */
-export function presentLiveEta({ etaMinutes, asOfMs, paused = false }) {
+export function presentLiveEta({ etaMinutes, asOfMs, paused = false, locale = "en" }) {
   const minutes = Number(etaMinutes);
   const safeMinutes = Number.isFinite(minutes) ? Math.max(0, Math.trunc(minutes)) : 0;
   const arrivalMs = asOfMs + safeMinutes * 60 * 1000;
-  const clock = formatCampusClockTime(arrivalMs);
+  const clock = formatCampusClockTime(arrivalMs, locale);
   const primary = clock === "—" ? "—" : `~${clock}`;
 
   if (paused) {
@@ -134,7 +138,7 @@ export function presentLiveEta({ etaMinutes, asOfMs, paused = false }) {
   return {
     mode: "live",
     primary,
-    secondary: `${safeMinutes} min`,
+    secondary: t(locale, "status.etaMinutes", { minutes: safeMinutes }),
     etaMinutes: safeMinutes,
   };
 }

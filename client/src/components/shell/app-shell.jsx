@@ -6,6 +6,8 @@ import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
 import { shellNavEnd } from "@/lib/shell-nav";
 import { QueueNotifyProvider } from "@/hooks/use-queue-notifications";
+import { LanguageToggle } from "@/components/shell/language-toggle";
+import { useI18n } from "@/context/i18n-context";
 import { SkipToContent } from "@/components/shell/skip-to-content";
 import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
 
@@ -36,21 +38,21 @@ function resolveAdminQueueId(adminQueueId, pathname) {
   return match?.[1] || null;
 }
 
-function ShellNavItems({ isAdmin, inQueue, openAdminQueueId }) {
+function ShellNavItems({ isAdmin, inQueue, openAdminQueueId, t }) {
   return (
     <>
       <ShellNavLink to="/queues" testId="nav-queues">
-        Queues
+        {t("nav.queues")}
       </ShellNavLink>
       {/* Student / Guest path: History is not an admin surface */}
       {!isAdmin && (
         <ShellNavLink to="/history" testId="nav-history">
-          History
+          {t("nav.history")}
         </ShellNavLink>
       )}
       {inQueue && (
         <ShellNavLink to="/status" testId="nav-in-line">
-          In line
+          {t("nav.inLine")}
         </ShellNavLink>
       )}
       {isAdmin && (
@@ -88,6 +90,7 @@ function ShellNavItems({ isAdmin, inQueue, openAdminQueueId }) {
  */
 export function AppShell() {
   const { user, isAdmin, isGuest, inQueue, adminQueueId, logout } = useApp();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const openAdminQueueId = resolveAdminQueueId(adminQueueId, pathname);
@@ -112,6 +115,7 @@ export function AppShell() {
       isAdmin={isAdmin}
       inQueue={inQueue}
       openAdminQueueId={openAdminQueueId}
+      t={t}
     />
   );
 
@@ -127,13 +131,14 @@ export function AppShell() {
           <div className="flex h-14 items-center gap-3 px-4 sm:h-auto sm:flex-1 sm:px-0">
             <Wordmark />
             <nav
-              aria-label="Main"
+              aria-label={t("nav.main")}
               data-testid="shell-nav"
               className="hidden min-w-0 items-center gap-4 sm:flex"
             >
               {navItems}
             </nav>
             <div className="ml-auto flex shrink-0 items-center gap-2">
+              <LanguageToggle />
               <UserChip user={identity} softUpgrade={guestSoftUpgrade} />
               {showLogout ? (
                 <Button
@@ -143,13 +148,13 @@ export function AppShell() {
                   className="whitespace-nowrap"
                   data-testid="shell-logout"
                 >
-                  Log out
+                  {t("nav.logOut")}
                 </Button>
               ) : null}
             </div>
           </div>
           <nav
-            aria-label="Main"
+            aria-label={t("nav.main")}
             data-testid="shell-nav-mobile"
             className="flex items-center gap-4 overflow-x-auto px-4 pb-1 sm:hidden"
           >

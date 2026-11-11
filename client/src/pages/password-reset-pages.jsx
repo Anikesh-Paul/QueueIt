@@ -8,12 +8,13 @@ import { Alert } from "@/components/ui/alert";
 import { forgotPassword, resetPassword } from "@/api";
 import { useApp } from "@/context/app-context";
 import { clearOfflineStatusCache } from "@/lib/register-sw";
-import { FORGOT_PASSWORD_NOTICE } from "@/lib/auth-copy";
+import { useI18n } from "@/context/i18n-context";
 
 const fieldClass =
   "h-11 rounded-md border-border bg-background/60 px-3.5 text-[0.9375rem] shadow-none transition-[border-color,box-shadow] placeholder:text-text-muted focus-visible:border-primary focus-visible:bg-card";
 
 export function ForgotPasswordPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -27,7 +28,7 @@ export function ForgotPasswordPage() {
       await forgotPassword({ email });
       setDone(true);
     } catch (err) {
-      setError(err.message || "Request failed");
+      setError(err.message || t("auth.requestFailed"));
     } finally {
       setBusy(false);
     }
@@ -37,21 +38,21 @@ export function ForgotPasswordPage() {
     <AuthLayout>
       <div className="w-full max-w-[22rem]">
         <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.015em] text-foreground">
-          Forgot password
+          {t("forgot.title")}
         </h1>
         <p className="mt-2 text-[0.9375rem] leading-snug text-text-secondary">
-          Enter the email on your account. If an account exists for that email, we’ll send a reset link.
+          {t("forgot.intro")}
         </p>
 
         {done ? (
           <p className="mt-8 text-sm leading-relaxed text-foreground" data-testid="forgot-password-sent">
-            {FORGOT_PASSWORD_NOTICE}
+            {t("forgot.notice")}
           </p>
         ) : (
           <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-label text-foreground">
-                Email
+                {t("auth.email")}
               </Label>
               <Input
                 id="email"
@@ -79,14 +80,14 @@ export function ForgotPasswordPage() {
               className="mt-1 h-11 w-full text-[0.9375rem] font-semibold tracking-[-0.01em]"
               data-testid="forgot-password-submit"
             >
-              {busy ? "Please wait…" : "Send reset link"}
+              {busy ? t("auth.pleaseWait") : t("forgot.submit")}
             </Button>
           </form>
         )}
 
         <p className="mt-6 text-center text-sm text-text-secondary">
           <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
-            Back to log in
+            {t("forgot.back")}
           </Link>
         </p>
       </div>
@@ -95,6 +96,7 @@ export function ForgotPasswordPage() {
 }
 
 export function ResetPasswordPage() {
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const navigate = useNavigate();
@@ -108,7 +110,7 @@ export function ResetPasswordPage() {
     event.preventDefault();
     setError("");
     if (password !== confirm) {
-      setError("Passwords don’t match");
+      setError(t("reset.mismatch"));
       return;
     }
     setBusy(true);
@@ -122,7 +124,7 @@ export function ResetPasswordPage() {
       clearOfflineStatusCache();
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err.message || "Request failed");
+      setError(err.message || t("auth.requestFailed"));
     } finally {
       setBusy(false);
     }
@@ -132,21 +134,21 @@ export function ResetPasswordPage() {
     <AuthLayout>
       <div className="w-full max-w-[22rem]">
         <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.015em] text-foreground">
-          Set a new password
+          {t("reset.title")}
         </h1>
         <p className="mt-2 text-[0.9375rem] leading-snug text-text-secondary">
-          Choose a password of 8–128 characters. This link can only be used once.
+          {t("reset.intro")}
         </p>
 
         {!token ? (
           <p className="mt-8 text-sm text-text-secondary" data-testid="reset-password-missing">
-            This reset link is invalid or has expired.
+            {t("reset.missing")}
           </p>
         ) : (
           <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="password" className="text-label text-foreground">
-                New password
+                {t("reset.newPassword")}
               </Label>
               <Input
                 id="password"
@@ -158,14 +160,14 @@ export function ResetPasswordPage() {
                 maxLength={128}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="8–128 characters"
+                placeholder={t("auth.passwordHint")}
                 className={fieldClass}
                 data-testid="reset-password-input"
               />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="confirm-password" className="text-label text-foreground">
-                Confirm password
+                {t("reset.confirmPassword")}
               </Label>
               <Input
                 id="confirm-password"
@@ -193,14 +195,14 @@ export function ResetPasswordPage() {
               className="mt-1 h-11 w-full text-[0.9375rem] font-semibold tracking-[-0.01em]"
               data-testid="reset-password-submit"
             >
-              {busy ? "Please wait…" : "Save password and log in"}
+              {busy ? t("auth.pleaseWait") : t("reset.submit")}
             </Button>
           </form>
         )}
 
         <p className="mt-6 text-center text-sm text-text-secondary">
           <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
-            Back to log in
+            {t("forgot.back")}
           </Link>
         </p>
       </div>

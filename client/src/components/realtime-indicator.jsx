@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/context/i18n-context";
 
 /**
  * Honest live-update connection chip.
@@ -8,7 +9,13 @@ import { cn } from "@/lib/utils";
  * updates when the student is offline (DESIGN.md honesty rule).
  */
 export function RealtimeIndicator({ connected, mode, className, testId }) {
+  const { t } = useI18n();
   const resolved = mode || (connected ? "realtime" : "polling");
+  const labelKey = {
+    realtime: "status.connection.mode.realtime",
+    polling: "status.connection.mode.polling",
+    offline: "status.connection.mode.offline",
+  }[resolved] || "status.connection.mode.polling";
   return (
     <span
       data-testid={testId}
@@ -20,7 +27,7 @@ export function RealtimeIndicator({ connected, mode, className, testId }) {
         className
       )}
     >
-      · {resolved}
+      · {t(labelKey)}
     </span>
   );
 }

@@ -337,6 +337,7 @@ export function StatusPage() {
                     : liveStatus.servingRemainingSeconds
               }
               frozen={Boolean(liveStatus.servingTimerFrozen)}
+              counterName={liveStatus.servingCounterName}
             />
           </div>
         )}
@@ -400,7 +401,28 @@ export function StatusPage() {
               />
               <StatusMetric
                 label="Now serving"
-                value={formatNowServing(liveStatus.nowServing)}
+                value={
+                  Array.isArray(liveStatus.counters) && liveStatus.counters.length > 1 ? (
+                    <ul className="flex flex-col gap-1 text-left" data-testid="now-serving-counters">
+                      {liveStatus.counters.map((counter) => (
+                        <li
+                          key={counter.id || counter.name}
+                          className="flex items-baseline justify-between gap-2 text-sm font-medium"
+                          data-testid="now-serving-counter"
+                        >
+                          <span className="truncate font-sans text-xs font-semibold uppercase tracking-wide text-text-muted">
+                            {counter.name}
+                          </span>
+                          <span className="font-metric tabular-nums">
+                            {formatNowServing(counter.nowServing)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    formatNowServing(liveStatus.nowServing)
+                  )
+                }
                 testId="now-serving"
               />
             </div>
@@ -479,8 +501,9 @@ function formatCallRemaining(seconds) {
   return `${minutes}:${String(secs).padStart(2, "0")} left`;
 }
 
-function CalledBanner({ remainingSeconds, frozen }) {
+function CalledBanner({ remainingSeconds, frozen, counterName }) {
   const remaining = formatCallRemaining(remainingSeconds);
+  const place = counterName ? counterName : "the counter";
   return (
     <div
       role="status"
@@ -490,13 +513,15 @@ function CalledBanner({ remainingSeconds, frozen }) {
     >
       <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
       <div>
-        <p className="font-heading text-sm font-semibold text-foreground">You&apos;re being called</p>
+        <p className="font-heading text-sm font-semibold text-foreground">
+          You&apos;re being called{counterName ? ` at ${counterName}` : ""}
+        </p>
         <p className="mt-0.5 text-xs leading-5 text-text-secondary" data-testid="called-remaining">
           {frozen
             ? "Timer paused until the line resumes."
             : remaining
-              ? `${remaining} to arrive at the counter.`
-              : "Please come to the counter."}
+              ? `${remaining} to arrive at ${place}.`
+              : `Please come to ${place}.`}
         </p>
       </div>
     </div>

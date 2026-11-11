@@ -235,6 +235,16 @@ export function QueuesPage() {
       {selected && (
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           {isAdmin ? (
+            <>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => navigate("/admin/catalog")}
+              data-testid="open-catalog"
+              className="w-full sm:w-auto"
+            >
+              Manage catalog
+            </Button>
             <Button
               size="lg"
               onClick={handleManage}
@@ -243,6 +253,7 @@ export function QueuesPage() {
             >
               Manage {selected.name}
             </Button>
+            </>
           ) : activeMemberships.some((row) => row.queue?.id === selected.id) ? (
             <Button
               size="lg"

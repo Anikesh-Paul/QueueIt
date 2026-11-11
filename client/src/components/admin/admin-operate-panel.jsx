@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,11 +41,37 @@ export function AdminOperatePanel({
   const [skipOpen, setSkipOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [stopOpen, setStopOpen] = useState(false);
+  const [selectedCounterId, setSelectedCounterId] = useState("");
 
-  const calledEntry = waitingList.find((entry) => entry.status === "serving");
+  const counters = Array.isArray(adminQueueMeta?.counters) ? adminQueueMeta.counters : [];
+  const multi = counters.length > 1;
+  const calledEntries = waitingList.filter((entry) => entry.status === "serving");
+  const calledEntry = calledEntries[0] || null;
+  const busyIds = new Set(
+    calledEntries.map((entry) => entry.servingCounterId).filter(Boolean)
+  );
+  const freeCounters = counters.filter((counter) => counter.id && !busyIds.has(counter.id));
   const waiterCount = waitingList.filter((entry) => entry.status !== "serving").length;
   const canCall =
-    !adminActionBusy && !paused && waiterCount > 0 && !calledEntry;
+    !adminActionBusy &&
+    !paused &&
+    waiterCount > 0 &&
+    (multi ? freeCounters.length > 0 : !calledEntry);
+
+  const freeCounterIds = freeCounters.map((counter) => counter.id).join(",");
+  const counterIds = counters.map((counter) => counter.id).join(",");
+  useEffect(() => {
+    if (!multi) {
+      setSelectedCounterId("");
+      return;
+    }
+    const free = freeCounterIds.split(",").filter(Boolean);
+    const all = counterIds.split(",").filter(Boolean);
+    setSelectedCounterId((prev) => {
+      if (prev && free.includes(prev)) return prev;
+      return free[0] || all[0] || "";
+    });
+  }, [multi, freeCounterIds, counterIds]);
 
   return (
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
@@ -54,12 +80,29 @@ export function AdminOperatePanel({
                   <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
                     Now serving
                   </span>
-                  <span
-                    className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
-                    data-testid="admin-now-serving"
-                  >
-                    {formatNowServing(adminQueueMeta?.nowServing)}
-                  </span>
+                  {multi ? (
+                    <ul className="mt-0.5 flex flex-col gap-1" data-testid="admin-now-serving">
+                      {counters.map((counter) => (
+                        <li
+                          key={counter.id}
+                          className="flex items-baseline justify-between gap-2 text-sm"
+                          data-testid="admin-counter-serving"
+                        >
+                          <span className="truncate text-text-secondary">{counter.name}</span>
+                          <span className="font-metric text-lg font-bold tabular-nums text-foreground">
+                            {formatNowServing(counter.nowServing)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span
+                      className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
+                      data-testid="admin-now-serving"
+                    >
+                      {formatNowServing(adminQueueMeta?.nowServing)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary px-4 py-3">
                   <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -75,6 +118,37 @@ export function AdminOperatePanel({
               </div>
 
               <div className="border-t border-border px-5 py-4">
+                {multi ? (
+                  <div className="mb-3" data-testid="counter-picker">
+                    <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">
+                      Target counter
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {counters.map((counter) => {
+                        const busy = busyIds.has(counter.id);
+                        const selected = selectedCounterId === counter.id;
+                        return (
+                          <button
+                            key={counter.id}
+                            type="button"
+                            data-testid="counter-option"
+                            data-counter-id={counter.id}
+                            aria-pressed={selected}
+                            onClick={() => setSelectedCounterId(counter.id)}
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                              selected
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-secondary text-text-secondary hover:bg-secondary/80"
+                            }`}
+                          >
+                            {counter.name}
+                            {busy ? " · calling" : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
                 <div
                   className="admin-actions grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"
                   data-testid="admin-actions"
@@ -82,21 +156,25 @@ export function AdminOperatePanel({
                   <Button
                     variant="default"
                     size="lg"
-                    onClick={() => adminCall(selectedEntryId || undefined)}
+                    onClick={() =>
+                      adminCall(selectedEntryId || undefined, selectedCounterId || undefined)
+                    }
                     disabled={!canCall}
                     data-testid="admin-call"
                     className="w-full sm:w-auto"
                   >
                     {adminActionBusy
                       ? "Working…"
-                      : selectedEntryId && !calledEntry
+                      : selectedEntryId && (multi ? freeCounters.length > 0 : !calledEntry)
                         ? "Call selected"
                         : "Call next"}
                   </Button>
                   <Button
                     variant="secondary"
                     size="lg"
-                    onClick={() => adminServe(selectedEntryId || undefined)}
+                    onClick={() =>
+                      adminServe(selectedEntryId || undefined, selectedCounterId || undefined)
+                    }
                     disabled={adminActionBusy || paused || empty}
                     data-testid="admin-serve"
                     className="w-full sm:w-auto"
@@ -139,7 +217,7 @@ export function AdminOperatePanel({
                           onClick={(event) => {
                             event.preventDefault();
                             setSkipOpen(false);
-                            adminSkip(selectedEntryId || undefined);
+                            adminSkip(selectedEntryId || undefined, selectedCounterId || undefined);
                           }}
                         >
                           {adminActionBusy ? "Working…" : "Skip"}

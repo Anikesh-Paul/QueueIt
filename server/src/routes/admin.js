@@ -2,6 +2,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { Queue } from "../models/Queue.js";
+import { Venue } from "../models/Venue.js";
 import { QueueEntry, isDuplicateKeyError } from "../models/QueueEntry.js";
 import { parseArrivalValue } from "../services/arrivalPass.js";
 import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
@@ -23,6 +24,18 @@ import {
   resumeServingDeadlines,
   servingFieldsForJson,
 } from "../services/servingDeadline.js";
+import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing } from "../services/counters.js";
+import {
+  addCounter,
+  createQueue as createCatalogQueue,
+  createVenue,
+  listAdminCatalog,
+  removeCounter,
+  renameCounter,
+  toAdminCatalogQueueJSON,
+  updateQueue as updateCatalogQueue,
+  updateVenue,
+} from "../services/catalogAdmin.js";
 
 const router = Router();
 
@@ -46,6 +59,8 @@ function toAdminQueueJSON(queue) {
     nowServing: queue.nowServing ?? null,
     averageServiceTime: queue.averageServiceTime,
     noShowMinutes: queue.noShowMinutes ?? 5,
+    counters: countersForJson(queue),
+    archived: Boolean(queue.archivedAt),
     ...sessionFieldsForJson(queue),
   };
 }
@@ -55,7 +70,7 @@ function toAdminQueueJSON(queue) {
  * Guest rows: token-first + isGuest (no name/email; not walk-in).
  * Walk-ins remain isWalkIn with walkInName — never labeled Guest.
  */
-function toWaitingRow(entry, position, { paused = false } = {}) {
+function toWaitingRow(entry, position, { paused = false, queue = null } = {}) {
   const isWalkIn = Boolean(entry.isWalkIn);
   const isGuest = Boolean(entry.guest) && !isWalkIn;
   let user;
@@ -97,7 +112,7 @@ function toWaitingRow(entry, position, { paused = false } = {}) {
     isWalkIn,
     isGuest,
     joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
-    ...servingFieldsForJson(entry, { paused }),
+    ...servingFieldsForJson(entry, { paused, queue }),
   };
 }
 
@@ -114,6 +129,9 @@ async function loadQueueOr404(queueId, res) {
   // Lazy auto-close when past bound session end; also skip expired no-shows.
   await ensureQueueSessionState(queue);
   await expireNoShowCalls({ queueId: queue._id });
+  if (ensureDefaultCounters(queue)) {
+    await queue.save();
+  }
   return queue;
 }
 
@@ -162,7 +180,7 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
     let waiterPosition = 0;
     const waiting = entries.map((entry) => {
       const position = entry.status === "serving" ? 0 : (waiterPosition += 1);
-      return toWaitingRow(entry, position, { paused });
+      return toWaitingRow(entry, position, { paused, queue });
     });
 
     return res.status(200).json({
@@ -185,7 +203,7 @@ router.post("/queues/:queueId/serve", requireAuth, requireAdmin, async (req, res
     if (!queue) return;
     if (rejectIfPaused(queue, res)) return;
 
-    const result = await advanceWaitingEntry(queue, { entryId: req.body?.entryId }, "served");
+    const result = await advanceWaitingEntry(queue, { entryId: req.body?.entryId, counterId: req.body?.counterId }, "served");
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }
@@ -215,7 +233,7 @@ router.post("/queues/:queueId/skip", requireAuth, requireAdmin, async (req, res,
     if (!queue) return;
     if (rejectIfPaused(queue, res)) return;
 
-    const result = await advanceWaitingEntry(queue, { entryId: req.body?.entryId }, "skipped");
+    const result = await advanceWaitingEntry(queue, { entryId: req.body?.entryId, counterId: req.body?.counterId }, "skipped");
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }
@@ -247,7 +265,7 @@ router.post("/queues/:queueId/call", requireAuth, requireAdmin, async (req, res,
     if (!queue) return;
     if (rejectIfPaused(queue, res)) return;
 
-    const result = await callWaitingEntry(queue, { entryId: req.body?.entryId });
+    const result = await callWaitingEntry(queue, { entryId: req.body?.entryId, counterId: req.body?.counterId });
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }
@@ -277,6 +295,9 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
   try {
     const queue = await loadQueueOr404(req.params.queueId, res);
     if (!queue) return;
+    if (queue.archivedAt) {
+      return res.status(409).json({ error: "This queue is archived" });
+    }
 
     const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
     if (!name) {
@@ -457,6 +478,10 @@ router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res
     );
     if (!updated) {
       return res.status(404).json({ error: "Queue not found" });
+    }
+    if (updated.counters?.length) {
+      clearAllCounterNowServing(updated);
+      await updated.save();
     }
 
     // Close any waiting entries created before the reset (including one racing
@@ -750,6 +775,145 @@ router.put(
       return res.status(200).json({
         queue: toAdminQueueJSON(queue),
       });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+
+async function loadVenueOr404(venueId, res) {
+  if (!mongoose.isValidObjectId(venueId)) {
+    res.status(404).json({ error: "Venue not found" });
+    return null;
+  }
+  const venue = await Venue.findById(venueId);
+  if (!venue) {
+    res.status(404).json({ error: "Venue not found" });
+    return null;
+  }
+  return venue;
+}
+
+/**
+ * GET /api/admin/catalog — venues and their queues, including archived.
+ */
+router.get("/catalog", requireAuth, requireAdmin, async (_req, res, next) => {
+  try {
+    const venues = await listAdminCatalog();
+    return res.status(200).json({ venues });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post("/venues", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await createVenue({ name: req.body?.name });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(201).json({ venue: result.venue.toPublicJSON() });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.patch("/venues/:venueId", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const venue = await loadVenueOr404(req.params.venueId, res);
+    if (!venue) return;
+    const result = await updateVenue(venue, { name: req.body?.name });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(200).json({ venue: result.venue.toPublicJSON() });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await createCatalogQueue({
+      venueId: req.body?.venueId,
+      name: req.body?.name,
+      averageServiceTime: req.body?.averageServiceTime,
+      serviceWindows: req.body?.serviceWindows,
+      counters: req.body?.counters,
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(201).json({
+      queue: toAdminCatalogQueueJSON(result.queue, result.venue),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res);
+    if (!queue) return;
+    const result = await updateCatalogQueue(queue, {
+      name: req.body?.name,
+      averageServiceTime: req.body?.averageServiceTime,
+      serviceWindows: req.body?.serviceWindows,
+      archived: req.body?.archived,
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    const venue = await Venue.findById(result.queue.venue);
+    return res.status(200).json({
+      queue: toAdminCatalogQueueJSON(result.queue, venue),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post("/queues/:queueId/counters", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res);
+    if (!queue) return;
+    const result = await addCounter(queue, { name: req.body?.name });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(201).json({
+      queue: toAdminQueueJSON(result.queue),
+      counter: {
+        id: result.counter._id.toString(),
+        name: result.counter.name,
+        nowServing: result.counter.nowServing ?? null,
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.patch(
+  "/queues/:queueId/counters/:counterId",
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const queue = await loadQueueOr404(req.params.queueId, res);
+      if (!queue) return;
+      const result = await renameCounter(queue, req.params.counterId, { name: req.body?.name });
+      if (!result.ok) return res.status(result.status).json({ error: result.error });
+      return res.status(200).json({ queue: toAdminQueueJSON(result.queue) });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.delete(
+  "/queues/:queueId/counters/:counterId",
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const queue = await loadQueueOr404(req.params.queueId, res);
+      if (!queue) return;
+      const result = await removeCounter(queue, req.params.counterId);
+      if (!result.ok) return res.status(result.status).json({ error: result.error });
+      return res.status(200).json({ queue: toAdminQueueJSON(result.queue) });
     } catch (err) {
       return next(err);
     }

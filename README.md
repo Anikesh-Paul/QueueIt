@@ -12,7 +12,7 @@ Virtual queues for campus services. People join a line from their phone, watch t
 
 - Browse the venue’s queues (Campus Hub — Cafeteria and Gym)
 - Join without standing physically in line — or **continue as a guest**, no account required
-- See **token**, **position**, **ETA** (campus clock, IST), and **now serving**
+- See **token**, **position**, **ETA** (campus clock, IST), and **now serving** (including the counter, when a queue has more than one)
 - Get a **near-front** prompt when you’re in the next three
 - Show an **arrival pass** QR at the counter
 - Leave if plans change; review **history** (portable after login)
@@ -22,7 +22,8 @@ Virtual queues for campus services. People join a line from their phone, watch t
 
 ### For staff
 
-- Waiting list with serve, skip, pause, and resume
+- Waiting list with serve, skip, pause, and resume — **call/serve can target a counter** when a queue has more than one
+- **Catalog** — add, rename, or archive venues and queues without re-seeding
 - **Walk-in** tokens for people who arrive without the app
 - **Start / stop accepting tokens**, **extend** a session, and **reset** the line
 - Daily **service windows** (editable; auto-close at window end)

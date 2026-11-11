@@ -67,6 +67,11 @@ const queueEntrySchema = new mongoose.Schema(
     servingDeadlineAt: { type: Date, default: null },
     /** Remaining ms when the queue was paused mid-call. */
     servingPausedRemainingMs: { type: Number, default: null, min: 0 },
+    /** Counter this entry was called or served at (subdocument id on Queue.counters). */
+    servingCounterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
   },
   { timestamps: true }
 );

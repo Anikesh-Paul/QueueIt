@@ -38,7 +38,7 @@ Polling backs the live student status and the admin waiting list. When the tab i
 
 Instant updates need a **long-running API process** (`Socket.IO`). The Vercel serverless API cannot hold sockets, so the production app stays on the 3-second poll and never depends on realtime to work. The 15-second session closer also does not run on serverless; sessions still close lazily on the next request. Even on a long-running host, **guests keep polling** until guest socket auth exists — today's handshake is JWT-only (`auth.token`). See [How to run the API as a long-running process for Instant updates](#how-to-run-the-api-as-a-long-running-process-for-instant-updates).
 
-History is paginated (default **20** events, max 50, newest first, `cursor` + `hasMore`). Admin analytics can be scoped with `?window=today` (campus IST day) or `from` / `to` ISO instants; waiting count stays live. The default (no query) is all-time, which is what existing clients get.
+History is paginated (default **20** events, max 50, newest first, `cursor` + `hasMore`). Admin analytics can be scoped with `?window=today` (campus IST day) or `from` / `to` ISO instants; waiting count stays live. The default (no query) is all-time, which is what existing clients get. Campus rollup lives at `/admin/analytics` (`GET /api/admin/analytics` and `/api/admin/analytics.csv`). Staff see only their venue; global admins can filter by `venueId`. The CSV is a per-queue rollup plus a Totals row — no student names or emails.
 
 ## Live deployment
 

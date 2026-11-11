@@ -6,6 +6,7 @@ import { Venue } from "../models/Venue.js";
 import { QueueEntry, isDuplicateKeyError } from "../models/QueueEntry.js";
 import { arrivalVerifyDecision, parseArrivalValue } from "../services/arrivalPass.js";
 import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
+import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessVenueAccess, isGlobalAdmin } from "../services/staffAccess.js";
 import { inviteStaff } from "../services/staffInvite.js";
@@ -819,6 +820,45 @@ async function loadVenueOr404(venueId, res, user) {
 /**
  * GET /api/admin/catalog — venues and their queues, including archived.
  */
+
+/**
+ * GET /api/admin/analytics — campus (or venue) rollup for the queues this operator can see.
+ * Query: window=today|all, optional venueId. Staff are locked to their venue.
+ */
+router.get("/analytics", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await collectCampusAnalytics(req.user, req.query || {});
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    return res.status(200).json(result.payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * GET /api/admin/analytics.csv — same access and window as /analytics, as a CSV download.
+ */
+router.get("/analytics.csv", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await collectCampusAnalytics(req.user, req.query || {});
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    const csv = formatCampusAnalyticsCsv(result.payload);
+    const preset = result.payload.range?.preset || "all";
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="queueit-analytics-${preset}.csv"`
+    );
+    return res.status(200).send(csv);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.get("/catalog", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const venues = await listAdminCatalog(req.user);

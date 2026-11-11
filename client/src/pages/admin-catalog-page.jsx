@@ -162,16 +162,26 @@ export function AdminCatalogPage() {
 
   return (
     <ShellContent tier="admin">
-      <header className="mb-6">
-        <h1
-          data-testid="catalog-heading"
-          className="font-heading text-headline leading-tight text-foreground"
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1
+            data-testid="catalog-heading"
+            className="font-heading text-headline leading-tight text-foreground"
+          >
+            Catalog
+          </h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            Add or edit venues and queues. Seeded Cafeteria and Gym stay as the demo starter.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate("/admin/analytics")}
+          data-testid="catalog-campus-analytics"
         >
-          Catalog
-        </h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          Add or edit venues and queues. Seeded Cafeteria and Gym stay as the demo starter.
-        </p>
+          Campus analytics
+        </Button>
       </header>
 
       {error ? <Alert variant="destructive" className="mb-4">{error}</Alert> : null}

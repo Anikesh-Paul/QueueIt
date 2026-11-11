@@ -1,4 +1,6 @@
+import { Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 const PRIORITY_REASON_LABELS = {
@@ -34,9 +36,13 @@ export function AdminWaitingList({
               )}
 
               {!waitingLoading && empty && (
-                <p className="mt-3 text-sm text-text-muted" data-testid="admin-waiting-empty">
-                  No one waiting.
-                </p>
+                <EmptyState
+                  className="mt-3"
+                  icon={Users}
+                  testId="admin-waiting-empty"
+                  title="No one waiting"
+                  hint="New joins from the app, the poster QR and walk-ins appear here automatically."
+                />
               )}
 
               {!waitingLoading && !empty && (

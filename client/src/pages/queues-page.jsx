@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
+import { ErrorState } from "@/components/ui/error-state";
 import { useApp, SOFT_UPGRADE_POST_LEAVE_KEY } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
@@ -141,7 +142,14 @@ export function QueuesPage() {
       )}
 
       {!queuesLoading && queuesError && (
-        <Alert variant="destructive">{queuesError}</Alert>
+        <ErrorState
+          testId="queues-error"
+          title={t("error.loadQueues")}
+          message={t("error.connection")}
+          detail={queuesError}
+          retryLabel={t("error.retry")}
+          onRetry={() => loadQueues(token || null, { guestCred: guestCredential || null })}
+        />
       )}
 
       {!queuesLoading && !queuesError && queues.length === 0 && (
@@ -210,8 +218,8 @@ export function QueuesPage() {
                         className={cn(
                           "rounded-full px-2 py-0.5 text-xs font-semibold",
                           closed && "bg-secondary text-text-secondary",
-                          !closed && full && "bg-[#FEE2E2] text-[#991B1B]",
-                          !closed && !full && paused && "bg-[#FEF3C7] text-[#92400E]",
+                          !closed && full && "bg-danger-soft text-danger-ink",
+                          !closed && !full && paused && "bg-warning-soft text-warning-ink",
                           !closed && !full && !paused && "bg-primary-muted text-primary"
                         )}
                       >
@@ -220,7 +228,7 @@ export function QueuesPage() {
                       {(closed || full) && paused ? (
                         <span
                           data-testid="queue-state-paused"
-                          className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-semibold text-[#92400E]"
+                          className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink"
                         >
                           {t("state.paused")}
                         </span>

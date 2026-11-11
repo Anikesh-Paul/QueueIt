@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert } from "@/components/ui/alert";
+import { ErrorState } from "@/components/ui/error-state";
 import { useApp } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
@@ -71,7 +71,16 @@ export function HistoryPage() {
         </div>
       )}
 
-      {!historyLoading && historyError && <Alert variant="destructive">{historyError}</Alert>}
+      {!historyLoading && historyError && (
+        <ErrorState
+          testId="history-error"
+          title={t("error.loadHistory")}
+          message={t("error.connection")}
+          detail={historyError}
+          retryLabel={t("error.retry")}
+          onRetry={() => loadHistory(token || null, guestCredential || null)}
+        />
+      )}
 
       {!historyLoading && !historyError && historyEvents.length === 0 && (
         <div
@@ -161,7 +170,7 @@ function outcomeTone(outcome) {
     case "served":
       return "bg-primary-muted text-success";
     case "skipped":
-      return "bg-[#FEF3C7] text-[#92400E]";
+      return "bg-warning-soft text-warning-ink";
     default:
       return "bg-secondary text-text-secondary";
   }

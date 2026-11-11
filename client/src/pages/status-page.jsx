@@ -259,9 +259,9 @@ export function StatusPage() {
               <span
                 aria-live="polite"
                 data-testid="queue-paused"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#FEF3C7] px-2.5 py-1 text-xs font-semibold text-[#92400E]"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning-ink"
               >
-                <span className="size-1.5 rounded-full bg-[#D97706]" />
+                <span className="size-1.5 rounded-full bg-attention" />
                 Paused
               </span>
             ) : offline ? (
@@ -700,14 +700,14 @@ function NearFrontBanner({ position, locale = "en" }) {
       aria-live="polite"
       data-testid="near-front-banner"
       data-near-front={kind}
-      className="flex items-start gap-2.5 rounded-lg border border-[#FCD34D] bg-[#FEF3C7] px-4 py-3"
+      className="flex items-start gap-2.5 rounded-lg border border-warning-line bg-warning-soft px-4 py-3"
     >
-      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#D97706]" aria-hidden="true" />
+      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-attention" aria-hidden="true" />
       <div>
-        <p className="font-heading text-sm font-semibold text-[#92400E]">
+        <p className="font-heading text-sm font-semibold text-warning-ink">
           {title}
         </p>
-        <p className="mt-0.5 text-xs leading-5 text-[#78350F]">
+        <p className="mt-0.5 text-xs leading-5 text-warning-ink">
           {body}
         </p>
       </div>
@@ -746,7 +746,7 @@ function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass, t }) {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
         <div
-          className="shrink-0 self-center rounded-lg border border-border bg-card p-3 shadow-card"
+          className="shrink-0 self-center rounded-lg border border-border bg-white p-3 shadow-card"
           data-testid="arrival-qr"
         >
           <QRCodeSVG

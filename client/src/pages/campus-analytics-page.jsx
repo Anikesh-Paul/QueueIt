@@ -34,7 +34,7 @@ function Kpi({ label, value, hint, testId }) {
       <dd data-testid={testId} className="font-metric text-2xl font-semibold tracking-[-0.02em] tabular-nums text-foreground">
         {value}
       </dd>
-      {hint ? <p className="truncate text-xs text-text-muted">{hint}</p> : null}
+      {hint ? <dd className="truncate text-xs text-text-muted">{hint}</dd> : null}
     </div>
   );
 }
@@ -123,7 +123,7 @@ function SrTable({ caption, headers, rows }) {
 }
 
 function RateCell({ rate }) {
-  const tone = rate == null ? "text-text-muted" : rate >= 0.2 ? "text-destructive" : rate >= 0.1 ? "text-warning" : "text-foreground";
+  const tone = rate == null ? "text-text-muted" : rate >= 0.2 ? "text-destructive" : rate >= 0.1 ? "text-warning-ink" : "text-foreground";
   return <span className={cn("tabular-nums", tone)}>{formatRate(rate)}</span>;
 }
 
@@ -455,7 +455,12 @@ export function CampusAnalyticsPage() {
               {data.queues.length === 0 ? (
                 <p className="px-5 py-8 text-center text-sm text-text-muted">No queues in this scope.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div
+                  className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Queue breakdown table"
+                >
                   <table className="w-full min-w-[560px] text-sm" data-testid="campus-analytics-queues">
                     <thead className="bg-secondary/60 text-left text-xs text-text-muted">
                       <tr>

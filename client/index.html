@@ -15,6 +15,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="QueueIt" />
     <title>QueueIt</title>
+    <script>
+      // Apply the saved theme before first paint (mirrors src/lib/theme.js).
+      (function () {
+        try {
+          var pref = localStorage.getItem("queueit_theme");
+          var dark = pref === "dark" || ((pref !== "light") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) {
+            document.documentElement.classList.add("dark");
+            document.documentElement.style.colorScheme = "dark";
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute("content", "#141412");
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

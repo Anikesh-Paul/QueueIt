@@ -24,6 +24,8 @@ The production API is a Vercel serverless function, so the live app uses short p
 - Get a **near-front** prompt in the next three, then a **called** banner with a countdown and an **I'm here** button when the counter calls you.
 - Show a **signed arrival-pass QR** at the desk. The scan confirms that a token is waiting — not who the person is.
 - Leave if plans change, and review **history** (portable after login).
+- **Scan a poster or kiosk QR** to join without an account. The link opens in guest mode and explains that the place is saved on that phone. Admins can switch guest joining off per queue. Guest passes are limited to 2 places at once, pause after repeated no-shows, and are capped per network.
+- **Light or dark theme.** It follows the device setting until you pick one in the header, and the choice is remembered.
 - Use **English** (default) or **Hindi**. A header toggle is remembered on the device; a Hindi browser language can select Hindi first if no preference is stored. Admin copy stays English in this release.
 - **Add to Home Screen** (web app manifest + theme color). A small production service worker caches the app shell and the last successful catalog, status, and membership responses (network-first). It is a stale-offline fallback, not live data, and it is not registered in Vite dev.
 
@@ -40,8 +42,15 @@ The production API is a Vercel serverless function, so the live app uses short p
 - **Check arrival** — camera scan or a pasted signed pass (`QIT:…`). Only signed passes verify by default.
 - **Catalog editor** — add, rename, or archive venues and queues without re-seeding. Set average service time, a **max waiting** cap (catalog shows Full; join and walk-in return 409 at capacity), no-show settings, missed-turn recovery, priority fairness, and an equivalent-queue group.
 - **Service windows** in campus IST, including optional day-of-week scope, overnight windows (for example 22:00–02:00), and **holiday / exception** dates. Staff can start or stop accepting tokens, extend a session, and reset the line.
-- **Poster QR** for the public join link (not an arrival pass) and a public **display board** at `/kiosk/:queueId` for a TV or tablet at the counter.
-- **Analytics** — served count, wait times, busiest hours (IST), and a 7×24 usual-busyness heatmap. Campus rollup lives at `/admin/analytics`, with CSV export. Staff see only their venue; global admins can filter by `venueId`. The CSV is a per-queue rollup plus a Totals row — no student names or emails.
+- **Poster QR** for the public join link (not an arrival pass), a **printable A4 poster** at `/admin/queues/:queueId/poster`, and a public **display board** at `/kiosk/:queueId` for a TV or tablet. The board shows a "Scan to join" QR while the queue takes tokens.
+- **Analytics** at `/admin/analytics`:
+  - date range of Today, 7 days, 30 days or custom dates (up to 92)
+  - served per day, peak hours across 24 IST hours, average and 90th-percentile wait (join to call), and no-show rate per queue
+  - CSV export of exactly that range
+  - staff see only their venue and queues
+  - API: `GET /api/admin/analytics/report` (`.csv`)
+
+  Per-queue analytics add a 7×24 usual-busyness heatmap. No student names or emails are exported.
 - **Audit log** — pause, resume, skip, serve, call, reset, start/stop accepting, window edits, staff invites, priority decisions, missed-turn rejoins, and queue setting changes, with who / what / when. Staff can only read logs for their venue. Events are paginated and expire after **90 days**.
 - **Venue-scoped staff**, optionally limited to specific queues in that venue (an empty allow-list still means every queue there). A global admin can **invite staff** from the catalog (name, email, venue, optional queues, optional temporary password or a reset link) and later edit that allow-list. The seeded demo admin stays global.
 
@@ -89,7 +98,7 @@ MongoDB, Express, React 19, Vite, Node, Tailwind / shadcn, JWT sessions (`user` 
 .
 ├── client/          # React (Vite) frontend
 ├── server/          # Express API (HTTP routes, models, services, seed)
-├── e2e/             # Playwright smoke
+├── e2e/             # Playwright smoke + key-flow specs (incl. axe a11y)
 └── package.json     # npm workspaces root
 ```
 
@@ -169,6 +178,8 @@ Copy the examples to `.env` locally. **Never commit `.env` or real secrets.**
 | `SEED_USER_EMAIL`, `SEED_USER_PASSWORD`, `SEED_USER_NAME` | Local/demo student account |
 | `SESSION_CLOSE_INTERVAL_MS` | Long-running host only: how often to close expired sessions (default `15000`, minimum `1000`) |
 | `PASSWORD_RESET_EXPIRES_MINUTES` | How long a reset link lasts (default `60`) |
+| `GUEST_MINTS_PER_HOUR` | Optional. New guest passes allowed per network per hour (default `60`; campus Wi-Fi often shares one IP) |
+| `TRUST_PROXY` | Optional. `1` / `0` to force Express `trust proxy`. Defaults to on when Vercel's `VERCEL` env is present |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Optional mail transport. Unset by default — no paid provider is enabled, and reset links are logged instead |
 
 ### Client
@@ -195,7 +206,8 @@ Guest credentials are minted as high-entropy secrets and returned once to the de
 | `npm run seed:e2e` | Wipe + seed dedicated `queueit-e2e` DB |
 | `npm test` | Server HTTP API tests + client unit tests |
 | `npm run lint` | ESLint for client and server |
-| `npm run test:e2e` | Playwright smoke (login + queues list) |
+| `npm run test:e2e` | Playwright: smoke and key flows (student join/leave, guest QR join, admin call/serve, analytics + CSV, poster/kiosk, dark mode, keyboard, axe WCAG AA in both themes) |
+| `npm run test:e2e:smoke` | Only the smoke specs |
 
 `npm test` runs the server HTTP API suite and the client unit tests (`client/src/lib/*.test.js`). Server tests use in-memory MongoDB (`mongodb-memory-server`); no local `mongod` is required.
 

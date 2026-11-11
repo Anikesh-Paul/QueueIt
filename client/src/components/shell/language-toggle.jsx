@@ -28,7 +28,8 @@ export function LanguageToggle({ className = "" } = {}) {
             type="button"
             data-testid={`language-${option.id}`}
             aria-pressed={selected}
-            aria-label={option.name}
+            aria-label={`${option.label} (${option.name})`}
+            title={option.name}
             onClick={() => setLocale(option.id)}
             className={cn(
               "rounded-full px-2 py-0.5 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",

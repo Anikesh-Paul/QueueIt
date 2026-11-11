@@ -18,6 +18,9 @@ process.env.MONGODB_URI = E2E_MONGODB_URI;
 
 export default defineConfig({
   testDir: "./e2e",
+  testMatch: /.*\.spec\.js$/,
+  // Logs the seeded demo accounts in once per run (see e2e/global-setup.mjs).
+  globalSetup: "./e2e/global-setup.mjs",
   timeout: 30_000,
   retries: 0,
   fullyParallel: false,
@@ -28,6 +31,7 @@ export default defineConfig({
   ],
   use: {
     baseURL: "http://localhost:5173",
+    acceptDownloads: true,
     headless: true,
     // HTML report always (reporter above); traces only on failure.
     trace: "retain-on-failure",

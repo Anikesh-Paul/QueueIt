@@ -15,7 +15,7 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ["server/**/*.js", "e2e/**/*.js", "eslint.config.mjs", "playwright.config.mjs", "*.mjs"],
+    files: ["server/**/*.js", "e2e/**/*.{js,mjs}", "eslint.config.mjs", "playwright.config.mjs", "*.mjs"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
@@ -27,6 +27,11 @@ export default [
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
     },
+  },
+  {
+    // Playwright specs run callbacks inside the page (page.evaluate / addInitScript).
+    files: ["e2e/**/*.{js,mjs}"],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     files: ["client/**/*.{js,jsx,mjs}"],

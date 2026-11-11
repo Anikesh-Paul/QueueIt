@@ -33,6 +33,7 @@ Thumbs.db
 playwright-report/
 test-results/
 e2e/tickets/
+e2e/.auth/
 
 *.pem
 

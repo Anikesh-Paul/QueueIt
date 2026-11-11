@@ -137,7 +137,7 @@ body {
   --secondary: #efece4; /* surface muted */
   --secondary-foreground: #1a1a18;
   --muted: #efece4;
-  --muted-foreground: #78716c; /* text muted */
+  --muted-foreground: #57534e; /* AA helper text; same as text-secondary */
   --accent: #efece4;
   --accent-foreground: #1a1a18;
 
@@ -153,7 +153,10 @@ body {
   --ring: #1b4332; /* focus-ring = forest */
 
   --text-secondary: #57534e;
-  --text-muted: #78716c;
+  /* #78716c failed WCAG AA on canvas (4.25:1) and secondary (4.06:1).
+     #57534e is 6.76:1 on canvas #f4f1ea, 6.46:1 on secondary #efece4,
+     and 7.45:1 on card #fffcf7 (AA normal text needs 4.5:1). */
+  --text-muted: #57534e;
 
   --chart-1: #1b4332;
   --chart-2: #57534e;

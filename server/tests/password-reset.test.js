@@ -61,6 +61,12 @@ describe("Password reset (HTTP API)", () => {
     assert.equal(sent[0].to, "reset@example.com");
     assert.match(sent[0].resetUrl, /\/reset-password\?token=/);
     assert.equal("token" in known.body, false);
+    assert.equal("resetUrl" in known.body, false);
+    assert.equal("resetToken" in known.body, false);
+    assert.deepEqual(Object.keys(known.body), ["message"]);
+    assert.equal(JSON.stringify(unknown.body).includes("reset-password"), false);
+    assert.equal(JSON.stringify(known.body).includes("reset-password"), false);
+    assert.equal(JSON.stringify(known.body).includes(sent[0].resetUrl), false);
   });
 
   it("resets the password with a valid token, signs the user in, and rejects reuse", async () => {

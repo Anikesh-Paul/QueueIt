@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { forgotPassword, resetPassword } from "@/api";
 import { useApp } from "@/context/app-context";
 import { clearOfflineStatusCache } from "@/lib/register-sw";
+import { FORGOT_PASSWORD_NOTICE } from "@/lib/auth-copy";
 
 const fieldClass =
   "h-11 rounded-md border-border bg-background/60 px-3.5 text-[0.9375rem] shadow-none transition-[border-color,box-shadow] placeholder:text-text-muted focus-visible:border-primary focus-visible:bg-card";
@@ -39,13 +40,12 @@ export function ForgotPasswordPage() {
           Forgot password
         </h1>
         <p className="mt-2 text-[0.9375rem] leading-snug text-text-secondary">
-          Enter the email on your account. If it’s registered, we’ll send a reset link.
+          Enter the email on your account. If an account exists for that email, we’ll send a reset link.
         </p>
 
         {done ? (
           <p className="mt-8 text-sm leading-relaxed text-foreground" data-testid="forgot-password-sent">
-            If that email is registered, we sent a reset link. Check the server log in
-            development when no mail provider is configured.
+            {FORGOT_PASSWORD_NOTICE}
           </p>
         ) : (
           <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>

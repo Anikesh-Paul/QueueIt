@@ -249,4 +249,46 @@ describe("Join queue + live status (HTTP API)", () => {
       assert.equal(statusA.body.etaMinutes, 3);
     });
   });
+
+  describe("GET /api/queues/active", () => {
+    it("rejects unauthenticated access", async () => {
+      const app = testApp();
+      const res = await request(app).get("/api/queues/active");
+      assert.equal(res.status, 401);
+    });
+
+    it("returns every active membership for the user, not just the first queue", async () => {
+      await seedVenueAndQueues();
+      const cafeteria = await Queue.findOne({ slug: "cafeteria" });
+      const gym = await Queue.findOne({ slug: "gym" });
+      const app = testApp();
+      const token = await registerUser(app);
+
+      const empty = await request(app)
+        .get("/api/queues/active")
+        .set("Authorization", `Bearer ${token}`);
+      assert.equal(empty.status, 200);
+      assert.deepEqual(empty.body.memberships, []);
+
+      await request(app)
+        .post(`/api/queues/${cafeteria._id}/join`)
+        .set("Authorization", `Bearer ${token}`);
+      await request(app)
+        .post(`/api/queues/${gym._id}/join`)
+        .set("Authorization", `Bearer ${token}`);
+
+      const res = await request(app)
+        .get("/api/queues/active")
+        .set("Authorization", `Bearer ${token}`);
+      assert.equal(res.status, 200);
+      const names = res.body.memberships.map((m) => m.queue.name).sort();
+      assert.deepEqual(names, ["Cafeteria", "Gym"]);
+      for (const row of res.body.memberships) {
+        assert.equal(row.status, "waiting");
+        assert.equal(typeof row.tokenNumber, "number");
+        assert.equal(typeof row.position, "number");
+        assert.ok(row.queue.id);
+      }
+    });
+  });
 });

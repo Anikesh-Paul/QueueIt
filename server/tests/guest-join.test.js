@@ -118,6 +118,13 @@ describe("Guest join path (credential, live status, device-local history)", () =
 
       const guestCount = await Guest.countDocuments();
       assert.equal(guestCount, 1);
+
+      const active = await request(app)
+        .get("/api/queues/active")
+        .set(GUEST_HEADER, credential);
+      assert.equal(active.status, 200);
+      const names = active.body.memberships.map((m) => m.queue.name).sort();
+      assert.deepEqual(names, ["Cafeteria", "Gym"]);
     });
   });
 

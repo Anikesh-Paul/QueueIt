@@ -110,6 +110,11 @@ export function fetchHistory(token, guestCredential) {
   return apiRequest("/api/queues/history", { token, guestCredential });
 }
 
+/** GET /api/queues/active — every active membership for the current joiner. */
+export function fetchActiveMemberships(token, guestCredential) {
+  return apiRequest("/api/queues/active", { token, guestCredential });
+}
+
 /** GET /api/admin/queues/:queueId/waiting-list — admin waiting list + queue meta. */
 export function fetchWaitingList(token, queueId) {
   return apiRequest(`/api/admin/queues/${queueId}/waiting-list`, { token });

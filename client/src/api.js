@@ -39,6 +39,17 @@ export async function apiRequest(path, options = {}) {
     throw err;
   }
 
+  if (
+    res.headers.get("X-QueueIt-Cache") === "offline" &&
+    data &&
+    typeof data === "object"
+  ) {
+    Object.defineProperty(data, "_fromOfflineCache", {
+      value: true,
+      enumerable: false,
+    });
+  }
+
   return data;
 }
 

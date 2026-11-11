@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useApp } from "@/context/app-context";
 
@@ -49,4 +50,23 @@ export function HomeRedirect() {
   }
   const target = !isAdmin && inQueue ? "/status" : "/queues";
   return <Navigate to={target} replace />;
+}
+
+
+/**
+ * Poster join links are public: if the visitor has no session yet, enter
+ * Guest mode so they can join without a detour through the login form.
+ */
+export function JoinSessionGate() {
+  const { booting, token, user, isGuest, enterGuestMode } = useApp();
+
+  useEffect(() => {
+    if (booting) return;
+    if ((token && user) || isGuest) return;
+    enterGuestMode();
+  }, [booting, token, user, isGuest, enterGuestMode]);
+
+  if (booting) return null;
+  if ((token && user) || isGuest) return <Outlet />;
+  return null;
 }

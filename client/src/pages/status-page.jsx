@@ -61,6 +61,7 @@ export function StatusPage() {
     statusQueueName,
     statusLastUpdatedAt,
     statusUpdating,
+    statusOffline,
     statusError,
     refreshStatus,
     leave,
@@ -72,6 +73,9 @@ export function StatusPage() {
   } = useAppStatus();
   const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [browserOffline, setBrowserOffline] = useState(
+    () => typeof navigator !== "undefined" && navigator.onLine === false
+  );
   /** Pin ETA as-of while Paused so polls/wall clock cannot slide the primary. */
   const [frozenEtaAsOfMs, setFrozenEtaAsOfMs] = useState(null);
 
@@ -84,6 +88,21 @@ export function StatusPage() {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, [inQueue, statusLastUpdatedAt]);
+
+  useEffect(() => {
+    function goOnline() {
+      setBrowserOffline(false);
+    }
+    function goOffline() {
+      setBrowserOffline(true);
+    }
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   const paused = liveStatus?.queue?.status === "paused";
 
@@ -227,6 +246,15 @@ export function StatusPage() {
       />
 
       <ShellContent tier="student">
+        {statusOffline || browserOffline ? (
+          <p
+            data-testid="status-offline"
+            className="mb-4 rounded-lg border border-border bg-secondary px-3.5 py-2.5 text-sm text-text-secondary"
+            aria-live="polite"
+          >
+            Offline — showing your last known place in line. Live updates resume when you're back online.
+          </p>
+        ) : null}
         <header className="mb-6">
           <h1
             data-testid="status-heading"

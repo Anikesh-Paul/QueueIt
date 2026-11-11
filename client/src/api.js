@@ -207,6 +207,10 @@ export function createVenue(token, { name }) {
   return apiRequest("/api/admin/venues", { method: "POST", token, body: { name } });
 }
 
+export function inviteStaff(token, payload) {
+  return apiRequest("/api/admin/staff", { method: "POST", token, body: payload });
+}
+
 export function updateVenue(token, venueId, { name }) {
   return apiRequest(`/api/admin/venues/${venueId}`, { method: "PATCH", token, body: { name } });
 }

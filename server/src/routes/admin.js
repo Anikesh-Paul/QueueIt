@@ -8,6 +8,7 @@ import { arrivalVerifyDecision, parseArrivalValue } from "../services/arrivalPas
 import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessVenueAccess, isGlobalAdmin } from "../services/staffAccess.js";
+import { inviteStaff } from "../services/staffInvite.js";
 import {
   applyExtend,
   applyServiceWindowsUpdate,
@@ -820,6 +821,32 @@ router.get("/catalog", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const venues = await listAdminCatalog(req.user);
     return res.status(200).json({ venues });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/staff — global admin invites venue-scoped staff.
+ * Staff and students cannot use this route. Public register is unchanged.
+ */
+router.post("/staff", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (!isGlobalAdmin(req.user)) {
+      return res.status(403).json({ error: "Only a global admin can invite staff" });
+    }
+    const result = await inviteStaff({
+      name: req.body?.name,
+      email: req.body?.email,
+      venueId: req.body?.venueId,
+      temporaryPassword: req.body?.temporaryPassword,
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(201).json({
+      staff: result.user.toPublicJSON(),
+      temporaryPassword: result.temporaryPassword,
+      resetSent: result.resetSent,
+    });
   } catch (err) {
     return next(err);
   }

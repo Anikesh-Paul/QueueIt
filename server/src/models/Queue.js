@@ -88,13 +88,20 @@ const queueSchema = new mongoose.Schema(
       default: 1,
     },
     /**
-     * Token number currently at the counter.
-     * null until an admin serves someone (ticket 07).
+     * Token number currently at the counter (called or just served).
+     * null until an admin calls or serves someone.
      */
     nowServing: {
       type: Number,
       default: null,
       min: 1,
+    },
+    /** Minutes a called (serving) entry has to arrive before an auto-skip. */
+    noShowMinutes: {
+      type: Number,
+      min: 1,
+      max: 30,
+      default: 5,
     },
   },
   { timestamps: true }
@@ -121,6 +128,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     id: this._id.toString(),
     name: this.name,
     averageServiceTime: this.averageServiceTime,
+    noShowMinutes: this.noShowMinutes ?? 5,
     status: this.status,
     acceptingTokens: this.acceptingTokens !== false,
     serviceWindows: normalizeServiceWindows(this.serviceWindows),

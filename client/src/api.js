@@ -137,7 +137,16 @@ export function fetchAnalytics(token, queueId, options = {}) {
   return apiRequest(`/api/admin/queues/${queueId}/analytics${qs ? `?${qs}` : ""}`, { token });
 }
 
-/** POST /api/admin/queues/:queueId/serve — serve next or selected waiting entry. */
+/** POST /api/admin/queues/:queueId/call — call next or selected waiter to the counter. */
+export function callQueue(token, queueId, entryId) {
+  return apiRequest(`/api/admin/queues/${queueId}/call`, {
+    method: "POST",
+    token,
+    body: entryId ? { entryId } : {},
+  });
+}
+
+/** POST /api/admin/queues/:queueId/serve — serve next or selected waiting/serving entry. */
 export function serveQueue(token, queueId, entryId) {
   return apiRequest(`/api/admin/queues/${queueId}/serve`, {
     method: "POST",

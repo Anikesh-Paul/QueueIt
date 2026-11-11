@@ -120,6 +120,7 @@ function useQueueNotificationState() {
         position: row.position,
         tokenNumber: row.tokenNumber,
         nowServing: row.nowServing,
+        status: row.status,
         queueId,
         lastKey: lastKeyByQueueRef.current.get(queueId) ?? null,
       });

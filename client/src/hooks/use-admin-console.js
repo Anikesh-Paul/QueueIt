@@ -5,6 +5,7 @@ import {
   pauseQueue,
   resetQueue,
   resumeQueue,
+  callQueue,
   serveQueue,
   skipQueue,
   startAcceptingTokens,
@@ -141,7 +142,18 @@ export function useAdminConsoleState({
     [token, adminQueueId, loadWaitingList]
   );
 
+  const adminCall = useCallback(
+    (entryId) =>
+      runAdminAction(
+        () => callQueue(token, adminQueueId, entryId || undefined),
+        "Call failed",
+        { clearSelection: true }
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
   const adminServe = useCallback(
+
     (entryId) =>
       runAdminAction(
         () => serveQueue(token, adminQueueId, entryId || undefined),
@@ -263,6 +275,7 @@ export function useAdminConsoleState({
     openAdminConsole,
     clearAdminConsole,
     loadWaitingList,
+    adminCall,
     adminServe,
     adminSkip,
     adminPause,

@@ -185,7 +185,7 @@ describe("Admin QR arrival check (HTTP API)", () => {
         .send({ value: "1" });
       assert.equal(verify.status, 200);
       assert.equal(verify.body.verified, false);
-      assert.match(verify.body.reason, /no one waiting/i);
+      assert.match(verify.body.reason, /no one (waiting|in line)/i);
     });
 
     it("reports a pass for a different queue as a mismatch", async () => {

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
@@ -10,7 +10,8 @@ import { formatCampusDateTime } from "@/lib/campus-time";
 import { describeTodayException } from "@/lib/service-exceptions";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { formatCatalogServing } from "@/lib/now-serving";
-import { isQueueId, joinPath } from "@/lib/join-link";
+import { isQrScan, isQueueId, joinPath } from "@/lib/join-link";
+import { QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/context/i18n-context";
 import { staffCanManageQueue } from "@/lib/staff-access";
@@ -24,6 +25,8 @@ export function JoinPage() {
   const { t, locale } = useI18n();
   const { queueId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromQr = isQrScan(location.search);
   const {
     token,
     guestCredential,
@@ -66,11 +69,13 @@ export function JoinPage() {
   const servingLine = queue ? formatCatalogServing({ ...queue, locale }) : "";
   const full = queue?.full === true;
   const paused = queue?.status === "paused";
+  const signedIn = Boolean(token && user);
+  const guestBlocked = queue?.guestJoin === false && !signedIn;
   const primaryLabel = !queue ? null : closed ? t("state.closed") : full ? t("state.full") : paused ? t("state.paused") : t("state.open");
 
   async function handleJoin() {
     if (!validId || joinBusy) return;
-    const ok = await join(queueId);
+    const ok = await join(queueId, { source: fromQr ? "qr" : undefined });
     if (ok) navigate("/status");
   }
 
@@ -98,6 +103,19 @@ export function JoinPage() {
           {t("join.intro")}
         </p>
       </header>
+
+      {fromQr && validId && !signedIn && !guestBlocked ? (
+        <div
+          data-testid="join-qr-welcome"
+          className="mb-4 flex items-start gap-3 rounded-md border border-primary/25 bg-primary-muted/50 px-4 py-3"
+        >
+          <QrCode className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+          <div className="text-sm">
+            <p className="font-semibold text-foreground">{t("join.qrTitle")}</p>
+            <p className="mt-0.5 text-text-secondary">{t("join.qrNoAccount")}</p>
+          </div>
+        </div>
+      ) : null}
 
       {!validId ? (
         <div
@@ -264,6 +282,12 @@ export function JoinPage() {
             <OpenWatchControls queue={queue} className="mt-3" />
           ) : null}
 
+          {guestBlocked && !membership ? (
+            <p data-testid="join-guest-disabled" className="mt-3 text-sm text-text-secondary">
+              {t("join.guestDisabled")}
+            </p>
+          ) : null}
+
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
             {canManageQueue(queue) ? (
               <Button
@@ -282,6 +306,12 @@ export function JoinPage() {
                 className="w-full sm:w-auto"
               >
                 {t("queue.viewPlace", { name: queue.name })}
+              </Button>
+            ) : guestBlocked ? (
+              <Button size="lg" asChild className="w-full sm:w-auto" data-testid="join-sign-in">
+                <Link to="/login" state={{ from: joinPath(queueId) }}>
+                  {t("join.signInToJoin")}
+                </Link>
               </Button>
             ) : (
               <Button

@@ -27,6 +27,15 @@ const guestSchema = new mongoose.Schema(
       default: false,
     },
     /**
+     * Keyed HMAC of the network address that minted this credential. Used
+     * only to cap new guest passes per network; the raw IP is never stored.
+     */
+    networkHash: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    /**
      * Set when soft upgrade claims this Guest onto a User.
      * Null while the Guest path is active.
      */

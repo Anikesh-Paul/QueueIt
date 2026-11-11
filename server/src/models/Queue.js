@@ -208,6 +208,14 @@ const queueSchema = new mongoose.Schema(
       min: 0,
       default: 2,
     },
+    /**
+     * Allow no-login (Guest) joins from the poster QR / join link. When false,
+     * only signed-in users may join; walk-ins are unaffected.
+     */
+    guestJoin: {
+      type: Boolean,
+      default: true,
+    },
     /** Same-venue group key for equivalent-queue suggestions. Empty means none. */
     equivalentGroup: {
       type: String,
@@ -258,6 +266,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     counters: countersForJson(this),
     archived: Boolean(this.archivedAt),
     maxWaiting: this.maxWaiting ?? null,
+    guestJoin: this.guestJoin !== false,
   };
 };
 

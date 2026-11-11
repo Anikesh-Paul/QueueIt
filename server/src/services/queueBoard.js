@@ -18,6 +18,7 @@ export function toBoardJSON(queue, waitingCount = 0) {
     venue,
     status: publicQueue.status,
     acceptingTokens: publicQueue.acceptingTokens !== false,
+    guestJoin: publicQueue.guestJoin !== false,
     waitingCount: Number(waitingCount) || 0,
     counters: countersForJson(queue),
   };

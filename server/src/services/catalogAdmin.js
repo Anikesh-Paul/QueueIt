@@ -396,6 +396,12 @@ export async function updateQueue(queue, patch = {}) {
     if (group.error) return { ok: false, status: 400, error: group.error };
     if (!group.omitted) queue.equivalentGroup = group.value;
   }
+  if (patch.guestJoin !== undefined) {
+    if (typeof patch.guestJoin !== "boolean") {
+      return { ok: false, status: 400, error: "guestJoin must be true or false" };
+    }
+    queue.guestJoin = patch.guestJoin;
+  }
   if (patch.maxWaiting !== undefined) {
     const cap = normalizeMaxWaiting(patch.maxWaiting);
     if (cap.error) return { ok: false, status: 400, error: cap.error };

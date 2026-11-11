@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
+import { QRCodeSVG } from "qrcode.react";
 import { getQueueBoard } from "@/api";
+import { qrJoinUrl } from "@/lib/join-link";
 import { presentServingBoard } from "@/lib/now-serving";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { cn } from "@/lib/utils";
@@ -64,6 +66,9 @@ export function KioskPage() {
   }
 
   const presented = presentServingBoard(board?.counters || []);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const scanUrl = qrJoinUrl(origin, queueId);
+  const showScan = Boolean(board && scanUrl && board.acceptingTokens !== false && board.guestJoin !== false);
   const statusLabel = !board
     ? ""
     : board.acceptingTokens === false
@@ -161,6 +166,32 @@ export function KioskPage() {
               </li>
             ))}
           </ul>
+
+          {showScan ? (
+            <section
+              data-testid="kiosk-scan-to-join"
+              aria-label={`Scan to join ${board.name}`}
+              className="flex w-full max-w-xl flex-col items-center gap-5 rounded-xl border border-border bg-card px-6 py-5 shadow-card sm:flex-row"
+            >
+              <div className="shrink-0 rounded-lg bg-white p-2.5">
+                <QRCodeSVG
+                  value={scanUrl}
+                  size={132}
+                  level="M"
+                  marginSize={0}
+                  className="block size-32"
+                  role="img"
+                  aria-label={`QR code to join ${board.name}`}
+                />
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="font-display text-2xl font-semibold tracking-[-0.01em] text-foreground">Scan to join</p>
+                <p className="mt-1 text-base text-text-secondary">
+                  Point your phone camera at the code. No app or account needed, and you&apos;ll get your token on your phone.
+                </p>
+              </div>
+            </section>
+          ) : null}
 
           <p className="text-center text-xs text-text-muted">
             Token numbers only. This board refreshes every few seconds.

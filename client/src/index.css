@@ -265,3 +265,20 @@ body {
     animation: none;
   }
 }
+
+/* Printable queue poster — one clean A4 sheet. */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  .poster-screen {
+    min-height: auto;
+  }
+  .poster-sheet {
+    max-width: none;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

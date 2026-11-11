@@ -99,3 +99,23 @@ export function kioskUrl(origin, queueId) {
   if (!/^https?:\/\//i.test(base)) return null;
   return `${base}${path}`;
 }
+
+/** Poster / kiosk QR target: the join URL tagged `?src=qr` so joins record their source. */
+export function qrJoinUrl(origin, queueId) {
+  const url = joinUrl(origin, queueId);
+  return url ? `${url}?src=qr` : null;
+}
+
+/** True when the current location search marks a QR scan. */
+export function isQrScan(search) {
+  try {
+    return new URLSearchParams(search || "").get("src") === "qr";
+  } catch {
+    return false;
+  }
+}
+
+export function posterPath(queueId) {
+  if (!isQueueId(queueId)) return null;
+  return `/admin/queues/${queueId}/poster`;
+}

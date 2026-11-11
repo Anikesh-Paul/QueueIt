@@ -37,7 +37,10 @@ e2e/tickets/
 *.pem
 
 .scratch/
-docs/
+# Local notes. README screenshots are tracked.
+docs/*
+!docs/screenshots/
+!docs/screenshots/**
 AGENTS.md
 CONTEXT.md
 PRODUCT.md

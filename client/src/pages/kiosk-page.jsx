@@ -127,7 +127,7 @@ export function KioskPage() {
               >
                 {statusLabel}
               </span>
-              <span data-testid="kiosk-waiting">{formatWaitingOccupancy(board.waitingCount)}</span>
+              <span data-testid="kiosk-waiting">{formatWaitingOccupancy({ waitingCount: board.waitingCount })}</span>
             </p>
           </div>
 

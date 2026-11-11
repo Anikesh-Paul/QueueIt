@@ -4,15 +4,17 @@ import crypto from "node:crypto";
  * Arrival pass — the QR payload shown at the counter and matched by an admin.
  *
  * A pass confirms that a token is waiting in a queue. It is a counter
- * convenience, not proof of identity. Staff may still type a bare token number.
+ * convenience, not proof of identity.
  *
  * Formats:
  *   `QIT:<queueId>:<tokenNumber>:<mac>`  — signed pass issued at join/status
- *   `QIT:<queueId>:<tokenNumber>`        — legacy unsigned pass (still accepted)
- *   a bare token number                  — manual counter entry
+ *   `QIT:<queueId>:<tokenNumber>`        — legacy unsigned pass (rejected by default)
+ *   a bare token number                  — manual counter entry (rejected by default)
  *
  * The MAC is HMAC-SHA256 of `QIT:<queueId>:<tokenNumber>`, truncated, keyed by
  * `ARRIVAL_PASS_SECRET` or `JWT_SECRET`. A present but invalid MAC is rejected.
+ * Unsigned and bare values are only accepted when ALLOW_UNSIGNED_ARRIVAL is
+ * set to 1/true (documented escape hatch; default off).
  */
 export const ARRIVAL_PASS_PREFIX = "QIT:";
 /** Hex length of the truncated HMAC (10 bytes). */
@@ -24,6 +26,35 @@ function arrivalBase(queueId, tokenNumber) {
 
 export function getArrivalPassSecret() {
   return process.env.ARRIVAL_PASS_SECRET || process.env.JWT_SECRET || "";
+}
+
+/**
+ * Escape hatch for venues that still need typed token numbers or leftover
+ * unsigned QIT: passes. Default is off. Accepts 1/true/yes (case-insensitive).
+ */
+export function unsignedArrivalAllowed(env = process.env) {
+  const raw = String(env.ALLOW_UNSIGNED_ARRIVAL || "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+export const UNSIGNED_ARRIVAL_REASON =
+  "This check only accepts a signed arrival pass. Scan the student's QR.";
+
+/**
+ * Decide whether a parsed pass may proceed to waiting-list matching.
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+export function arrivalVerifyDecision(parsed, { allowUnsigned = unsignedArrivalAllowed() } = {}) {
+  if (!parsed) {
+    return { ok: false, reason: "That doesn't look like a valid pass or token number" };
+  }
+  if (parsed.invalidSignature) {
+    return { ok: false, reason: "This pass is not valid" };
+  }
+  if (!parsed.signed && !allowUnsigned) {
+    return { ok: false, reason: UNSIGNED_ARRIVAL_REASON };
+  }
+  return { ok: true };
 }
 
 function computeMac(base) {

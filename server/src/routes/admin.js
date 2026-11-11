@@ -4,7 +4,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { Queue } from "../models/Queue.js";
 import { Venue } from "../models/Venue.js";
 import { QueueEntry, isDuplicateKeyError } from "../models/QueueEntry.js";
-import { parseArrivalValue } from "../services/arrivalPass.js";
+import { arrivalVerifyDecision, parseArrivalValue } from "../services/arrivalPass.js";
 import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessVenueAccess, isGlobalAdmin } from "../services/staffAccess.js";
@@ -403,9 +403,10 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
 
 /**
  * POST /api/admin/queues/:queueId/verify-qr
- * Counter arrival check: match a user's QR pass (signed or legacy unsigned)
- * or a bare token number against this queue's waiting list.
- * A match means the token is waiting — not a proof of identity.
+ * Counter arrival check: match a user's signed QR pass against this queue's
+ * waiting list. Unsigned / bare tokens are rejected unless
+ * ALLOW_UNSIGNED_ARRIVAL is set. A match means the token is waiting — not a
+ * proof of identity.
  * A non-match is a valid counter outcome — 200 { verified: false, reason } —
  * not an HTTP error. Malformed input (no value) is a 400 client bug.
  */
@@ -420,16 +421,11 @@ router.post("/queues/:queueId/verify-qr", requireAuth, requireAdmin, async (req,
     }
 
     const parsed = parseArrivalValue(value);
-    if (!parsed) {
+    const decision = arrivalVerifyDecision(parsed);
+    if (!decision.ok) {
       return res.status(200).json({
         verified: false,
-        reason: "That doesn't look like a valid pass or token number",
-      });
-    }
-    if (parsed.invalidSignature) {
-      return res.status(200).json({
-        verified: false,
-        reason: "This pass is not valid",
+        reason: decision.reason,
       });
     }
 

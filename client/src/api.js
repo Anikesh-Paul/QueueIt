@@ -323,7 +323,7 @@ export function walkInQueue(token, queueId, { name, tokenNumber } = {}) {
 
 /**
  * POST /api/admin/queues/:queueId/verify-qr
- * Counter arrival check: match a QR pass or bare token against the waiting
+ * Counter arrival check: match a signed QR pass against the waiting
  * list. Resolves to { verified, entry?, reason? } — a non-match is a valid
  * counter outcome, not an error.
  */

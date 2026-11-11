@@ -42,8 +42,9 @@ function arrivalPass(queueId, tokenNumber) {
  * Stretch: QR arrival check — a user shows a QR for their token; an admin
  * matches it at the counter for arrival confirmation.
  * POST /api/admin/queues/:queueId/verify-qr
- * Body: { value } — signed or legacy QR payload, or a bare token number typed
- * at the counter. A match means the token is waiting, not proof of identity.
+ * Body: { value } — a signed QR payload by default. Unsigned / bare tokens
+ * only verify when ALLOW_UNSIGNED_ARRIVAL is set. A match means the token is
+ * waiting, not proof of identity.
  */
 describe("Admin QR arrival check (HTTP API)", () => {
   before(async () => {
@@ -90,7 +91,7 @@ describe("Admin QR arrival check (HTTP API)", () => {
   });
 
   describe("POST /api/admin/queues/:queueId/verify-qr", () => {
-    it("verifies an app-joined waiter by bare token number", async () => {
+    it("does not verify an app-joined waiter by bare token number", async () => {
       const queueId = await seedAndGetCafeteriaId();
       const app = testApp();
       const { token: adminToken } = await createAdmin(app);
@@ -108,14 +109,8 @@ describe("Admin QR arrival check (HTTP API)", () => {
         .send({ value: "1" });
 
       assert.equal(verify.status, 200);
-      assert.equal(verify.body.verified, true);
-      assert.equal(verify.body.entry.tokenNumber, 1);
-      assert.equal(verify.body.entry.position, 1);
-      assert.equal(verify.body.entry.isWalkIn, false);
-      assert.equal(verify.body.entry.user.name, "QR User");
-      assert.equal(verify.body.entry.user.email, "qr-user@example.com");
-      assert.equal(verify.body.queue.name, "Cafeteria");
-      assert.equal(verify.body.queue.id, queueId);
+      assert.equal(verify.body.verified, false);
+      assert.match(verify.body.reason, /signed arrival pass/i);
     });
 
     it("verifies by the full QR payload and reports live position", async () => {
@@ -135,7 +130,7 @@ describe("Admin QR arrival check (HTTP API)", () => {
       const verify = await request(app)
         .post(`/api/admin/queues/${queueId}/verify-qr`)
         .set("Authorization", `Bearer ${adminToken}`)
-        .send({ value: arrivalPass(queueId, second.body.tokenNumber) });
+        .send({ value: signArrivalPass(queueId, second.body.tokenNumber) });
 
       assert.equal(verify.status, 200);
       assert.equal(verify.body.verified, true);
@@ -144,7 +139,7 @@ describe("Admin QR arrival check (HTTP API)", () => {
       assert.equal(verify.body.entry.user.name, "Second");
     });
 
-    it("verifies a walk-in entry by token", async () => {
+    it("does not verify a walk-in entry by bare token number", async () => {
       const queueId = await seedAndGetCafeteriaId();
       const app = testApp();
       const { token: adminToken } = await createAdmin(app);
@@ -161,10 +156,8 @@ describe("Admin QR arrival check (HTTP API)", () => {
         .send({ value: String(walk.body.entry.tokenNumber) });
 
       assert.equal(verify.status, 200);
-      assert.equal(verify.body.verified, true);
-      assert.equal(verify.body.entry.isWalkIn, true);
-      assert.equal(verify.body.entry.user.name, "Counter Guest");
-      assert.equal(verify.body.entry.user.email, null);
+      assert.equal(verify.body.verified, false);
+      assert.match(verify.body.reason, /signed arrival pass/i);
     });
 
     it("does not verify tokens that left the waiting list (served)", async () => {
@@ -182,7 +175,7 @@ describe("Admin QR arrival check (HTTP API)", () => {
       const verify = await request(app)
         .post(`/api/admin/queues/${queueId}/verify-qr`)
         .set("Authorization", `Bearer ${adminToken}`)
-        .send({ value: "1" });
+        .send({ value: signArrivalPass(queueId, 1) });
       assert.equal(verify.status, 200);
       assert.equal(verify.body.verified, false);
       assert.match(verify.body.reason, /no one (waiting|in line)/i);
@@ -205,7 +198,7 @@ describe("Admin QR arrival check (HTTP API)", () => {
       const verify = await request(app)
         .post(`/api/admin/queues/${gym._id}/verify-qr`)
         .set("Authorization", `Bearer ${adminToken}`)
-        .send({ value: arrivalPass(cafeteria._id.toString(), join.body.tokenNumber) });
+        .send({ value: signArrivalPass(cafeteria._id.toString(), join.body.tokenNumber) });
 
       assert.equal(verify.status, 200);
       assert.equal(verify.body.verified, false);
@@ -269,7 +262,7 @@ describe("Admin QR arrival check (HTTP API)", () => {
       assert.equal(verify.body.entry.tokenNumber, join.body.tokenNumber);
     });
 
-    it("rejects a tampered signed pass and still accepts a bare token", async () => {
+    it("rejects a tampered signed pass and a bare token by default", async () => {
       const queueId = await seedAndGetCafeteriaId();
       const app = testApp();
       const { token: userToken } = await registerUser(app);
@@ -294,8 +287,42 @@ describe("Admin QR arrival check (HTTP API)", () => {
         .set("Authorization", `Bearer ${adminToken}`)
         .send({ value: String(join.body.tokenNumber) });
       assert.equal(bare.status, 200);
-      assert.equal(bare.body.verified, true);
-      assert.equal(bare.body.signed, false);
+      assert.equal(bare.body.verified, false);
+      assert.match(bare.body.reason, /signed arrival pass/i);
+    });
+
+    it("accepts a bare token when ALLOW_UNSIGNED_ARRIVAL is on", async () => {
+      const previous = process.env.ALLOW_UNSIGNED_ARRIVAL;
+      process.env.ALLOW_UNSIGNED_ARRIVAL = "1";
+      try {
+        const queueId = await seedAndGetCafeteriaId();
+        const app = testApp();
+        const { token: userToken } = await registerUser(app);
+        const { token: adminToken } = await createAdmin(app);
+        const join = await request(app)
+          .post(`/api/queues/${queueId}/join`)
+          .set("Authorization", `Bearer ${userToken}`);
+        assert.equal(join.status, 201);
+
+        const bare = await request(app)
+          .post(`/api/admin/queues/${queueId}/verify-qr`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ value: String(join.body.tokenNumber) });
+        assert.equal(bare.status, 200);
+        assert.equal(bare.body.verified, true);
+        assert.equal(bare.body.signed, false);
+
+        const unsigned = await request(app)
+          .post(`/api/admin/queues/${queueId}/verify-qr`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ value: arrivalPass(queueId, join.body.tokenNumber) });
+        assert.equal(unsigned.status, 200);
+        assert.equal(unsigned.body.verified, true);
+        assert.equal(unsigned.body.signed, false);
+      } finally {
+        if (previous === undefined) delete process.env.ALLOW_UNSIGNED_ARRIVAL;
+        else process.env.ALLOW_UNSIGNED_ARRIVAL = previous;
+      }
     });
   });
 });

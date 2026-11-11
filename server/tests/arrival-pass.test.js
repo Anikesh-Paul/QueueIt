@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import {
   parseArrivalValue,
   signArrivalPass,
+  arrivalVerifyDecision,
+  unsignedArrivalAllowed,
+  UNSIGNED_ARRIVAL_REASON,
   ARRIVAL_MAC_LENGTH,
 } from "../src/services/arrivalPass.js";
 
@@ -33,6 +36,20 @@ describe("arrival pass parse + sign", () => {
       tokenNumber: 7,
       signed: true,
     });
+  });
+
+  it("rejects unsigned and bare values unless ALLOW_UNSIGNED_ARRIVAL is on", () => {
+    const bare = parseArrivalValue("7");
+    const unsigned = parseArrivalValue(`QIT:${QUEUE_ID}:7`);
+    const signed = parseArrivalValue(signArrivalPass(QUEUE_ID, 7));
+    assert.equal(arrivalVerifyDecision(bare).ok, false);
+    assert.equal(arrivalVerifyDecision(bare).reason, UNSIGNED_ARRIVAL_REASON);
+    assert.equal(arrivalVerifyDecision(unsigned).ok, false);
+    assert.equal(arrivalVerifyDecision(signed).ok, true);
+    assert.equal(arrivalVerifyDecision(bare, { allowUnsigned: true }).ok, true);
+    assert.equal(unsignedArrivalAllowed({}), false);
+    assert.equal(unsignedArrivalAllowed({ ALLOW_UNSIGNED_ARRIVAL: "1" }), true);
+    assert.equal(unsignedArrivalAllowed({ ALLOW_UNSIGNED_ARRIVAL: "true" }), true);
   });
 
   it("rejects a tampered MAC and a pass signed with the wrong secret", () => {

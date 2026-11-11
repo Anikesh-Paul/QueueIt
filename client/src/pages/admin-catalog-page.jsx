@@ -11,8 +11,10 @@ import {
   createAdminQueue,
   createVenue,
   fetchAdminCatalog,
+  fetchStaffAccounts,
   inviteStaff,
   updateAdminQueue,
+  updateStaffQueues,
   updateVenue,
 } from "@/api";
 
@@ -36,6 +38,9 @@ export function AdminCatalogPage() {
   const [staffEmail, setStaffEmail] = useState("");
   const [staffVenueId, setStaffVenueId] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
+  const [staffQueueIds, setStaffQueueIds] = useState([]);
+  const [staffAccounts, setStaffAccounts] = useState([]);
+  const [staffEdits, setStaffEdits] = useState({});
   const [staffInvite, setStaffInvite] = useState(null);
   const [drafts, setDrafts] = useState({});
 
@@ -49,12 +54,18 @@ export function AdminCatalogPage() {
       setVenues(list);
       setQueueVenueId((prev) => prev || list[0]?.id || "");
       setStaffVenueId((prev) => prev || list[0]?.id || "");
+      if (user?.role === "admin") {
+        const staffData = await fetchStaffAccounts(token);
+        setStaffAccounts(Array.isArray(staffData.staff) ? staffData.staff : []);
+      } else {
+        setStaffAccounts([]);
+      }
     } catch (err) {
       setError(err.message || "Could not load catalog");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, user]);
 
   useEffect(() => {
     load();
@@ -118,6 +129,7 @@ export function AdminCatalogPage() {
         email,
         venueId: staffVenueId,
         temporaryPassword: staffPassword.trim() || undefined,
+        queueIds: staffQueueIds,
       });
       setStaffInvite(result);
     });
@@ -125,7 +137,35 @@ export function AdminCatalogPage() {
       setStaffName("");
       setStaffEmail("");
       setStaffPassword("");
+      setStaffQueueIds([]);
     }
+  }
+
+  function toggleInviteQueue(queueId, checked) {
+    setStaffQueueIds((prev) => {
+      if (checked) return [...new Set([...prev, queueId])];
+      return prev.filter((id) => id !== queueId);
+    });
+  }
+
+  async function handleSaveStaffQueues(member) {
+    const queueIds = staffEdits[member.id] ?? member.staffQueueIds ?? [];
+    await run(() => updateStaffQueues(token, member.id, { queueIds }));
+    setStaffEdits((prev) => {
+      const next = { ...prev };
+      delete next[member.id];
+      return next;
+    });
+  }
+
+  function toggleStaffEditQueue(member, queueId, checked) {
+    setStaffEdits((prev) => {
+      const current = prev[member.id] ?? member.staffQueueIds ?? [];
+      const next = checked
+        ? [...new Set([...current, queueId])]
+        : current.filter((id) => id !== queueId);
+      return { ...prev, [member.id]: next };
+    });
   }
 
   async function handleSaveQueue(queue) {
@@ -377,6 +417,7 @@ export function AdminCatalogPage() {
               </Button>
             </form>
             )}
+            {user?.role === "staff" && Array.isArray(user.staffQueueIds) && user.staffQueueIds.length > 0 ? null : (
             <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleCreateQueue}>
               <div className="min-w-0 flex-1">
                 <Label htmlFor="new-queue-name">New queue</Label>
@@ -441,6 +482,7 @@ export function AdminCatalogPage() {
                 Add queue
               </Button>
             </form>
+            )}
           </section>
 
           {user?.role === "admin" ? (
@@ -452,7 +494,7 @@ export function AdminCatalogPage() {
                 Invite staff
               </h2>
               <p className="mt-1 text-sm text-text-secondary">
-                Staff can only manage the venue you assign. Leave the temporary password empty to generate one. If mail is configured, we also send a reset link.
+                Staff can only manage the venue you assign. Optionally limit them to specific queues; leave all unchecked to allow every queue in the venue. Leave the temporary password empty to generate one. If mail is configured, we also send a reset link.
               </p>
               <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end" onSubmit={handleInviteStaff}>
                 <div className="min-w-0 flex-1 sm:min-w-[10rem]">
@@ -483,7 +525,10 @@ export function AdminCatalogPage() {
                   <select
                     id="staff-venue"
                     value={staffVenueId}
-                    onChange={(event) => setStaffVenueId(event.target.value)}
+                    onChange={(event) => {
+                      setStaffVenueId(event.target.value);
+                      setStaffQueueIds([]);
+                    }}
                     disabled={busy || venues.length === 0}
                     data-testid="catalog-staff-venue"
                     className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -494,6 +539,28 @@ export function AdminCatalogPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="w-full" data-testid="catalog-staff-queues">
+                  <p className="text-sm font-medium text-foreground">Queues (optional)</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">
+                    Leave all unchecked to allow every queue in this venue.
+                  </p>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {(venues.find((venue) => venue.id === staffVenueId)?.queues || [])
+                      .filter((queue) => !queue.archived)
+                      .map((queue) => (
+                        <label key={queue.id} className="flex items-center gap-2 text-sm text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={staffQueueIds.includes(queue.id)}
+                            onChange={(event) => toggleInviteQueue(queue.id, event.target.checked)}
+                            disabled={busy}
+                            data-testid={`catalog-staff-queue-${queue.id}`}
+                          />
+                          {queue.name}
+                        </label>
+                      ))}
+                  </div>
                 </div>
                 <div className="w-full sm:w-44">
                   <Label htmlFor="staff-password">Temporary password</Label>
@@ -523,6 +590,62 @@ export function AdminCatalogPage() {
                   {staffInvite.resetSent ? ". A reset link was also sent." : "."} Copy it now — it won’t be shown again.
                 </p>
               ) : null}
+            </section>
+          ) : null}
+
+          {user?.role === "admin" && staffAccounts.length > 0 ? (
+            <section
+              className="rounded-xl border border-border bg-card p-5 shadow-card"
+              data-testid="catalog-staff-list"
+            >
+              <h2 className="font-display text-headline font-semibold tracking-[-0.01em] text-foreground">
+                Staff access
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                Edit a staff member’s queue allow-list. Leave all unchecked to restore access to every queue in their venue.
+              </p>
+              <ul className="mt-4 flex flex-col gap-4">
+                {staffAccounts.map((member) => {
+                  const venue = venues.find((row) => row.id === member.staffVenueId);
+                  const selected = staffEdits[member.id] ?? member.staffQueueIds ?? [];
+                  const queues = (venue?.queues || []).filter((queue) => !queue.archived);
+                  return (
+                    <li key={member.id} className="rounded-lg border border-border p-3" data-testid="catalog-staff-row">
+                      <p className="font-medium text-foreground">
+                        {member.name}{" "}
+                        <span className="font-normal text-text-secondary">({member.email})</span>
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {venue?.name || "Venue"} · {selected.length ? selected.length + " queue(s)" : "All queues in the venue"}
+                      </p>
+                      <div className="mt-2 flex flex-col gap-1">
+                        {queues.map((queue) => (
+                          <label key={queue.id} className="flex items-center gap-2 text-sm text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={selected.includes(queue.id)}
+                              onChange={(event) => toggleStaffEditQueue(member, queue.id, event.target.checked)}
+                              disabled={busy}
+                              data-testid={`catalog-staff-edit-queue-${member.id}-${queue.id}`}
+                            />
+                            {queue.name}
+                          </label>
+                        ))}
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => handleSaveStaffQueues(member)}
+                        disabled={busy}
+                        data-testid={`catalog-staff-save-${member.id}`}
+                      >
+                        Save access
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
           ) : null}
         </div>

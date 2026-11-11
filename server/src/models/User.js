@@ -34,6 +34,14 @@ const userSchema = new mongoose.Schema(
       ref: "Venue",
       default: null,
     },
+    /**
+     * Optional allow-list of queues this staff member may manage.
+     * Empty / missing means every queue in staffVenue.
+     */
+    staffQueues: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Queue" }],
+      default: [],
+    },
   },
   { timestamps: true }
 );
@@ -44,6 +52,7 @@ userSchema.pre("validate", function validateStaffVenue() {
   }
   if (this.role !== "staff") {
     this.staffVenue = null;
+    this.staffQueues = [];
   }
 });
 
@@ -62,6 +71,10 @@ userSchema.methods.toPublicJSON = function toPublicJSON() {
     name: this.name,
     role: this.role,
     staffVenueId: this.role === "staff" && this.staffVenue ? this.staffVenue.toString() : null,
+    staffQueueIds:
+      this.role === "staff"
+        ? (this.staffQueues || []).map((id) => id.toString())
+        : null,
   };
 };
 

@@ -8,9 +8,9 @@ import { arrivalVerifyDecision, parseArrivalValue } from "../services/arrivalPas
 import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
 import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
 import { emitQueueChanged } from "../services/realtime.js";
-import { forbidUnlessVenueAccess, isGlobalAdmin } from "../services/staffAccess.js";
+import { forbidUnlessQueueAccess, forbidUnlessVenueAccess, isGlobalAdmin, staffQueueIds } from "../services/staffAccess.js";
 import { listAdminAudit, recordAdminAudit } from "../services/adminAudit.js";
-import { inviteStaff } from "../services/staffInvite.js";
+import { inviteStaff, listStaffAccounts, updateStaffQueues } from "../services/staffInvite.js";
 import {
   applyExtend,
   applyServiceWindowsUpdate,
@@ -135,7 +135,7 @@ async function loadQueueOr404(queueId, res, user) {
     res.status(404).json({ error: "Queue not found" });
     return null;
   }
-  if (forbidUnlessVenueAccess(user, queue.venue, res)) {
+  if (forbidUnlessQueueAccess(user, queue, res)) {
     return null;
   }
   // Lazy auto-close when past bound session end; also skip expired no-shows.
@@ -929,6 +929,7 @@ router.post("/staff", requireAuth, requireAdmin, async (req, res, next) => {
       email: req.body?.email,
       venueId: req.body?.venueId,
       temporaryPassword: req.body?.temporaryPassword,
+      queueIds: req.body?.queueIds,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     await writeAudit(req, { action: "staff-invite", venue: { _id: result.user.staffVenue, name: null }, meta: { email: result.user.email } });
@@ -937,6 +938,34 @@ router.post("/staff", requireAuth, requireAdmin, async (req, res, next) => {
       temporaryPassword: result.temporaryPassword,
       resetSent: result.resetSent,
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+router.get("/staff", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (!isGlobalAdmin(req.user)) {
+      return res.status(403).json({ error: "Only a global admin can list staff" });
+    }
+    return res.status(200).json({ staff: await listStaffAccounts() });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.patch("/staff/:staffId", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (!isGlobalAdmin(req.user)) {
+      return res.status(403).json({ error: "Only a global admin can update staff" });
+    }
+    const result = await updateStaffQueues({
+      staffId: req.params.staffId,
+      queueIds: req.body?.queueIds,
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(200).json({ staff: result.user.toPublicJSON() });
   } catch (err) {
     return next(err);
   }
@@ -970,6 +999,9 @@ router.patch("/venues/:venueId", requireAuth, requireAdmin, async (req, res, nex
 router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     if (forbidUnlessVenueAccess(req.user, req.body?.venueId, res)) return;
+    if (staffQueueIds(req.user)) {
+      return res.status(403).json({ error: "You don't have access to this queue" });
+    }
     const result = await createCatalogQueue({
       venueId: req.body?.venueId,
       name: req.body?.name,

@@ -6,7 +6,7 @@ import { Queue } from "../models/Queue.js";
 import { Venue } from "../models/Venue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { dateRangeMatch, resolveAnalyticsRange } from "./analyticsRange.js";
-import { isGlobalAdmin, isStaff, staffVenueId, VENUE_FORBIDDEN } from "./staffAccess.js";
+import { isGlobalAdmin, isStaff, staffQueueIds, staffVenueId, VENUE_FORBIDDEN } from "./staffAccess.js";
 
 function roundWaitMinutes(value) {
   return Math.round(value * 10) / 10;
@@ -54,10 +54,14 @@ export async function collectCampusAnalytics(user, query = {}) {
     venueJson = venue.toPublicJSON();
   }
 
-  const queues = await Queue.find({ ...venueFilter, archivedAt: null })
+  let queues = await Queue.find({ ...venueFilter, archivedAt: null })
     .populate("venue")
     .sort({ name: 1 })
     .exec();
+  const allowedQueues = staffQueueIds(user);
+  if (allowedQueues) {
+    queues = queues.filter((queue) => allowedQueues.includes(String(queue._id)));
+  }
   const queueIds = queues.map((queue) => queue._id);
   const terminalMatch = dateRangeMatch("updatedAt", range);
 

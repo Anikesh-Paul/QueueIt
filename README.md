@@ -34,7 +34,9 @@ Virtual queues for campus services. People join a line from their phone, watch t
 
 ### Live updates
 
-Polling backs the live student status and the admin waiting list. When the tab is visible and no socket is connected, it runs every **3 seconds**. When Socket.IO is connected it slows to **15 seconds** (the socket stays the fast path). Hidden tabs do not poll, and a refresh runs when the tab becomes visible again. On a long-running API host (local or a persistent host), **Socket.IO** still pushes changes instantly. The Vercel serverless API cannot hold sockets; the UI shows the 3-second poll there and never depends on realtime to work.
+Polling backs the live student status and the admin waiting list. When the tab is visible and no socket is connected, it runs every **3 seconds**. When Socket.IO is connected it slows to **15 seconds** (the socket stays the fast path). Hidden tabs do not poll, and a refresh runs when the tab becomes visible again.
+
+Instant updates need a **long-running API process** (`Socket.IO`). The Vercel serverless API cannot hold sockets, so the production app stays on the 3-second poll and never depends on realtime to work. The 15-second session closer also does not run on serverless; sessions still close lazily on the next request. Even on a long-running host, **guests keep polling** until guest socket auth exists — today's handshake is JWT-only (`auth.token`). See [How to run the API as a long-running process for Instant updates](#how-to-run-the-api-as-a-long-running-process-for-instant-updates).
 
 History is paginated (default **20** events, max 50, newest first, `cursor` + `hasMore`). Admin analytics can be scoped with `?window=today` (campus IST day) or `from` / `to` ISO instants; waiting count stays live. The default (no query) is all-time, which is what existing clients get.
 
@@ -247,11 +249,17 @@ This section is a plan, not a production cutover. Do not move DNS, buy a paid pl
 
 ### What will not work on Vercel serverless
 
-- **Socket.IO** (“Instant updates”). Guests also cannot use sockets today even on a long-running host: the handshake is JWT-only (`auth.token`). Guest-credential socket auth is a follow-up and is not implemented here.
-- The 15-second `SESSION_CLOSE_INTERVAL_MS` closer (override; minimum 1000). Without it, sessions still close lazily on the next HTTP request.
+- **Socket.IO** (“Instant updates”). Instant updates need a long-running API process.
+- The 15-second `SESSION_CLOSE_INTERVAL_MS` closer (override; minimum 1000). The session closer does not run on serverless; without it, sessions still close lazily on the next HTTP request.
 - Web Push fan-out (see Notifications) is also a poor fit for serverless.
 
-Polling (3 seconds when the tab is visible and no socket is connected, 15 seconds when Socket.IO is connected, paused when the tab is hidden) remains the fallback everywhere and is enough for the product to work.
+Polling (3 seconds when the tab is visible and no socket is connected, 15 seconds when Socket.IO is connected, paused when the tab is hidden) remains the fallback everywhere and is enough for the product to work. **Guests poll until guest socket auth exists**, including on a long-running host (see below).
+
+### Guest Socket.IO auth (follow-up, not implemented)
+
+Today the Socket.IO handshake accepts only `auth.token` (a user or admin JWT). Guests have no JWT, so they never join a socket room and stay on the 3-second poll, even when the API is a long-running process.
+
+A later, safe design could issue a **device credential** when someone continues as a guest or joins a line: a random, hashed, membership-scoped secret stored with that guest record and presented in the handshake as something like `auth.guestToken`. The server would verify the hash, bind the socket only to that guest's queue rooms, and invalidate the credential when the membership ends or the guest upgrades to a signed-in account. Do not return the raw credential in list or status API responses, and do not log it. This is a design note only — no incomplete runtime is included here. Until that ships, guests poll.
 
 ### Recommended hosts
 

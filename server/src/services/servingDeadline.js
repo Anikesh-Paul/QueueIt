@@ -9,6 +9,7 @@ import {
   ensureDefaultCounters,
   resolveTargetCounter,
   setCounterNowServing,
+  completeCounterTurn,
 } from "./counters.js";
 
 export const DEFAULT_NO_SHOW_MINUTES = 5;
@@ -173,7 +174,7 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
       const counter =
         findCounterForEntry(queue, serving) ||
         (counterId ? null : queue.counters[0]);
-      setCounterNowServing(queue, counter, serving.tokenNumber);
+      completeCounterTurn(queue, counter, serving.tokenNumber, { served: terminalStatus === "served" });
       await autoPrepareIfClosedEmpty(queue);
       await queue.save();
       emitQueueChanged(queue._id, terminalStatus);
@@ -218,7 +219,7 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
     entry.servingCounterId = counter._id;
     await entry.save();
   }
-  setCounterNowServing(queue, counter, entry.tokenNumber);
+  completeCounterTurn(queue, counter, entry.tokenNumber, { served: terminalStatus === "served" });
   await autoPrepareIfClosedEmpty(queue);
   await queue.save();
   emitQueueChanged(queue._id, terminalStatus);
@@ -278,7 +279,7 @@ export async function expireNoShowCalls({ queueId } = {}) {
   };
   if (queueId) filter.queue = queueId;
 
-  const expired = await QueueEntry.find(filter).select({ queue: 1 });
+  const expired = await QueueEntry.find(filter);
   if (expired.length === 0) return 0;
 
   const queueIds = [...new Set(expired.map((row) => row.queue.toString()))];
@@ -300,6 +301,14 @@ export async function expireNoShowCalls({ queueId } = {}) {
       { returnDocument: "after" }
     );
     if (!claimed) continue;
+    const queue = queues.find((row) => row._id.toString() === claimed.queue.toString());
+    if (queue) {
+      ensureDefaultCounters(queue);
+      completeCounterTurn(queue, findCounterForEntry(queue, claimed), claimed.tokenNumber, {
+        served: false,
+      });
+      await queue.save();
+    }
     skipped += 1;
     emitQueueChanged(claimed.queue, "skip");
   }

@@ -15,7 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { campusDatetimeLocalToIso, formatCampusDateTime } from "@/lib/campus-time";
-import { formatNowServing } from "@/components/admin/format-now-serving";
+import { presentServingBoard } from "@/lib/now-serving";
 
 export function AdminOperatePanel({
   adminQueueMeta,
@@ -45,6 +45,7 @@ export function AdminOperatePanel({
 
   const counters = Array.isArray(adminQueueMeta?.counters) ? adminQueueMeta.counters : [];
   const multi = counters.length > 1;
+  const servingBoard = presentServingBoard(counters, adminQueueMeta?.nowServing);
   const calledEntries = waitingList.filter((entry) => entry.status === "serving");
   const calledEntry = calledEntries[0] || null;
   const busyIds = new Set(
@@ -78,19 +79,19 @@ export function AdminOperatePanel({
               <div className="grid grid-cols-2 gap-3 px-5 py-5 sm:max-w-sm">
                 <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary px-4 py-3">
                   <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                    Now serving
+                    {servingBoard.label}
                   </span>
-                  {multi ? (
+                  {servingBoard.multi ? (
                     <ul className="mt-0.5 flex flex-col gap-1" data-testid="admin-now-serving">
-                      {counters.map((counter) => (
+                      {servingBoard.rows.map((row) => (
                         <li
-                          key={counter.id}
+                          key={row.id}
                           className="flex items-baseline justify-between gap-2 text-sm"
                           data-testid="admin-counter-serving"
                         >
-                          <span className="truncate text-text-secondary">{counter.name}</span>
+                          <span className="truncate text-text-secondary">{row.name}</span>
                           <span className="font-metric text-lg font-bold tabular-nums text-foreground">
-                            {formatNowServing(counter.nowServing)}
+                            {row.value}
                           </span>
                         </li>
                       ))}
@@ -100,7 +101,7 @@ export function AdminOperatePanel({
                       className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
                       data-testid="admin-now-serving"
                     >
-                      {formatNowServing(adminQueueMeta?.nowServing)}
+                      {servingBoard.value}
                     </span>
                   )}
                 </div>

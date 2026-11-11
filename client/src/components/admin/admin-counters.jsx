@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatNowServing } from "@/components/admin/format-now-serving";
+import { presentCounterServing } from "@/lib/now-serving";
 
 /**
  * Add, rename, or remove counters on the open queue.
@@ -62,7 +62,7 @@ export function AdminCounters({
                   data-testid="counter-name-input"
                 />
                 <p className="mt-1 text-xs text-text-muted">
-                  Now serving {formatNowServing(counter.nowServing)}
+                  {`${presentCounterServing(counter).label} ${presentCounterServing(counter).value}`}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

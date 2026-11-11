@@ -24,6 +24,7 @@ const counterSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 40 },
     nowServing: { type: Number, default: null, min: 1 },
+    lastServed: { type: Number, default: null, min: 1 },
   },
   { _id: true }
 );
@@ -112,7 +113,8 @@ const queueSchema = new mongoose.Schema(
     },
     /**
      * Counters at this queue (at least one after ensureDefaultCounters).
-     * Each has its own nowServing; queue.nowServing is the most recent token.
+     * Each counter's nowServing is the live called token (null when free).
+     * lastServed is the last completed serve. queue.nowServing stays the most recent called or served token for compatibility.
      */
     counters: {
       type: [counterSchema],

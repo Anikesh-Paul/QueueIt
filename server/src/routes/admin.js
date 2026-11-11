@@ -25,7 +25,7 @@ import {
   resumeServingDeadlines,
   servingFieldsForJson,
 } from "../services/servingDeadline.js";
-import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing } from "../services/counters.js";
+import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing, reconcileCounterServing } from "../services/counters.js";
 import { rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 import {
   addCounter,
@@ -181,6 +181,10 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
       .populate("user")
       .sort({ status: 1, tokenNumber: 1 }) // serving before waiting
       .exec();
+
+    if (reconcileCounterServing(queue, entries)) {
+      await queue.save();
+    }
 
     let waiterPosition = 0;
     const waiting = entries.map((entry) => {

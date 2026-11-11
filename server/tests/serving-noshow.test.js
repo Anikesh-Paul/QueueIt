@@ -81,6 +81,7 @@ describe("Call / serving no-show timer", () => {
     assert.equal(call.body.called.tokenNumber, 1);
     assert.equal(call.body.called.status, "serving");
     assert.equal(call.body.queue.nowServing, 1);
+    assert.equal(call.body.queue.counters[0].nowServing, 1);
     assert.ok(call.body.called.servingDeadlineAt);
 
     const status = await request(app)
@@ -139,6 +140,8 @@ describe("Call / serving no-show timer", () => {
     assert.equal(serveCalled.status, 200);
     assert.equal(serveCalled.body.served.tokenNumber, 1);
     assert.equal(serveCalled.body.served.status, "served");
+    assert.equal(serveCalled.body.queue.counters[0].nowServing, null);
+    assert.equal(serveCalled.body.queue.counters[0].lastServed, 1);
 
     const stillWaiting = await QueueEntry.findOne({ queue: queueId, status: "waiting" });
     assert.equal(stillWaiting.tokenNumber, 2);
@@ -166,6 +169,7 @@ describe("Call / serving no-show timer", () => {
       .set("Authorization", `Bearer ${admin}`);
     assert.equal(skip.status, 200);
     assert.equal(skip.body.skipped.status, "skipped");
+    assert.equal(skip.body.queue.counters[0].nowServing, null);
     const leftover = await QueueEntry.findOne({ queue: queueId, status: "serving" });
     assert.equal(leftover, null);
   });

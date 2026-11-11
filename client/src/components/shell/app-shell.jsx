@@ -4,13 +4,15 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { UserChip } from "@/components/shell/user-chip";
 import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
+import { shellNavEnd } from "@/lib/shell-nav";
 import { QueueNotifyProvider } from "@/hooks/use-queue-notifications";
 
-function ShellNavLink({ to, end = false, children, testId }) {
+function ShellNavLink({ to, end, children, testId }) {
+  const exact = end ?? shellNavEnd(to);
   return (
     <NavLink
       to={to}
-      end={end}
+      end={exact}
       data-testid={testId}
       className={({ isActive }) =>
         cn(

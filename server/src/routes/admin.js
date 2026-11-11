@@ -8,6 +8,7 @@ import { arrivalVerifyDecision, parseArrivalValue } from "../services/arrivalPas
 import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
 import { collectQueueBusyness } from "../services/bestTime.js";
 import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
+import { buildAnalyticsReport, formatAnalyticsReportCsv } from "../services/analyticsReport.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessQueueAccess, forbidUnlessVenueAccess, isGlobalAdmin, staffQueueIds } from "../services/staffAccess.js";
 import {
@@ -941,6 +942,39 @@ async function loadVenueOr404(venueId, res, user) {
 /**
  * GET /api/admin/catalog — venues and their queues, including archived.
  */
+
+/**
+ * GET /api/admin/analytics/report — campus-day range report (daily served,
+ * hourly peaks, no-show rate, per-queue waits). Query: from, to (YYYY-MM-DD,
+ * inclusive, max 92 days), optional venueId, queueId. Staff are venue/queue scoped.
+ */
+router.get("/analytics/report", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await buildAnalyticsReport(req.user, req.query || {});
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json(result.payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * GET /api/admin/analytics/report.csv — same access and filters, as a CSV download.
+ */
+router.get("/analytics/report.csv", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await buildAnalyticsReport(req.user, req.query || {});
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    const { from, to } = result.payload.range;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Disposition", `attachment; filename="queueit-report-${from}-to-${to}.csv"`);
+    return res.status(200).send(formatAnalyticsReportCsv(result.payload));
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /**
  * GET /api/admin/analytics — campus (or venue) rollup for the queues this operator can see.

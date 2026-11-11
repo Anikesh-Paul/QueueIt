@@ -198,24 +198,14 @@ export function fetchWaitingList(token, queueId) {
   return apiRequest(`/api/admin/queues/${queueId}/waiting-list`, { token });
 }
 
-/**
- * GET /api/admin/queues/:queueId/analytics
- * Ops metrics: served count, average wait, simple peaks (busiest hours).
- */
-export function fetchCampusAnalytics(token, options = {}) {
-  const params = new URLSearchParams();
-  if (options.window) params.set("window", options.window);
-  if (options.venueId) params.set("venueId", options.venueId);
-  const qs = params.toString();
-  return apiRequest(`/api/admin/analytics${qs ? `?${qs}` : ""}`, { token });
+/** GET /api/admin/analytics/report — campus-day range report (admin / venue staff). */
+export function fetchAnalyticsReport(token, query) {
+  return apiRequest(`/api/admin/analytics/report${query ? `?${query}` : ""}`, { token });
 }
 
-export async function downloadCampusAnalyticsCsv(token, options = {}) {
-  const params = new URLSearchParams();
-  if (options.window) params.set("window", options.window);
-  if (options.venueId) params.set("venueId", options.venueId);
-  const qs = params.toString();
-  const res = await fetch(`${API_URL}/api/admin/analytics.csv${qs ? `?${qs}` : ""}`, {
+/** GET /api/admin/analytics/report.csv — download the same report as CSV. */
+export async function downloadAnalyticsReportCsv(token, query, filename = "queueit-report.csv") {
+  const res = await fetch(`${API_URL}/api/admin/analytics/report.csv${query ? `?${query}` : ""}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) {
@@ -229,11 +219,10 @@ export async function downloadCampusAnalyticsCsv(token, options = {}) {
     throw new Error(message);
   }
   const blob = await res.blob();
-  const preset = options.window || "all";
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `queueit-analytics-${preset}.csv`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();

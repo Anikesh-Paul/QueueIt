@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,10 +42,11 @@ export function AnalyticsPage() {
   const { queueId } = useParams();
   const navigate = useNavigate();
   const { token, analyticsData, analyticsLoading, analyticsError, loadAnalytics } = useApp();
+  const [analyticsWindow, setAnalyticsWindow] = useState("all");
 
   useEffect(() => {
-    if (queueId && token) loadAnalytics(token, queueId);
-  }, [queueId, token, loadAnalytics]);
+    if (queueId && token) loadAnalytics(token, queueId, { window: analyticsWindow });
+  }, [queueId, token, loadAnalytics, analyticsWindow]);
 
   const queueName = analyticsData?.queue?.name || "Queue";
   const metrics = analyticsData?.metrics || null;
@@ -63,7 +64,7 @@ export function AnalyticsPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => loadAnalytics(token, queueId)}
+              onClick={() => loadAnalytics(token, queueId, { window: analyticsWindow })}
               disabled={analyticsLoading}
               data-testid="analytics-refresh"
             >
@@ -89,6 +90,25 @@ export function AnalyticsPage() {
           >
             Analytics
           </h1>
+          <div className="mt-3 flex flex-wrap gap-2" data-testid="analytics-window" role="tablist" aria-label="Analytics range">
+            {[
+              { id: "today", label: "Today" },
+              { id: "all", label: "All time" },
+            ].map((option) => (
+              <Button
+                key={option.id}
+                type="button"
+                size="sm"
+                variant={analyticsWindow === option.id ? "default" : "secondary"}
+                aria-selected={analyticsWindow === option.id}
+                role="tab"
+                data-testid={`analytics-window-${option.id}`}
+                onClick={() => setAnalyticsWindow(option.id)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
         </header>
 
         {analyticsLoading && (

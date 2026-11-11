@@ -289,5 +289,45 @@ describe("Leave queue + user history (HTTP API)", () => {
       assert.equal(resB.body.events[0].tokenNumber, 2);
       assert.equal(resB.body.events[0].outcome, "joined");
     });
+
+    it("paginates history newest first with a cursor and hasMore", async () => {
+      await seedVenueAndQueues();
+      const cafeteria = await Queue.findOne({ slug: "cafeteria" });
+      const gym = await Queue.findOne({ slug: "gym" });
+      const app = testApp();
+      const token = await registerUser(app);
+
+      // History is one row per membership, not per status change, so leave
+      // then re-join creates a second document.
+      await joinQueue(app, token, cafeteria._id.toString());
+      await request(app)
+        .post(`/api/queues/${cafeteria._id}/leave`)
+        .set("Authorization", `Bearer ${token}`);
+      await joinQueue(app, token, cafeteria._id.toString());
+      await request(app)
+        .post(`/api/queues/${cafeteria._id}/leave`)
+        .set("Authorization", `Bearer ${token}`);
+      await joinQueue(app, token, gym._id.toString());
+
+      const first = await request(app)
+        .get("/api/queues/history?limit=2")
+        .set("Authorization", `Bearer ${token}`);
+      assert.equal(first.status, 200);
+      assert.equal(first.body.events.length, 2);
+      assert.equal(first.body.limit, 2);
+      assert.equal(first.body.hasMore, true);
+      assert.equal(typeof first.body.nextCursor, "string");
+
+      const second = await request(app)
+        .get(`/api/queues/history?limit=2&cursor=${encodeURIComponent(first.body.nextCursor)}`)
+        .set("Authorization", `Bearer ${token}`);
+      assert.equal(second.status, 200);
+      assert.equal(second.body.events.length, 1);
+      assert.equal(second.body.hasMore, false);
+      assert.equal(second.body.nextCursor, null);
+
+      const ids = [...first.body.events, ...second.body.events].map((e) => e.id);
+      assert.equal(new Set(ids).size, 3);
+    });
   });
 });

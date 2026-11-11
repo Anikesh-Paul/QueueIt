@@ -105,9 +105,13 @@ export function leaveQueue(token, queueId, guestCredential) {
   });
 }
 
-/** GET /api/queues/history — User History or Guest device-local history. */
-export function fetchHistory(token, guestCredential) {
-  return apiRequest("/api/queues/history", { token, guestCredential });
+/** GET /api/queues/history — paginated User or Guest history (newest first, default 20). */
+export function fetchHistory(token, guestCredential, options = {}) {
+  const params = new URLSearchParams();
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.cursor) params.set("cursor", options.cursor);
+  const qs = params.toString();
+  return apiRequest(`/api/queues/history${qs ? `?${qs}` : ""}`, { token, guestCredential });
 }
 
 /** GET /api/queues/active — every active membership for the current joiner. */
@@ -124,8 +128,13 @@ export function fetchWaitingList(token, queueId) {
  * GET /api/admin/queues/:queueId/analytics
  * Ops metrics: served count, average wait, simple peaks (busiest hours).
  */
-export function fetchAnalytics(token, queueId) {
-  return apiRequest(`/api/admin/queues/${queueId}/analytics`, { token });
+export function fetchAnalytics(token, queueId, options = {}) {
+  const params = new URLSearchParams();
+  if (options.window) params.set("window", options.window);
+  if (options.from) params.set("from", options.from);
+  if (options.to) params.set("to", options.to);
+  const qs = params.toString();
+  return apiRequest(`/api/admin/queues/${queueId}/analytics${qs ? `?${qs}` : ""}`, { token });
 }
 
 /** POST /api/admin/queues/:queueId/serve — serve next or selected waiting entry. */

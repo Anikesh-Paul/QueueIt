@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { Queue } from "../models/Queue.js";
 import { QueueEntry, isDuplicateKeyError } from "../models/QueueEntry.js";
 import { parseArrivalValue } from "../services/arrivalPass.js";
+import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import {
   applyExtend,
@@ -476,13 +477,20 @@ router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, 
     const queue = await loadQueueOr404(req.params.queueId, res);
     if (!queue) return;
 
+    const range = resolveAnalyticsRange(req.query || {});
+    if (!range.ok) {
+      return res.status(400).json({ error: range.error });
+    }
+    // Waiting is always the live line. Terminal counts / waits / peaks honor the window.
+    const terminalMatch = dateRangeMatch("updatedAt", range);
+
     const [servedCount, skippedCount, leftCount, waitingCount, [facet]] = await Promise.all([
-      QueueEntry.countDocuments({ queue: queue._id, status: "served" }),
-      QueueEntry.countDocuments({ queue: queue._id, status: "skipped" }),
-      QueueEntry.countDocuments({ queue: queue._id, status: "left" }),
+      QueueEntry.countDocuments({ queue: queue._id, status: "served", ...terminalMatch }),
+      QueueEntry.countDocuments({ queue: queue._id, status: "skipped", ...terminalMatch }),
+      QueueEntry.countDocuments({ queue: queue._id, status: "left", ...terminalMatch }),
       QueueEntry.countDocuments({ queue: queue._id, status: "waiting" }),
       QueueEntry.aggregate([
-        { $match: { queue: queue._id, status: "served" } },
+        { $match: { queue: queue._id, status: "served", ...terminalMatch } },
         {
           $facet: {
             totals: [
@@ -529,6 +537,11 @@ router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, 
 
     return res.status(200).json({
       queue: toAdminQueueJSON(queue),
+      range: {
+        preset: range.preset,
+        from: range.from ? range.from.toISOString() : null,
+        to: range.to ? range.to.toISOString() : null,
+      },
       metrics: {
         servedCount,
         skippedCount,

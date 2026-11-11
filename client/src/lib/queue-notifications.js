@@ -11,8 +11,9 @@ export const NOTIFY_VIBRATE_KEY = "queueit_notify_vibrate";
  * @param {{ paused?: boolean, position?: unknown, tokenNumber?: unknown, nowServing?: unknown }} input
  * @returns {"serving"|"next"|"near"|null}
  */
-export function resolveQueueAlert({ paused, position, tokenNumber, nowServing } = {}) {
+export function resolveQueueAlert({ paused, position, tokenNumber, nowServing, status } = {}) {
   if (paused) return null;
+  if (status === "serving") return "serving";
   const token = tokenNumber == null || tokenNumber === "" ? null : Number(tokenNumber);
   const serving = nowServing == null || nowServing === "" ? null : Number(nowServing);
   if (token != null && Number.isFinite(token) && serving != null && Number.isFinite(serving) && serving === token) {
@@ -48,13 +49,14 @@ export function decideNotification({
   position,
   tokenNumber,
   nowServing,
+  status,
   queueId,
   lastKey,
 } = {}) {
   if (paused) {
     return { fire: false, kind: null, key: null, lastKey: null };
   }
-  const kind = resolveQueueAlert({ paused, position, tokenNumber, nowServing });
+  const kind = resolveQueueAlert({ paused, position, tokenNumber, nowServing, status });
   const key = alertKey(queueId, tokenNumber, kind);
   if (!kind || !key) {
     return { fire: false, kind: null, key: null, lastKey };
@@ -73,8 +75,8 @@ export function notificationCopy({ kind, position, queueName } = {}) {
   const queue = queueName || "Queue";
   if (kind === "serving") {
     return {
-      title: `You're being served · ${queue}`,
-      body: "Your token is now serving.",
+      title: `You're being called · ${queue}`,
+      body: "Please come to the counter.",
     };
   }
   if (kind === "next") {

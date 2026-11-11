@@ -17,11 +17,12 @@ describe("resolveQueueAlert", () => {
     assert.equal(resolveQueueAlert({ paused: false, position: 4 }), null);
   });
 
-  it("returns serving when nowServing equals the student's token", () => {
+  it("returns serving when nowServing equals the student's token or status is serving", () => {
     assert.equal(
       resolveQueueAlert({ paused: false, position: 1, tokenNumber: 7, nowServing: 7 }),
       "serving"
     );
+    assert.equal(resolveQueueAlert({ paused: false, position: 0, status: "serving" }), "serving");
   });
 
   it("does not nudge approach while the queue is paused", () => {

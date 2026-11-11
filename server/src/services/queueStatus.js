@@ -2,12 +2,14 @@ import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "../models/QueueEntry.js";
 import { sessionFieldsForJson } from "./queueSession.js";
 import { signArrivalPass } from "./arrivalPass.js";
 import { resolveEtaServicePace } from "./recentServicePace.js";
+import { servingFieldsForJson } from "./servingDeadline.js";
 
 /**
  * Live position among active waiters (1 = front of waiting line).
  * Waiting entries ordered by tokenNumber ascending.
  */
-export async function computePosition(queueId, tokenNumber) {
+export async function computePosition(queueId, tokenNumber, entryStatus = "waiting") {
+  if (entryStatus === "serving") return 0;
   const ahead = await QueueEntry.countDocuments({
     queue: queueId,
     status: "waiting",
@@ -29,7 +31,7 @@ export function computeEtaMinutes(position, servicePaceMinutes) {
  * Build the public join/status payload for an active entry + queue.
  */
 export async function buildStatusPayload(queue, entry) {
-  const position = await computePosition(queue._id, entry.tokenNumber);
+  const position = await computePosition(queue._id, entry.tokenNumber, entry.status);
   const averageServiceTime = queue.averageServiceTime;
   const { pace: etaServiceTime, source: etaPaceSource } = await resolveEtaServicePace(queue);
   const etaMinutes = computeEtaMinutes(position, etaServiceTime);
@@ -44,6 +46,7 @@ export async function buildStatusPayload(queue, entry) {
     etaPaceSource,
     status: entry.status,
     arrivalPass: signArrivalPass(queue._id, entry.tokenNumber),
+    ...servingFieldsForJson(entry, { paused: queue.status === "paused" }),
     queue: {
       id: queue._id.toString(),
       name: queue.name,

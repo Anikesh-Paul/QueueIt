@@ -28,6 +28,7 @@ export function AdminConsolePage() {
     adminActionError,
     selectedEntryId,
     setSelectedEntryId,
+    adminCall,
     adminServe,
     adminSkip,
     adminPause,
@@ -106,6 +107,7 @@ export function AdminConsolePage() {
               paused={paused}
               acceptingTokens={acceptingTokens}
               empty={empty}
+              adminCall={adminCall}
               adminServe={adminServe}
               adminSkip={adminSkip}
               adminPause={adminPause}

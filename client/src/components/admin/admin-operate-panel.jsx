@@ -27,6 +27,7 @@ export function AdminOperatePanel({
   paused,
   acceptingTokens,
   empty,
+  adminCall,
   adminServe,
   adminSkip,
   adminPause,
@@ -40,6 +41,11 @@ export function AdminOperatePanel({
   const [skipOpen, setSkipOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [stopOpen, setStopOpen] = useState(false);
+
+  const calledEntry = waitingList.find((entry) => entry.status === "serving");
+  const waiterCount = waitingList.filter((entry) => entry.status !== "serving").length;
+  const canCall =
+    !adminActionBusy && !paused && waiterCount > 0 && !calledEntry;
 
   return (
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
@@ -63,7 +69,7 @@ export function AdminOperatePanel({
                     className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
                     data-testid="admin-waiting-count"
                   >
-                    {waitingList.length}
+                    {waiterCount}
                   </span>
                 </div>
               </div>
@@ -75,6 +81,20 @@ export function AdminOperatePanel({
                 >
                   <Button
                     variant="default"
+                    size="lg"
+                    onClick={() => adminCall(selectedEntryId || undefined)}
+                    disabled={!canCall}
+                    data-testid="admin-call"
+                    className="w-full sm:w-auto"
+                  >
+                    {adminActionBusy
+                      ? "Working…"
+                      : selectedEntryId && !calledEntry
+                        ? "Call selected"
+                        : "Call next"}
+                  </Button>
+                  <Button
+                    variant="secondary"
                     size="lg"
                     onClick={() => adminServe(selectedEntryId || undefined)}
                     disabled={adminActionBusy || paused || empty}

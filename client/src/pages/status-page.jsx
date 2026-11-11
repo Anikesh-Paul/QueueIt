@@ -102,13 +102,19 @@ export function StatusPage() {
   const queueTitle = liveStatus.queue?.name || statusQueueName;
   // Banner suppressed while paused: position is near the front but the line is
   // frozen, so "approach the counter" would be dishonest. Closed drain may still approach.
+  const isCalled = liveStatus.status === "serving";
   const nearFront =
-    !paused && Number.isInteger(liveStatus.position) && liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
+    !isCalled &&
+    !paused &&
+    Number.isInteger(liveStatus.position) &&
+    liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
 
-  const paceLine = formatPaceLine(
-    liveStatus.position,
-    liveStatus.etaServiceTime ?? liveStatus.averageServiceTime
-  );
+  const paceLine = isCalled
+    ? null
+    : formatPaceLine(
+        liveStatus.position,
+        liveStatus.etaServiceTime ?? liveStatus.averageServiceTime
+      );
   // Live: wall clock (remaining wait). Paused: first pinned snapshot for this pause.
   const etaAsOfMs = paused
     ? (frozenEtaAsOfMs ?? statusLastUpdatedAt ?? nowMs)
@@ -289,6 +295,24 @@ export function StatusPage() {
           </p>
         ) : null}
 
+        {isCalled && (
+          <div className="mb-4">
+            <CalledBanner
+              remainingSeconds={
+                liveStatus.servingTimerFrozen
+                  ? liveStatus.servingRemainingSeconds
+                  : liveStatus.servingDeadlineAt
+                    ? Math.max(
+                        0,
+                        Math.ceil((new Date(liveStatus.servingDeadlineAt).getTime() - nowMs) / 1000)
+                      )
+                    : liveStatus.servingRemainingSeconds
+              }
+              frozen={Boolean(liveStatus.servingTimerFrozen)}
+            />
+          </div>
+        )}
+
         {nearFront && (
           <div className="mb-4">
             <NearFrontBanner position={liveStatus.position} />
@@ -316,7 +340,7 @@ export function StatusPage() {
               testId="token-number"
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
-              <StatusMetric label="Position" value={liveStatus.position} testId="position" />
+              <StatusMetric label="Position" value={isCalled ? "Called" : liveStatus.position} testId="position" />
               <StatusMetric
                 label="ETA"
                 value={
@@ -325,9 +349,9 @@ export function StatusPage() {
                     data-eta-mode={etaPresented.mode}
                   >
                     <span data-testid="eta-clock" className="leading-none">
-                      {etaPresented.primary}
+                      {isCalled ? "—" : etaPresented.primary}
                     </span>
-                    {etaPresented.secondary ? (
+                    {!isCalled && etaPresented.secondary ? (
                       <span
                         data-testid="eta-minutes"
                         className="text-sm font-medium tracking-normal text-text-muted"
@@ -415,6 +439,39 @@ function LeaveControl({ leaveBusy, onLeave }) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+function formatCallRemaining(seconds) {
+  if (seconds == null || !Number.isFinite(Number(seconds))) return null;
+  const total = Math.max(0, Math.ceil(Number(seconds)));
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  if (minutes <= 0) return `${secs}s left`;
+  return `${minutes}:${String(secs).padStart(2, "0")} left`;
+}
+
+function CalledBanner({ remainingSeconds, frozen }) {
+  const remaining = formatCallRemaining(remainingSeconds);
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="called-banner"
+      className="flex items-start gap-2.5 rounded-lg border border-primary/30 bg-primary-muted px-4 py-3"
+    >
+      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+      <div>
+        <p className="font-heading text-sm font-semibold text-foreground">You&apos;re being called</p>
+        <p className="mt-0.5 text-xs leading-5 text-text-secondary" data-testid="called-remaining">
+          {frozen
+            ? "Timer paused until the line resumes."
+            : remaining
+              ? `${remaining} to arrive at the counter.`
+              : "Please come to the counter."}
+        </p>
+      </div>
+    </div>
   );
 }
 

@@ -15,6 +15,14 @@ import {
   ensureQueueSessionState,
   sessionFieldsForJson,
 } from "../services/queueSession.js";
+import {
+  advanceLineEntry,
+  callWaitingEntry,
+  expireNoShowCalls,
+  freezeServingDeadlines,
+  resumeServingDeadlines,
+  servingFieldsForJson,
+} from "../services/servingDeadline.js";
 
 const router = Router();
 
@@ -37,6 +45,7 @@ function toAdminQueueJSON(queue) {
     acceptingTokens: queue.acceptingTokens !== false,
     nowServing: queue.nowServing ?? null,
     averageServiceTime: queue.averageServiceTime,
+    noShowMinutes: queue.noShowMinutes ?? 5,
     ...sessionFieldsForJson(queue),
   };
 }
@@ -46,7 +55,7 @@ function toAdminQueueJSON(queue) {
  * Guest rows: token-first + isGuest (no name/email; not walk-in).
  * Walk-ins remain isWalkIn with walkInName — never labeled Guest.
  */
-function toWaitingRow(entry, position) {
+function toWaitingRow(entry, position, { paused = false } = {}) {
   const isWalkIn = Boolean(entry.isWalkIn);
   const isGuest = Boolean(entry.guest) && !isWalkIn;
   let user;
@@ -83,10 +92,12 @@ function toWaitingRow(entry, position) {
     id: entry._id.toString(),
     tokenNumber: entry.tokenNumber,
     position,
+    status: entry.status,
     user,
     isWalkIn,
     isGuest,
     joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
+    ...servingFieldsForJson(entry, { paused }),
   };
 }
 
@@ -100,8 +111,9 @@ async function loadQueueOr404(queueId, res) {
     res.status(404).json({ error: "Queue not found" });
     return null;
   }
-  // Lazy auto-close when past bound session end.
+  // Lazy auto-close when past bound session end; also skip expired no-shows.
   await ensureQueueSessionState(queue);
+  await expireNoShowCalls({ queueId: queue._id });
   return queue;
 }
 
@@ -125,40 +137,8 @@ function rejectIfPaused(queue, res) {
  *   | { ok: false, status: number, error: string }
  * >}
  */
-async function advanceWaitingEntry(queue, { entryId } = {}, terminalStatus) {
-  const filter = { queue: queue._id, status: "waiting" };
-  if (entryId) {
-    if (!mongoose.isValidObjectId(entryId)) {
-      return { ok: false, status: 404, error: "Waiting entry not found" };
-    }
-    filter._id = entryId;
-  }
-
-  // Atomic: only one serve/skip can claim a given waiting entry (or the current head).
-  const entry = await QueueEntry.findOneAndUpdate(
-    filter,
-    { $set: { status: terminalStatus } },
-    {
-      sort: entryId ? undefined : { tokenNumber: 1 },
-      returnDocument: "after",
-    }
-  );
-  if (!entry) {
-    return {
-      ok: false,
-      status: 404,
-      error: entryId ? "Waiting entry not found" : "No one waiting",
-    };
-  }
-
-  queue.nowServing = entry.tokenNumber;
-  // Closed + empty after drain step → prepare next session numbering.
-  await autoPrepareIfClosedEmpty(queue);
-  await queue.save();
-
-  emitQueueChanged(queue._id, terminalStatus);
-
-  return { ok: true, entry, queue };
+async function advanceWaitingEntry(queue, options, terminalStatus) {
+  return advanceLineEntry(queue, options, terminalStatus);
 }
 
 /**
@@ -170,12 +150,20 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
     const queue = await loadQueueOr404(req.params.queueId, res);
     if (!queue) return;
 
-    const entries = await QueueEntry.find({ queue: queue._id, status: "waiting" })
+    const paused = queue.status === "paused";
+    const entries = await QueueEntry.find({
+      queue: queue._id,
+      status: { $in: ["waiting", "serving"] },
+    })
       .populate("user")
-      .sort({ tokenNumber: 1 })
+      .sort({ status: 1, tokenNumber: 1 }) // serving before waiting
       .exec();
 
-    const waiting = entries.map((entry, index) => toWaitingRow(entry, index + 1));
+    let waiterPosition = 0;
+    const waiting = entries.map((entry) => {
+      const position = entry.status === "serving" ? 0 : (waiterPosition += 1);
+      return toWaitingRow(entry, position, { paused });
+    });
 
     return res.status(200).json({
       queue: toAdminQueueJSON(queue),
@@ -238,6 +226,39 @@ router.post("/queues/:queueId/skip", requireAuth, requireAdmin, async (req, res,
         id: entry._id.toString(),
         tokenNumber: entry.tokenNumber,
         status: entry.status,
+      },
+      queue: toAdminQueueJSON(result.queue),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+/**
+ * POST /api/admin/queues/:queueId/call
+ * Body optional: { entryId }. Calls next waiter if omitted.
+ * Moves the entry to serving, sets nowServing, and starts the no-show timer.
+ * Blocked while paused, and while someone is already being called.
+ */
+router.post("/queues/:queueId/call", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res);
+    if (!queue) return;
+    if (rejectIfPaused(queue, res)) return;
+
+    const result = await callWaitingEntry(queue, { entryId: req.body?.entryId });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    const { entry } = result;
+    return res.status(200).json({
+      called: {
+        id: entry._id.toString(),
+        tokenNumber: entry.tokenNumber,
+        status: entry.status,
+        servingDeadlineAt: entry.servingDeadlineAt,
       },
       queue: toAdminQueueJSON(result.queue),
     });
@@ -386,13 +407,13 @@ router.post("/queues/:queueId/verify-qr", requireAuth, requireAdmin, async (req,
     const entry = await QueueEntry.findOne({
       queue: queue._id,
       tokenNumber: parsed.tokenNumber,
-      status: "waiting",
+      status: { $in: ["waiting", "serving"] },
     }).populate("user");
 
     if (!entry) {
       return res.status(200).json({
         verified: false,
-        reason: "No one waiting with this token",
+        reason: "No one in line with this token",
       });
     }
 
@@ -441,8 +462,8 @@ router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res
     // Close any waiting entries created before the reset (including one racing
     // in between the two writes) so the waiting list ends empty.
     const closed = await QueueEntry.updateMany(
-      { queue: queue._id, status: "waiting" },
-      { $set: { status: "left" } }
+      { queue: queue._id, status: { $in: ["waiting", "serving"] } },
+      { $set: { status: "left", servingDeadlineAt: null, servingPausedRemainingMs: null } }
     );
 
     emitQueueChanged(queue._id, "reset");
@@ -571,6 +592,7 @@ router.post("/queues/:queueId/pause", requireAuth, requireAdmin, async (req, res
     if (!queue) return;
 
     queue.status = "paused";
+    await freezeServingDeadlines(queue._id);
     await queue.save();
 
     emitQueueChanged(queue._id, "pause");
@@ -593,6 +615,7 @@ router.post("/queues/:queueId/resume", requireAuth, requireAdmin, async (req, re
     if (!queue) return;
 
     queue.status = "open";
+    await resumeServingDeadlines(queue._id);
     await queue.save();
 
     emitQueueChanged(queue._id, "resume");

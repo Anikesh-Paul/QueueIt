@@ -12,6 +12,7 @@ import {
 } from "../services/queueStatus.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { ensureQueueSessionState } from "../services/queueSession.js";
+import { expireNoShowCalls } from "../services/servingDeadline.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
 
@@ -32,6 +33,7 @@ router.get("/", async (_req, res, next) => {
 
     for (const q of queues) {
       await ensureQueueSessionState(q);
+      await expireNoShowCalls({ queueId: q._id });
     }
 
     return res.status(200).json({
@@ -132,6 +134,7 @@ router.get("/active", attachJoiner, requireJoiner, async (req, res, next) => {
       const queue = entry.queue;
       if (!queue) continue;
       await ensureQueueSessionState(queue);
+    await expireNoShowCalls({ queueId: queue._id });
       memberships.push(await buildStatusPayload(queue, entry));
     }
 
@@ -189,6 +192,7 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
 
     // Lazy auto-close at bound session end before join gate.
     await ensureQueueSessionState(queue);
+    await expireNoShowCalls({ queueId: queue._id });
 
     // Closed: refuse new app tokens. Paused still allows join. Walk-in is admin-only.
     if (queue.acceptingTokens === false) {
@@ -340,6 +344,7 @@ router.get("/:queueId/status", attachJoiner, requireJoiner, async (req, res, nex
     }
 
     await ensureQueueSessionState(queue);
+    await expireNoShowCalls({ queueId: queue._id });
 
     const entry = await findJoinerActiveEntry(queue._id, req);
     if (!entry) {

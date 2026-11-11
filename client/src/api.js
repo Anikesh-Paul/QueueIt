@@ -114,6 +114,11 @@ export function joinQueue(token, queueId, guestCredential) {
   });
 }
 
+/** GET /api/queues/:queueId/board — public now-serving display (token numbers only). */
+export function getQueueBoard(queueId) {
+  return apiRequest(`/api/queues/${queueId}/board`);
+}
+
 /** GET /api/queues/:queueId/status — poll token, position, ETA, now serving. */
 export function fetchQueueStatus(token, queueId, guestCredential) {
   return apiRequest(`/api/queues/${queueId}/status`, {

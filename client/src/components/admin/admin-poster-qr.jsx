@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
-import { joinUrl } from "@/lib/join-link";
+import { joinUrl, kioskUrl } from "@/lib/join-link";
 
 /**
  * Printable / shareable poster QR — opens `/join/:queueId`.
@@ -11,6 +11,7 @@ export function AdminPosterQr({ queueId, queueName }) {
   const [copied, setCopied] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const url = useMemo(() => joinUrl(origin, queueId), [origin, queueId]);
+  const boardUrl = useMemo(() => kioskUrl(origin, queueId), [origin, queueId]);
 
   async function copyLink() {
     if (!url) return;
@@ -68,15 +69,32 @@ export function AdminPosterQr({ queueId, queueName }) {
           >
             {url}
           </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-3"
-            onClick={copyLink}
-            data-testid="poster-copy"
-          >
-            {copied ? "Copied" : "Copy link"}
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={copyLink}
+              data-testid="poster-copy"
+            >
+              {copied ? "Copied" : "Copy link"}
+            </Button>
+            {boardUrl ? (
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+              >
+                <a href={boardUrl} target="_blank" rel="noreferrer" data-testid="poster-kiosk">
+                  Display board
+                </a>
+              </Button>
+            ) : null}
+          </div>
+          {boardUrl ? (
+            <p className="mt-3 text-xs text-text-muted">
+              Open the display board on a TV or tablet and use full screen (or F11). It shows token numbers only and refreshes every few seconds.
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

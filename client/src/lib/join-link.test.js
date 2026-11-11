@@ -12,6 +12,8 @@ import {
   posterPayload,
   posterQrValue,
   POSTER_PAYLOAD_PREFIX,
+  kioskPath,
+  kioskUrl,
 } from "./join-link.js";
 
 const ID = "64b0c0ffee00000000000001";
@@ -35,6 +37,12 @@ describe("joinPath / joinUrl / poster payload", () => {
     assert.equal(joinPath(ID), `/join/${ID}`);
     assert.equal(joinUrl("https://queueit.example", ID), `https://queueit.example/join/${ID}`);
     assert.equal(joinUrl("http://localhost:5173/", ID), `http://localhost:5173/join/${ID}`);
+  });
+
+  it("builds a /kiosk/:id display-board path", () => {
+    assert.equal(kioskPath(ID), `/kiosk/${ID}`);
+    assert.equal(kioskUrl("https://queueit.example", ID), `https://queueit.example/kiosk/${ID}`);
+    assert.equal(kioskPath("nope"), null);
   });
 
   it("rejects a bad origin or id", () => {

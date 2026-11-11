@@ -95,6 +95,7 @@ export function AuthForm({ mode }) {
               autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              maxLength={80}
               placeholder="Your name"
               className={fieldClass}
             />
@@ -110,6 +111,7 @@ export function AuthForm({ mode }) {
             name="email"
             autoComplete="email"
             required
+            maxLength={254}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -127,9 +129,10 @@ export function AuthForm({ mode }) {
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             required
             minLength={8}
+            maxLength={128}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 8 characters"
+            placeholder="8–128 characters"
             className={fieldClass}
           />
         </div>

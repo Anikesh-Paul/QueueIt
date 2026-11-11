@@ -13,6 +13,7 @@ import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
+import { OpenWatchControls } from "@/components/status/open-watch-controls";
 
 /**
  * Queue catalog — joinable queues for the seeded venue.
@@ -180,14 +181,20 @@ export function QueuesPage() {
                   : "queue-state-open";
             return (
               <li key={queue.id}>
+                <div
+                  className={cn(
+                    "overflow-hidden rounded-md border bg-card shadow-card transition-[border,background-color]",
+                    isSelected && "border-primary bg-primary-muted/60"
+                  )}
+                >
                 <button
                   type="button"
                   data-testid="queue-card"
                   data-queue-id={queue.id}
                   data-accepting-tokens={closed ? "false" : "true"}
                   className={cn(
-                    "queue-card flex w-full flex-col items-start gap-0.5 rounded-md border bg-card px-4 py-3 text-left shadow-card transition-[border,background-color] outline-none hover:border-border-strong focus-visible:ring-3 focus-visible:ring-ring/50",
-                    isSelected && "border-primary bg-primary-muted/60"
+                    "queue-card flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left outline-none hover:bg-secondary/40 focus-visible:ring-3 focus-visible:ring-ring/50",
+                    isSelected && "bg-transparent"
                   )}
                   onClick={() => {
                     setSelectedQueueId(queue.id);
@@ -253,6 +260,10 @@ export function QueuesPage() {
                     </span>
                   ) : null}
                 </button>
+                {closed && !isAdmin ? (
+                  <OpenWatchControls queue={queue} className="px-4 pb-3 pt-0" />
+                ) : null}
+                </div>
               </li>
             );
           })}

@@ -113,7 +113,7 @@ export function AppShell() {
     <div className="flex min-h-dvh flex-col bg-background">
       <header
         data-testid="app-top-bar"
-        className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-sm"
+        className="sticky top-0 z-40 border-b border-border bg-card"
       >
         <div className="mx-auto flex w-full max-w-6xl flex-col sm:h-14 sm:flex-row sm:items-center sm:gap-6 sm:px-6">
           <div className="flex h-14 items-center gap-3 px-4 sm:h-auto sm:flex-1 sm:px-0">

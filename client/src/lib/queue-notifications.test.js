@@ -5,6 +5,7 @@ import {
   resolveQueueAlert,
   decideNotification,
   notificationCopy,
+  nearFrontBannerCopy,
   alertKey,
 } from "./queue-notifications.js";
 
@@ -71,15 +72,41 @@ describe("decideNotification", () => {
   });
 });
 
+describe("nearFrontBannerCopy", () => {
+  it("tells position 1 they are next without asking them to approach", () => {
+    assert.deepEqual(nearFrontBannerCopy({ position: 1 }), {
+      kind: "next",
+      title: "You're next",
+      body: "Stay nearby — you'll be called shortly.",
+    });
+  });
+
+  it("describes how many people are ahead without approach copy", () => {
+    assert.deepEqual(nearFrontBannerCopy({ position: 3 }), {
+      kind: "near",
+      title: "Near the front",
+      body: "2 people ahead.",
+    });
+    assert.equal(nearFrontBannerCopy({ position: 2 }).body, "1 person ahead.");
+  });
+});
+
 describe("notificationCopy", () => {
   it("matches the in-page banner for next and near", () => {
     assert.deepEqual(notificationCopy({ kind: "next", queueName: "Cafeteria" }), {
       title: "You're next · Cafeteria",
-      body: "Approach the counter.",
+      body: "Stay nearby — you'll be called shortly.",
     });
     assert.deepEqual(notificationCopy({ kind: "near", position: 3, queueName: "Cafeteria" }), {
       title: "Near the front · Cafeteria",
-      body: "2 ahead — approach soon.",
+      body: "2 people ahead.",
     });
+  });
+
+  it("only asks the student to come to the counter when they are being called", () => {
+    assert.equal(
+      notificationCopy({ kind: "serving", queueName: "Gym" }).body,
+      "Please come to the counter."
+    );
   });
 });

@@ -95,6 +95,21 @@ describe("Auth & roles (HTTP API)", () => {
       assert.match(res.body.error, /at most 128/i);
     });
 
+    it("rejects a missing or blank display name rather than storing User", async () => {
+      const app = testApp();
+      for (const name of [undefined, "", "   "]) {
+        const res = await request(app).post("/api/auth/register").send({
+          email: "needs-a-name@example.com",
+          password: "password123",
+          ...(name === undefined ? {} : { name }),
+        });
+        assert.equal(res.status, 400);
+        assert.match(res.body.error, /name is required/i);
+      }
+      const stored = await User.findOne({ email: "needs-a-name@example.com" });
+      assert.equal(stored, null);
+    });
+
     it("rejects a display name longer than 80 characters", async () => {
       const app = testApp();
       const res = await request(app).post("/api/auth/register").send({

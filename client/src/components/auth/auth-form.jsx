@@ -48,7 +48,7 @@ export function AuthForm({ mode }) {
           : await register({
               email,
               password,
-              name: name || "User",
+              name: name.trim(),
               guestCredential: guestCred,
             });
       persistSession(data.token, data.user);
@@ -102,11 +102,14 @@ export function AuthForm({ mode }) {
               type="text"
               name="name"
               autoComplete="name"
+              required
+              minLength={1}
+              maxLength={80}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              maxLength={80}
               placeholder="Your name"
               className={fieldClass}
+              data-testid="register-name"
             />
           </div>
         )}

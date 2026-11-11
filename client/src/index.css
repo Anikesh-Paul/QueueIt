@@ -43,7 +43,7 @@ body {
   --font-heading: var(--font-sans);
   --font-metric: var(--font-sans);
 
-  /* DESIGN typography scale (rem steps; light-only; no fluid type) */
+  /* DESIGN typography scale (rem steps; no fluid type) */
   --text-display: 1.75rem;
   --text-display--line-height: 1.25;
   --text-display--font-weight: 600;
@@ -110,6 +110,15 @@ body {
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-line: var(--warning-line);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-ink: var(--danger-ink);
+  --color-info-soft: var(--info-soft);
+  --color-info-ink: var(--info-ink);
+  --color-attention: var(--attention);
 
   --radius-sm: 6px;
   --radius-md: 10px; /* list / catalog / history rows */
@@ -147,6 +156,16 @@ body {
   --warning: #bc6c25; /* terracotta warm */
   --info: #57534e;
 
+  --destructive-hover: #7a1a1d;
+  --warning-soft: #fef3c7;
+  --warning-ink: #92400e;
+  --warning-line: #fcd34d;
+  --danger-soft: #fee2e2;
+  --danger-ink: #991b1b;
+  --info-soft: #dbeafe;
+  --info-ink: #1e40af;
+  --attention: #d97706;
+
   --border: #e7e5e4;
   --border-strong: #d6d3d1;
   --input: #d6d3d1;
@@ -176,40 +195,68 @@ body {
   --sidebar-ring: #1b4332;
 }
 
-/* Dark world is intentionally dormant (light-only product);
-   a `.dark` class is never present, so the `dark:` utilities stay inert. */
+/* Dark — "Mess hall after hours": warm charcoal, cream ink, sage-forest accent.
+   Contrast targets AA: text-secondary #b8b2a7 is 8.1:1 on card #1d1c19,
+   primary #7fc8a0 is 8.6:1 on card and carries dark ink (#0d2219) when filled. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #141412;
+  --foreground: #edeae3;
+  --card: #1d1c19;
+  --card-foreground: #edeae3;
+  --popover: #1d1c19;
+  --popover-foreground: #edeae3;
+
+  --primary: #7fc8a0;
+  --primary-foreground: #0d2219;
+  --primary-hover: #9ad6b4;
+  --primary-muted: #1f3a2d;
+
+  --secondary: #26241f;
+  --secondary-foreground: #edeae3;
+  --muted: #26241f;
+  --muted-foreground: #b8b2a7;
+  --accent: #26241f;
+  --accent-foreground: #edeae3;
+
+  --destructive: #f19a90;
+  --destructive-foreground: #2a0b09;
+  --destructive-hover: #f6b4ac;
+  --success: #7fc8a0;
+  --warning: #e7b06a;
+  --info: #b8b2a7;
+
+  --warning-soft: #3a2c14;
+  --warning-ink: #f3c886;
+  --warning-line: #6b4f1d;
+  --danger-soft: #3b1816;
+  --danger-ink: #f6aaa2;
+  --info-soft: #182a44;
+  --info-ink: #a9c8ff;
+  --attention: #e7a33e;
+
+  --border: #2f2d28;
+  --border-strong: #423f37;
+  --input: #4a463d;
+  --ring: #7fc8a0;
+
+  --text-secondary: #b8b2a7;
+  --text-muted: #b8b2a7;
+
+  --chart-1: #7fc8a0;
+  --chart-2: #b8b2a7;
+  --chart-3: #5fae85;
+  --chart-4: #e7b06a;
+  --chart-5: #edeae3;
+
+  --sidebar: #1d1c19;
+  --sidebar-foreground: #edeae3;
+  --sidebar-primary: #7fc8a0;
+  --sidebar-primary-foreground: #0d2219;
+  --sidebar-accent: rgb(31 58 45 / 0.6);
+  --sidebar-accent-foreground: #edeae3;
+  --sidebar-border: #2f2d28;
+  --sidebar-ring: #7fc8a0;
+
 }
 
 @layer base {
@@ -260,9 +307,28 @@ body {
   animation: auth-settle 200ms ease-out both;
 }
 
+.dark .auth-grain {
+  mix-blend-mode: screen;
+  opacity: 0.02;
+}
+
+/* Smooth theme flips without animating layout. */
+html.theme-transition,
+html.theme-transition * {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .auth-settle {
     animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -281,4 +347,14 @@ body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+/* The poster is paper: always the light palette, even in dark mode. */
+.poster-sheet {
+  --foreground: #1a1a18;
+  --card: #ffffff;
+  --text-secondary: #57534e;
+  --text-muted: #57534e;
+  --border: #e7e5e4;
+  color: #1a1a18;
 }

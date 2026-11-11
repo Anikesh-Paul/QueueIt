@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { QRCodeSVG } from "qrcode.react";
 import { getQueueBoard } from "@/api";
 import { qrJoinUrl } from "@/lib/join-link";
@@ -85,6 +86,7 @@ export function KioskPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <Wordmark />
         <div className="flex flex-wrap items-center gap-2">
+          <ThemeToggle />
           <Button
             type="button"
             variant="secondary"
@@ -126,7 +128,7 @@ export function KioskPage() {
                 className={cn(
                   "rounded-full px-3 py-0.5 text-sm font-semibold",
                   statusLabel === "Closed" && "bg-secondary text-text-secondary",
-                  statusLabel === "Paused" && "bg-[#FEF3C7] text-[#92400E]",
+                  statusLabel === "Paused" && "bg-warning-soft text-warning-ink",
                   statusLabel === "Open" && "bg-primary-muted text-primary"
                 )}
               >

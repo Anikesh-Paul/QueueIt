@@ -44,11 +44,11 @@ export function AdminConsoleToolbar({
               data-testid="admin-queue-status"
               className={cn(
                 "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-                paused ? "bg-[#FEF3C7] text-[#92400E]" : "bg-primary-muted text-primary"
+                paused ? "bg-warning-soft text-warning-ink" : "bg-primary-muted text-primary"
               )}
             >
               <span
-                className={cn("size-1.5 rounded-full", paused ? "bg-[#D97706]" : "bg-primary")}
+                className={cn("size-1.5 rounded-full", paused ? "bg-attention" : "bg-primary")}
               />
               {paused ? "Paused" : "Open"}
             </span>

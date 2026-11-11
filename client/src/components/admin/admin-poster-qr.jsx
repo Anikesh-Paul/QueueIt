@@ -51,7 +51,7 @@ export function AdminPosterQr({ queueId, queueName }) {
       </p>
       <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <div
-          className="shrink-0 rounded-lg border border-border bg-card p-3 shadow-card"
+          className="shrink-0 rounded-lg border border-border bg-white p-3 shadow-card"
           data-testid="poster-qr"
         >
           <QRCodeSVG

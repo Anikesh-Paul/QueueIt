@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { shellNavEnd } from "@/lib/shell-nav";
 import { QueueNotifyProvider } from "@/hooks/use-queue-notifications";
 import { LanguageToggle } from "@/components/shell/language-toggle";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { useI18n } from "@/context/i18n-context";
 import { SkipToContent } from "@/components/shell/skip-to-content";
 import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
@@ -138,6 +139,7 @@ export function AppShell() {
               {navItems}
             </nav>
             <div className="ml-auto flex shrink-0 items-center gap-2">
+              <ThemeToggle />
               <LanguageToggle />
               <UserChip user={identity} softUpgrade={guestSoftUpgrade} />
               {showLogout ? (

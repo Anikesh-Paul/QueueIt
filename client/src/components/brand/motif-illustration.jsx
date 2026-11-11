@@ -42,6 +42,7 @@ export function MotifIllustration({
         variant === "empty" && "mx-auto h-28 w-auto max-w-[11rem] rounded-lg object-cover sm:h-32",
         variant === "error" && "mx-auto h-36 w-auto max-w-[14rem] rounded-lg object-cover sm:h-40",
         dimmer && "opacity-55",
+        "dark:brightness-90 dark:saturate-75",
         className
       )}
     />

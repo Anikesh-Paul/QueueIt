@@ -2,7 +2,7 @@
   "name": "queueit",
   "version": "0.1.0",
   "private": true,
-  "description": "QueueIt — virtual queue management (MERN monorepo)",
+  "description": "QueueIt \u2014 virtual queue management (MERN monorepo)",
   "workspaces": [
     "client",
     "server"
@@ -15,15 +15,18 @@
     "test:server": "npm run test -w server",
     "seed": "npm run seed -w server",
     "seed:e2e": "npm run seed:e2e -w server",
-    "test:e2e": "npm run seed:e2e && playwright test e2e/smoke",
+    "test:e2e": "npm run seed:e2e && playwright test",
     "start:server": "npm run start -w server",
     "build:client": "npm run build -w client",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:e2e:smoke": "npm run seed:e2e && playwright test e2e/smoke",
+    "test:e2e:flows": "npm run seed:e2e && playwright test e2e/flows"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.62.1",
     "eslint": "^9.39.5",

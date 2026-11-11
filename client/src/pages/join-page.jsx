@@ -225,8 +225,8 @@ export function JoinPage() {
                 className={cn(
                   "rounded-full px-2 py-0.5 text-xs font-semibold",
                   closed && "bg-secondary text-text-secondary",
-                  !closed && full && "bg-[#FEE2E2] text-[#991B1B]",
-                  !closed && !full && paused && "bg-[#FEF3C7] text-[#92400E]",
+                  !closed && full && "bg-danger-soft text-danger-ink",
+                  !closed && !full && paused && "bg-warning-soft text-warning-ink",
                   !closed && !full && !paused && "bg-primary-muted text-primary"
                 )}
               >
@@ -235,7 +235,7 @@ export function JoinPage() {
               {(closed || full) && paused ? (
                 <span
                   data-testid="queue-state-paused"
-                  className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-semibold text-[#92400E]"
+                  className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink"
                 >
                   {t("state.paused")}
                 </span>

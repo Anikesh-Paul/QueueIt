@@ -150,10 +150,10 @@ export function RoleBadge({ role, className }) {
 
 function badgeClassFor(role) {
   if (role === "admin") {
-    return "badge--admin border-transparent bg-[#FEF3C7] text-[#92400E]";
+    return "badge--admin border-transparent bg-warning-soft text-warning-ink";
   }
   if (role === "staff") {
-    return "badge--staff border-transparent bg-[#DBEAFE] text-[#1E40AF]";
+    return "badge--staff border-transparent bg-info-soft text-info-ink";
   }
   if (role === "guest") {
     return "badge--guest border-transparent bg-secondary text-text-secondary";

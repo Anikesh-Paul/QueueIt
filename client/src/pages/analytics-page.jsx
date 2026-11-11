@@ -249,7 +249,7 @@ function BusynessChart({ busyness }) {
                 Not enough history yet to name a quiet hour
               </p>
             )}
-            <div className="overflow-x-auto" data-testid="analytics-busyness-chart">
+            <div className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-ring/40" tabIndex={0} role="region" aria-label="Busyness by weekday and hour" data-testid="analytics-busyness-chart">
               <div className="inline-grid grid-cols-[auto_repeat(24,minmax(0.55rem,1fr))] gap-0.5">
                 <span />
                 {Array.from({ length: 24 }, (_, hour) => (

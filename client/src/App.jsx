@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import { AppProvider, useApp } from "@/context/app-context";
 import { I18nProvider, useI18n } from "@/context/i18n-context";
+import { ThemeProvider } from "@/context/theme-context";
 import { AppShell } from "@/components/shell/app-shell";
 import { Wordmark } from "@/components/brand/wordmark";
 import {
@@ -19,6 +20,7 @@ import { HistoryPage } from "@/pages/history-page";
 import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
 import { ForgotPasswordPage, ResetPasswordPage } from "@/pages/password-reset-pages";
 import { KioskPage } from "@/pages/kiosk-page";
+import { RouteErrorPage } from "@/pages/route-error-page";
 
 const AdminConsolePage = lazy(() =>
   import("@/pages/admin-console-page").then((mod) => ({ default: mod.AdminConsolePage }))
@@ -66,6 +68,7 @@ const router = createBrowserRouter([
     // any hard reload while a session was stored: Link has no Router context
     // until RouterProvider mounts, and the boot screen painted before that.
     element: <BootGate />,
+    errorElement: <RouteErrorPage />,
     children: [
       { path: "/kiosk/:queueId", element: <KioskPage /> },
       {
@@ -167,10 +170,12 @@ function AppRoot() {
 
 export default function App() {
   return (
-    <I18nProvider>
-      <AppProvider>
-        <AppRoot />
-      </AppProvider>
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <AppProvider>
+          <AppRoot />
+        </AppProvider>
+      </I18nProvider>
+    </ThemeProvider>
   );
 }

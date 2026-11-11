@@ -56,7 +56,8 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
     });
     await expect(page).toHaveURL(/\/queues$/);
     await expect(page.getByText("Demo User", { exact: true })).toBeVisible();
-    await expect(page.locator(".badge--user")).toHaveText("User");
+    // Students get no role badge (only staff, admins and named guests do).
+    await expect(page.locator(".badge--user")).toHaveCount(0);
 
     // Queue cards only (join CTA also includes the queue name).
     const cafeteria = page.locator(".queue-card", { hasText: "Cafeteria" });

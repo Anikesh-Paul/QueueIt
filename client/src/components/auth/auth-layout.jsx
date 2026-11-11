@@ -2,6 +2,7 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { AUTH_MOTIF_LINE } from "@/lib/auth-copy";
 import { LanguageToggle } from "@/components/shell/language-toggle";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { useI18n } from "@/context/i18n-context";
 import { SkipToContent } from "@/components/shell/skip-to-content";
 import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
@@ -71,7 +72,10 @@ export function AuthLayout({ children }) {
           >
             <div className="flex items-center justify-between gap-3">
               <Wordmark to="/login" className="self-start" />
-              <LanguageToggle />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <LanguageToggle />
+              </div>
             </div>
             {children}
           </main>

@@ -77,6 +77,21 @@ export function login({ email, password, guestCredential }) {
   });
 }
 
+export function forgotPassword({ email }) {
+  return apiRequest("/api/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+  });
+}
+
+export function resetPassword({ token, password, guestCredential }) {
+  return apiRequest("/api/auth/reset-password", {
+    method: "POST",
+    body: { token, password },
+    guestCredential: guestCredential || null,
+  });
+}
+
 export function fetchMe(token) {
   return apiRequest("/api/auth/me", { token });
 }

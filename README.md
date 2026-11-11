@@ -188,7 +188,7 @@ Artifacts (gitignored): `playwright-report/index.html`, failure traces under `te
 
 | File | Purpose |
 |------|---------|
-| `server/.env.example` | `PORT`, `HOST`, `MONGODB_URI`, `JWT_SECRET`, `ARRIVAL_PASS_SECRET`, `CLIENT_ORIGIN`, `SEED_ON_BOOT`, `SEED_*` |
+| `server/.env.example` | `PORT`, `HOST`, `MONGODB_URI`, `JWT_SECRET`, `ARRIVAL_PASS_SECRET`, `CLIENT_ORIGIN`, `SEED_ON_BOOT`, `SEED_*`, optional `SMTP_*` / `PASSWORD_RESET_EXPIRES_MINUTES` |
 | `client/.env.example` | `VITE_API_URL` for API base URL |
 
 Copy examples to `.env` locally. **Never commit `.env` or real secrets.**
@@ -205,10 +205,14 @@ Copy examples to `.env` locally. **Never commit `.env` or real secrets.**
 | `SEED_ON_BOOT` | API host | `true` once to upsert demo data |
 | `SEED_ADMIN_*` / `SEED_USER_*` | API host | Demo logins (host-only) |
 | `VITE_API_URL` | Frontend **build** env | Public API base URL (no trailing slash) |
+| `PASSWORD_RESET_EXPIRES_MINUTES` | API host | Optional. How long a reset link lasts (default 60). |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | API host | Optional. Reserved for a real mail transport. Unset by default — no paid provider is enabled. |
 
 CORS rejects browser calls if `CLIENT_ORIGIN` does not match the site origin exactly (scheme + host + port).
 
-The API also applies Helmet security headers, a 16kb JSON body cap, and per-IP rate limits on `POST /api/auth/login`, `POST /api/auth/register`, and `POST /api/queues/:id/join`. Register and login reject invalid emails, passwords outside 8–128 characters (register also enforces a minimum of 8), and names longer than 80 characters. Do not set `trust proxy` unless the process is behind a known reverse proxy; rate limits are keyed by the direct client IP.
+The login page includes **Forgot password?**. `POST /api/auth/forgot-password` always returns a generic success message, so it does not reveal whether an email is registered. Reset tokens are stored as SHA-256 hashes, expire (default 60 minutes), and can be used only once. A successful `POST /api/auth/reset-password` sets the new password, invalidates the token, and signs the user in. In development, and whenever no mail transport is plugged in, the reset link is written to the server log (`[queueit-mailer] Password reset for …`) and the mailer does not throw. To send real mail later, set `SMTP_*` on the API host and supply a transport — do not commit secrets, and do not enable a paid provider by default.
+
+The API also applies Helmet security headers, a 16kb JSON body cap, and per-IP rate limits on `POST /api/auth/login`, `POST /api/auth/register`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, and `POST /api/queues/:id/join`. Register and login reject invalid emails, passwords outside 8–128 characters (register also enforces a minimum of 8), and names longer than 80 characters. Do not set `trust proxy` unless the process is behind a known reverse proxy; rate limits are keyed by the direct client IP.
 
 Guest credentials are minted as high-entropy secrets and returned once to the device. Mongo stores only a SHA-256 hash; a presented header is hashed and compared (legacy plaintext rows are re-hashed on use or at boot). The browser keeps the raw Guest credential and JWT in `localStorage`, which is convenient on this device but means any XSS can steal the session. Prefer fixing XSS over treating `localStorage` as a vault; moving to httpOnly cookie sessions would be a separate migration.
 

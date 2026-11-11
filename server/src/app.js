@@ -77,6 +77,8 @@ export function createApp(options = {}) {
     const joinLimiter = buildLimiter("join", DEFAULT_JOIN_RATE, options.joinRateLimit);
     app.post("/api/auth/register", authLimiter);
     app.post("/api/auth/login", authLimiter);
+    app.post("/api/auth/forgot-password", authLimiter);
+    app.post("/api/auth/reset-password", authLimiter);
     app.use("/api/queues", (req, res, next) => {
       if (req.method === "POST" && /\/join\/?$/.test(req.path)) {
         return joinLimiter(req, res, next);

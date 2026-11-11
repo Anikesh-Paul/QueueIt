@@ -191,4 +191,45 @@ describe("Optional maxWaiting capacity cap", () => {
     });
     assert.equal(active, 2);
   });
+
+  it("rejects a cap below current occupancy and does not evict anyone", async () => {
+    await seedVenueAndQueues();
+    const cafeteria = await Queue.findOne({ slug: "cafeteria" });
+    const queueId = cafeteria._id.toString();
+    const app = testApp();
+    const admin = await createAdmin(app);
+    const first = await registerUser(app, "cap-a@example.com", "A");
+    const second = await registerUser(app, "cap-b@example.com", "B");
+    assert.equal(
+      (await request(app).post(`/api/queues/${queueId}/join`).set("Authorization", `Bearer ${first}`)).status,
+      201
+    );
+    assert.equal(
+      (await request(app).post(`/api/queues/${queueId}/join`).set("Authorization", `Bearer ${second}`)).status,
+      201
+    );
+
+    const blocked = await request(app)
+      .patch(`/api/admin/queues/${queueId}`)
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ maxWaiting: 1 });
+    assert.equal(blocked.status, 409);
+    assert.match(blocked.body.error, /already in line/i);
+
+    const still = await QueueEntry.countDocuments({
+      queue: cafeteria._id,
+      status: { $in: ["waiting", "serving"] },
+    });
+    assert.equal(still, 2);
+    const reloaded = await Queue.findById(cafeteria._id);
+    assert.equal(reloaded.maxWaiting ?? null, null);
+
+    const allowed = await request(app)
+      .patch(`/api/admin/queues/${queueId}`)
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ maxWaiting: 2 });
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.body.queue.maxWaiting, 2);
+  });
+
 });

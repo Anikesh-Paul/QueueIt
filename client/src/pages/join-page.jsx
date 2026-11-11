@@ -7,6 +7,7 @@ import { useApp } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { formatCampusDateTime } from "@/lib/campus-time";
+import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,7 @@ export function JoinPage() {
   const queue = validId ? queues.find((row) => row.id === queueId) : null;
   const membership = activeMemberships.find((row) => row.queue?.id === queueId);
   const closed = queue?.acceptingTokens === false;
+  const occupancyLine = formatWaitingOccupancy(queue);
   const full = queue?.full === true;
   const paused = queue?.status === "paused";
   const primaryLabel = !queue ? null : closed ? "Closed" : full ? "Full" : paused ? "Paused" : "Open";
@@ -164,9 +166,7 @@ export function JoinPage() {
               </h2>
               <p className="mt-0.5 text-sm text-text-muted">
                 {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
-                {queue.maxWaiting
-                  ? ` · ${queue.waitingCount ?? 0}/${queue.maxWaiting} waiting`
-                  : ""}
+                {occupancyLine ? ` · ${occupancyLine}` : ""}
               </p>
             </div>
             <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
@@ -226,7 +226,7 @@ export function JoinPage() {
           {full && !closed && !membership && !isAdmin ? (
             <p data-testid="join-full-reason" className="mt-3 text-sm text-text-secondary">
               This queue is full
-              {queue.maxWaiting ? ` (${queue.waitingCount ?? 0}/${queue.maxWaiting})` : ""}.
+              {occupancyLine ? ` (${occupancyLine})` : ""}.
               Try again when someone is served.
             </p>
           ) : null}

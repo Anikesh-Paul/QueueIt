@@ -7,6 +7,8 @@ import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "../models/QueueEntry.js";
 
 export const MAX_WAITING_LIMIT = 500;
 export const QUEUE_FULL_ERROR = "This queue is full";
+export const CAP_BELOW_OCCUPANCY_ERROR =
+  "Cap can't be below the people already in line";
 
 /**
  * Parse an admin maxWaiting value.
@@ -37,6 +39,24 @@ export async function countActiveInQueue(queueId) {
     queue: queueId,
     status: { $in: ACTIVE_ENTRY_STATUSES },
   });
+}
+
+/**
+ * Reject setting a numeric cap below current waiting+serving occupancy.
+ * Clearing the cap (null) is always allowed. Does not evict anyone.
+ * @returns {{ error: string, waitingCount: number, maxWaiting: number } | null}
+ */
+export async function rejectIfCapBelowOccupancy(queue, capValue) {
+  if (capValue == null) return null;
+  const waitingCount = await countActiveInQueue(queue._id);
+  if (waitingCount <= capValue) return null;
+  return {
+    error:
+      `Cap can't be below the ${waitingCount} people already in line. ` +
+      "Serve or skip some first, or leave the cap empty.",
+    waitingCount,
+    maxWaiting: capValue,
+  };
 }
 
 export async function occupancyByQueueIds(queueIds) {

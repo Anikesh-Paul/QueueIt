@@ -7,12 +7,12 @@ import { login, register } from "@/api";
 import { useApp } from "@/context/app-context";
 import { Alert } from "@/components/ui/alert";
 import { isSafeAppPath } from "@/lib/join-link";
+import { AUTH_SUBTITLE } from "@/lib/auth-copy";
 import { clearOfflineStatusCache } from "@/lib/register-sw";
 
-/** Form subtitles — closed auth copy exception (craft + utility). */
 const SUBTITLE = {
-  login: "Queues and history on every device.",
-  register: "Save your place across this campus.",
+  login: AUTH_SUBTITLE,
+  register: AUTH_SUBTITLE,
 };
 
 /**

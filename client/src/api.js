@@ -136,6 +136,15 @@ export function leaveQueue(token, queueId, guestCredential) {
   });
 }
 
+/** POST /api/queues/:queueId/here — called student checks in ("I'm here"). */
+export function acknowledgeArrival(token, queueId, guestCredential) {
+  return apiRequest(`/api/queues/${queueId}/here`, {
+    method: "POST",
+    token,
+    guestCredential,
+  });
+}
+
 /** GET /api/queues/history — paginated User or Guest history (newest first, default 20). */
 export function fetchHistory(token, guestCredential, options = {}) {
   const params = new URLSearchParams();

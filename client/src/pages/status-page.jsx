@@ -29,6 +29,7 @@ import { nearFrontBannerCopy, NEAR_FRONT_POSITION_LIMIT } from "@/lib/queue-noti
 import { statusConnectionPresentation } from "@/lib/status-connection";
 import { presentServingBoard } from "@/lib/now-serving";
 import { NotifyControls } from "@/components/status/notify-controls";
+import { acknowledgeArrival } from "@/api";
 
 /**
  * Live status — signature student surface.
@@ -64,6 +65,8 @@ export function StatusPage() {
   );
   /** Pin ETA as-of while Paused so polls/wall clock cannot slide the primary. */
   const [frozenEtaAsOfMs, setFrozenEtaAsOfMs] = useState(null);
+  const [hereBusy, setHereBusy] = useState(false);
+  const [hereError, setHereError] = useState("");
 
   useEffect(() => {
     if (!inQueue) navigate("/queues", { replace: true });
@@ -142,6 +145,20 @@ export function StatusPage() {
   async function handleLeave() {
     const ok = await leave();
     if (ok) navigate("/queues");
+  }
+
+  async function handleHere() {
+    if (hereBusy || !statusQueueId) return;
+    setHereBusy(true);
+    setHereError("");
+    try {
+      await acknowledgeArrival(token, statusQueueId, guestCredential);
+      await refreshStatus?.();
+    } catch (err) {
+      setHereError(err.message || "Could not check in");
+    } finally {
+      setHereBusy(false);
+    }
   }
 
   return (
@@ -340,6 +357,9 @@ export function StatusPage() {
               }
               frozen={Boolean(liveStatus.servingTimerFrozen)}
               counterName={liveStatus.servingCounterName}
+              here={Boolean(liveStatus.here)}
+              hereBusy={hereBusy}
+              onHere={handleHere}
             />
           </div>
         )}
@@ -450,10 +470,11 @@ export function StatusPage() {
           <NotifyControls called={isCalled} />
         </div>
 
-        {(statusError || leaveError) && (
+        {(statusError || leaveError || hereError) && (
           <div className="mt-4 space-y-2">
             {statusError && <Alert variant="destructive">{statusError}</Alert>}
             {leaveError && <Alert variant="destructive">{leaveError}</Alert>}
+            {hereError && <Alert variant="destructive">{hereError}</Alert>}
           </div>
         )}
       </ShellContent>
@@ -504,7 +525,7 @@ function formatCallRemaining(seconds) {
   return `${minutes}:${String(secs).padStart(2, "0")} left`;
 }
 
-function CalledBanner({ remainingSeconds, frozen, counterName }) {
+function CalledBanner({ remainingSeconds, frozen, counterName, here = false, hereBusy = false, onHere }) {
   const remaining = formatCallRemaining(remainingSeconds);
   const place = counterName ? counterName : "the counter";
   return (
@@ -515,17 +536,35 @@ function CalledBanner({ remainingSeconds, frozen, counterName }) {
       className="flex items-start gap-2.5 rounded-lg border border-primary/30 bg-primary-muted px-4 py-3"
     >
       <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-      <div>
+      <div className="min-w-0 flex-1">
         <p className="font-heading text-sm font-semibold text-foreground">
           You&apos;re being called{counterName ? ` at ${counterName}` : ""}
         </p>
         <p className="mt-0.5 text-xs leading-5 text-text-secondary" data-testid="called-remaining">
-          {frozen
-            ? "Timer paused until the line resumes."
-            : remaining
-              ? `${remaining} to arrive at ${place}.`
-              : `Please come to ${place}.`}
+          {here
+            ? `Staff know you’re here. Please come to ${place}.`
+            : frozen
+              ? "Timer paused until the line resumes."
+              : remaining
+                ? `${remaining} to arrive at ${place}.`
+                : `Please come to ${place}.`}
         </p>
+        {here ? (
+          <p className="mt-2 text-sm font-medium text-primary" data-testid="here-confirmed">
+            You’re checked in
+          </p>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            className="mt-3"
+            disabled={hereBusy}
+            data-testid="im-here"
+            onClick={onHere}
+          >
+            {hereBusy ? "Checking in…" : "I’m here"}
+          </Button>
+        )}
       </div>
     </div>
   );

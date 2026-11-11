@@ -145,6 +145,15 @@ export function acknowledgeArrival(token, queueId, guestCredential) {
   });
 }
 
+/** POST /api/queues/:queueId/rejoin — recover a missed (skipped) turn once. */
+export function rejoinQueue(token, queueId, guestCredential) {
+  return apiRequest(`/api/queues/${queueId}/rejoin`, {
+    method: "POST",
+    token,
+    guestCredential,
+  });
+}
+
 /** GET /api/queues/history — paginated User or Guest history (newest first, default 20). */
 export function fetchHistory(token, guestCredential, options = {}) {
   const params = new URLSearchParams();

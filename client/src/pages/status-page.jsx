@@ -30,7 +30,7 @@ import { statusConnectionPresentation } from "@/lib/status-connection";
 import { presentServingBoard } from "@/lib/now-serving";
 import { NotifyControls } from "@/components/status/notify-controls";
 import { useI18n } from "@/context/i18n-context";
-import { acknowledgeArrival } from "@/api";
+import { acknowledgeArrival, rejoinQueue } from "@/api";
 
 /**
  * Live status — signature student surface.
@@ -69,6 +69,8 @@ export function StatusPage() {
   const [frozenEtaAsOfMs, setFrozenEtaAsOfMs] = useState(null);
   const [hereBusy, setHereBusy] = useState(false);
   const [hereError, setHereError] = useState("");
+  const [rejoinBusy, setRejoinBusy] = useState(false);
+  const [rejoinError, setRejoinError] = useState("");
 
   useEffect(() => {
     if (!inQueue) navigate("/queues", { replace: true });
@@ -105,6 +107,16 @@ export function StatusPage() {
     setFrozenEtaAsOfMs((prev) => prev ?? statusLastUpdatedAt ?? Date.now());
   }, [paused, statusLastUpdatedAt]);
 
+
+  useEffect(() => {
+    if (liveStatus?.status !== "skipped" || !liveStatus.recoverUntil) return undefined;
+    const ms = new Date(liveStatus.recoverUntil).getTime() - Date.now();
+    const id = setTimeout(() => {
+      if (statusQueueId) refreshStatus?.(token || null, statusQueueId, { guestCred: guestCredential, silent: true });
+    }, Math.max(0, ms) + 50);
+    return () => clearTimeout(id);
+  }, [liveStatus, statusQueueId, token, guestCredential, refreshStatus]);
+
   if (!inQueue || !liveStatus) return null;
 
   const closed = liveStatus.queue?.acceptingTokens === false;
@@ -121,13 +133,21 @@ export function StatusPage() {
   // Banner suppressed while paused: position is near the front but the line is
   // frozen, so "approach the counter" would be dishonest. Closed drain may still approach.
   const isCalled = liveStatus.status === "serving";
+  const isMissed = liveStatus.status === "skipped";
+  const recoverUntilMs = liveStatus.recoverUntil ? new Date(liveStatus.recoverUntil).getTime() : null;
+  const recoverSecondsLeft =
+    isMissed && recoverUntilMs != null
+      ? Math.max(0, Math.ceil((recoverUntilMs - nowMs) / 1000))
+      : null;
+  const canRecover = Boolean(isMissed && liveStatus.canRecover && recoverSecondsLeft > 0);
   const nearFront =
     !isCalled &&
+    !isMissed &&
     !paused &&
     Number.isInteger(liveStatus.position) &&
     liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
 
-  const paceLine = isCalled
+  const paceLine = isCalled || isMissed
     ? null
     : formatPaceLine(
         liveStatus.position,
@@ -163,6 +183,20 @@ export function StatusPage() {
       setHereError(err.message || t("status.checkInFailed"));
     } finally {
       setHereBusy(false);
+    }
+  }
+
+  async function handleRejoin() {
+    if (rejoinBusy || !statusQueueId) return;
+    setRejoinBusy(true);
+    setRejoinError("");
+    try {
+      await rejoinQueue(token, statusQueueId, guestCredential);
+      await refreshStatus?.();
+    } catch (err) {
+      setRejoinError(err.message || t("status.rejoinFailed"));
+    } finally {
+      setRejoinBusy(false);
     }
   }
 
@@ -346,6 +380,18 @@ export function StatusPage() {
           </p>
         ) : null}
 
+        {isMissed && (
+          <div className="mb-4">
+            <MissedTurnBanner
+              t={t}
+              canRecover={canRecover}
+              secondsLeft={recoverSecondsLeft}
+              busy={rejoinBusy}
+              onRejoin={handleRejoin}
+            />
+          </div>
+        )}
+
         {isCalled && (
           <div className="mb-4">
             <CalledBanner
@@ -394,7 +440,7 @@ export function StatusPage() {
               testId="token-number"
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
-              <StatusMetric label={t("status.position")} value={isCalled ? t("status.called") : liveStatus.position} testId="position" />
+              <StatusMetric label={t("status.position")} value={isCalled ? t("status.called") : isMissed ? "—" : liveStatus.position} testId="position" />
               <StatusMetric
                 label={t("status.eta")}
                 value={
@@ -403,9 +449,9 @@ export function StatusPage() {
                     data-eta-mode={etaPresented.mode}
                   >
                     <span data-testid="eta-clock" className="leading-none">
-                      {isCalled ? "—" : etaPresented.primary}
+                      {isCalled || isMissed ? "—" : etaPresented.primary}
                     </span>
-                    {!isCalled && etaPresented.secondary ? (
+                    {!isCalled && !isMissed && etaPresented.secondary ? (
                       <span
                         data-testid="eta-minutes"
                         className="text-sm font-medium tracking-normal text-text-muted"
@@ -461,6 +507,7 @@ export function StatusPage() {
             ) : null}
           </section>
 
+          {isMissed ? null : (
           <section data-testid="status-pass-column" className="flex flex-col gap-4">
             <ArrivalPass
               queueName={queueTitle}
@@ -471,17 +518,19 @@ export function StatusPage() {
             />
             <LeaveControl leaveBusy={leaveBusy} onLeave={handleLeave} t={t} />
           </section>
+          )}
         </div>
 
         <div className="mt-5" data-testid="status-notify-slot">
           <NotifyControls called={isCalled} />
         </div>
 
-        {(statusError || leaveError || hereError) && (
+        {(statusError || leaveError || hereError || rejoinError) && (
           <div className="mt-4 space-y-2">
             {statusError && <Alert variant="destructive">{statusError}</Alert>}
             {leaveError && <Alert variant="destructive">{leaveError}</Alert>}
             {hereError && <Alert variant="destructive">{hereError}</Alert>}
+            {rejoinError && <Alert variant="destructive">{rejoinError}</Alert>}
           </div>
         )}
       </ShellContent>
@@ -530,6 +579,41 @@ function formatCallRemaining(seconds, t) {
   const secs = total % 60;
   if (minutes <= 0) return t("status.secsLeft", { secs });
   return t("status.clockLeft", { clock: `${minutes}:${String(secs).padStart(2, "0")}` });
+}
+
+
+function formatRejoinClock(seconds) {
+  const total = Math.max(0, Math.ceil(Number(seconds) || 0));
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${String(secs).padStart(2, "0")}`;
+}
+
+function MissedTurnBanner({ t, canRecover, secondsLeft, busy, onRejoin }) {
+  return (
+    <div
+      className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3"
+      data-testid="missed-turn-banner"
+      role="status"
+    >
+      <p className="font-heading text-sm font-semibold text-foreground">{t("status.missedTitle")}</p>
+      {canRecover ? (
+        <Button
+          type="button"
+          className="mt-3"
+          onClick={onRejoin}
+          disabled={busy}
+          data-testid="rejoin-queue"
+        >
+          {busy
+            ? t("status.rejoining")
+            : t("status.rejoin", { clock: formatRejoinClock(secondsLeft) })}
+        </Button>
+      ) : (
+        <p className="mt-2 text-sm text-text-secondary">{t("status.rejoinClosed")}</p>
+      )}
+    </div>
+  );
 }
 
 function CalledBanner({ remainingSeconds, frozen, counterName, here = false, hereBusy = false, onHere, t }) {

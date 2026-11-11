@@ -74,9 +74,28 @@ const queueEntrySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    /** When this entry was skipped (no-show or staff skip). */
+    skippedAt: { type: Date, default: null },
+    /** When this visit last used missed-turn recovery. */
+    recoveredAt: { type: Date, default: null },
+    /** Recoveries used on this visit. Max 1. */
+    recoveryCount: { type: Number, default: 0, min: 0 },
+    /**
+     * Fair waiting order. Defaults to tokenNumber * 1000 at join.
+     * Recovery may assign a value between existing waiters.
+     */
+    waitOrder: { type: Number, default: null },
+    /** True while the student is back in line after a missed-turn recovery. */
+    returning: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
+
+queueEntrySchema.pre("validate", function ensureWaitOrder() {
+  if (this.waitOrder == null && this.tokenNumber != null) {
+    this.waitOrder = Number(this.tokenNumber) * 1000;
+  }
+});
 
 queueEntrySchema.pre("validate", function ensureMembershipIdentity() {
   if (this.isWalkIn) {

@@ -70,7 +70,7 @@ export function servingFieldsForJson(entry, { paused = false, at = clockNow(), q
   };
 }
 
-function clearServingTimer() {
+export function clearServingTimer() {
   return {
     servingDeadlineAt: null,
     servingPausedRemainingMs: null,
@@ -136,7 +136,7 @@ export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
       },
     },
     {
-      sort: entryId ? undefined : { tokenNumber: 1 },
+      sort: entryId ? undefined : { waitOrder: 1, tokenNumber: 1 },
       returnDocument: "after",
     }
   );
@@ -164,7 +164,9 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
   const clear = {
     $set: {
       status: terminalStatus,
+      returning: false,
       ...clearServingTimer(),
+      ...(terminalStatus === "skipped" ? { skippedAt: clockNow() } : {}),
     },
   };
 
@@ -200,7 +202,7 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
     filter,
     clear,
     {
-      sort: entryId ? undefined : { tokenNumber: 1 },
+      sort: entryId ? undefined : { waitOrder: 1, tokenNumber: 1 },
       returnDocument: "after",
     }
   );
@@ -303,7 +305,7 @@ export async function expireNoShowCalls({ queueId } = {}) {
         status: "serving",
         servingDeadlineAt: { $ne: null, $lte: instant },
       },
-      { $set: { status: "skipped", ...clearServingTimer() } },
+      { $set: { status: "skipped", skippedAt: instant, returning: false, ...clearServingTimer() } },
       { returnDocument: "after" }
     );
     if (!claimed) continue;

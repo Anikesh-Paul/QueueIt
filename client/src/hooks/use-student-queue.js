@@ -24,6 +24,8 @@ export function useStudentQueue({
 }) {
   const [queues, setQueues] = useState([]);
   const [queuesLoading, setQueuesLoading] = useState(false);
+  /** False until the first memberships restore after this identity. */
+  const [membershipsReady, setMembershipsReady] = useState(false);
   const [queuesError, setQueuesError] = useState("");
   const [selectedQueueId, setSelectedQueueId] = useState(null);
 
@@ -79,12 +81,19 @@ export function useStudentQueue({
     setQueuesError("");
     setQueuesLoading(false);
     setSelectedQueueId(null);
+    setMembershipsReady(false);
     setHistoryEvents([]);
     setHistoryError("");
     setHistoryLoading(false);
     setHistoryHasMore(false);
     setHistoryNextCursor(null);
     setHistoryLoadingMore(false);
+    clearLiveStatus();
+  }, [clearLiveStatus]);
+
+  /** Call before persistSession so HomeRedirect waits for a fresh restore. */
+  const invalidateMemberships = useCallback(() => {
+    setMembershipsReady(false);
     clearLiveStatus();
   }, [clearLiveStatus]);
 
@@ -144,6 +153,9 @@ export function useStudentQueue({
         setQueuesError(err.message || "Could not load queues");
       } finally {
         setQueuesLoading(false);
+        if (restoreStatus || (!sessionToken && !guestCred)) {
+          setMembershipsReady(true);
+        }
       }
     },
     [restoreActiveMembership]
@@ -313,6 +325,7 @@ export function useStudentQueue({
       if (remaining.length === 0) {
         clearLiveStatus();
         setSelectedQueueId(null);
+    setMembershipsReady(false);
       } else {
         setActiveMemberships(remaining);
         const next = remaining[0];
@@ -388,6 +401,8 @@ export function useStudentQueue({
     loadHistory,
     clearLiveStatus,
     clearStudentSession,
+    membershipsReady,
+    invalidateMemberships,
     statusQueueIdRef,
     activeMembershipsRef,
   };

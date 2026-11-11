@@ -227,7 +227,6 @@ export function AdminConsolePage() {
       }
       scanSessionRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- start only when panel opens
   }, [scanActive]);
 
   const paused = adminQueueMeta?.status === "paused";

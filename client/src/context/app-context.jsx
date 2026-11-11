@@ -16,7 +16,6 @@ import {
   fetchWaitingList,
   joinQueue,
   leaveQueue,
-  login,
   pauseQueue,
   resetQueue,
   resumeQueue,

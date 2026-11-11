@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 // Ensure Venue is registered whenever Queue is loaded (needed for populate).
 import "./Venue.js";
-import { normalizeServiceWindows } from "../services/serviceWindows.js";
+import { normalizeServiceWindows, normalizeServiceExceptions } from "../services/serviceWindows.js";
 import { countersForJson } from "../services/counters.js";
 
 const QUEUE_STATUSES = ["open", "paused"];
@@ -78,6 +78,23 @@ const queueSchema = new mongoose.Schema(
      */
     serviceWindows: {
       type: [serviceWindowSchema],
+      default: [],
+    },
+    /**
+     * Exception dates (campus IST YYYY-MM-DD). Override weekly windows for that day:
+     * closed all day, or alternate hours.
+     */
+    serviceExceptions: {
+      type: [
+        new mongoose.Schema(
+          {
+            date: { type: String, required: true, trim: true },
+            closed: { type: Boolean, default: false },
+            windows: { type: [serviceWindowSchema], default: undefined },
+          },
+          { _id: false }
+        ),
+      ],
       default: [],
     },
     /**
@@ -171,6 +188,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     status: this.status,
     acceptingTokens: this.acceptingTokens !== false,
     serviceWindows: normalizeServiceWindows(this.serviceWindows),
+    serviceExceptions: normalizeServiceExceptions(this.serviceExceptions),
     sessionEndsAt: toIsoOrNull(this.sessionEndsAt),
     reopenAt: toIsoOrNull(this.reopenAt),
     venue,

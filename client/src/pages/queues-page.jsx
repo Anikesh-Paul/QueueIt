@@ -8,6 +8,7 @@ import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { formatCampusDateTime } from "@/lib/campus-time";
+import { describeTodayException } from "@/lib/service-exceptions";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
@@ -236,6 +237,11 @@ export function QueuesPage() {
                       {activeMemberships.find((row) => row.queue?.id === queue.id)?.tokenNumber
                         ? ` · token ${activeMemberships.find((row) => row.queue?.id === queue.id).tokenNumber}`
                         : ""}
+                    </span>
+                  ) : null}
+                  {describeTodayException(queue.serviceExceptions) ? (
+                    <span data-testid="queue-holiday-hours" className="text-sm text-text-secondary">
+                      {describeTodayException(queue.serviceExceptions)}
                     </span>
                   ) : null}
                   {closed && queue.reopenAt ? (

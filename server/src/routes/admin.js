@@ -764,8 +764,9 @@ router.post(
 /**
  * PUT /api/admin/queues/:queueId/service-windows
  * Replace service windows (campus IST HH:mm; optional days scope a window to weekdays).
- * Body: { serviceWindows: [{ start, end, days? }, ...] }. Optional days (0=Sun…6=Sat IST); omit for every day.
- * Overlaps rejected; end must be after start. Adjacent windows allowed.
+ * Body: { serviceWindows: [{ start, end, days? }, ...], serviceExceptions?: [{ date, closed?, windows? }] }.
+ * Optional days (0=Sun…6=Sat IST); omit for every day. Exception dates (YYYY-MM-DD, campus IST)
+ * override the weekly plan (closed all day, or alternate hours). Omit serviceExceptions to leave them unchanged.
  * When Closed, recomputes reopenAt from the new schedule.
  */
 router.put(
@@ -779,7 +780,8 @@ router.put(
 
       const applied = applyServiceWindowsUpdate(
         queue,
-        req.body?.serviceWindows
+        req.body?.serviceWindows,
+        req.body?.serviceExceptions
       );
       if (!applied.ok) {
         return res.status(applied.status).json({ error: applied.error });

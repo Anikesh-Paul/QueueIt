@@ -400,49 +400,223 @@ function addCampusDays(parts, days) {
 }
 
 /**
+ * Campus calendar day as YYYY-MM-DD (Asia/Kolkata).
+ * @param {{ year: number, month: number, day: number }} day
+ */
+export function campusDateString(day) {
+  return `${day.year}-${String(day.month).padStart(2, "0")}-${String(day.day).padStart(2, "0")}`;
+}
+
+/**
+ * Parse a campus calendar date. Rejects impossible days (e.g. 2026-02-31).
+ * @param {unknown} raw
+ * @returns {{ year: number, month: number, day: number } | null}
+ */
+export function parseCampusDate(raw) {
+  if (typeof raw !== "string") return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  if (
+    utc.getUTCFullYear() !== year ||
+    utc.getUTCMonth() !== month - 1 ||
+    utc.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+/**
+ * @param {unknown} exceptions
+ * @returns {{ date: string, closed: boolean, windows?: ServiceWindow[] }[]}
+ */
+export function normalizeServiceExceptions(exceptions) {
+  const list = Array.isArray(exceptions) ? exceptions : [];
+  /** @type {{ date: string, closed: boolean, windows?: ServiceWindow[] }[]} */
+  const out = [];
+  const seen = new Set();
+  for (const row of list) {
+    if (!row || typeof row !== "object") continue;
+    const parsed = parseCampusDate(row.date);
+    if (!parsed) continue;
+    const date = campusDateString(parsed);
+    if (seen.has(date)) continue;
+    seen.add(date);
+    const closed = row.closed === true || row.closed === "true";
+    if (closed) {
+      out.push({ date, closed: true });
+      continue;
+    }
+    const windows = normalizeServiceWindows(row.windows);
+    if (windows.length === 0) {
+      out.push({ date, closed: true });
+    } else {
+      out.push({ date, closed: false, windows });
+    }
+  }
+  out.sort((a, b) => a.date.localeCompare(b.date));
+  return out;
+}
+
+/**
+ * Strict validate for Admin edit of exception dates.
+ * @param {unknown} exceptions
+ * @returns {{ ok: true, exceptions: { date: string, closed: boolean, windows?: ServiceWindow[] }[] } | { ok: false, error: string }}
+ */
+export function validateServiceExceptions(exceptions) {
+  if (exceptions == null) {
+    return { ok: true, exceptions: [] };
+  }
+  if (!Array.isArray(exceptions)) {
+    return { ok: false, error: "serviceExceptions must be an array" };
+  }
+
+  const seen = new Set();
+  /** @type {{ date: string, closed: boolean, windows?: ServiceWindow[] }[]} */
+  const out = [];
+  for (let i = 0; i < exceptions.length; i += 1) {
+    const row = exceptions[i];
+    if (!row || typeof row !== "object") {
+      return { ok: false, error: `Invalid exception at index ${i}` };
+    }
+    const parsed = parseCampusDate(row.date);
+    if (!parsed) {
+      return {
+        ok: false,
+        error: `Invalid exception date at index ${i}; use YYYY-MM-DD`,
+      };
+    }
+    const date = campusDateString(parsed);
+    if (seen.has(date)) {
+      return { ok: false, error: `Duplicate exception date ${date}` };
+    }
+    seen.add(date);
+    const closed = row.closed === true || row.closed === "true";
+    const hasWindows = Array.isArray(row.windows) && row.windows.length > 0;
+    if (closed && hasWindows) {
+      return {
+        ok: false,
+        error: `Closed exception cannot include hours (${date})`,
+      };
+    }
+    if (!closed && !hasWindows) {
+      return {
+        ok: false,
+        error: `Exception ${date} must be closed all day or include hours`,
+      };
+    }
+    if (closed) {
+      out.push({ date, closed: true });
+      continue;
+    }
+    const check = validateServiceWindows(row.windows);
+    if (!check.ok) {
+      return { ok: false, error: `Exception ${date}: ${check.error}` };
+    }
+    out.push({ date, closed: false, windows: check.windows });
+  }
+  out.sort((a, b) => a.date.localeCompare(b.date));
+  return { ok: true, exceptions: out };
+}
+
+/**
+ * @param {unknown} exceptions
+ * @param {{ year: number, month: number, day: number }} day
+ */
+function exceptionOnDay(exceptions, day) {
+  const date = campusDateString(day);
+  return normalizeServiceExceptions(exceptions).find((row) => row.date === date) || null;
+}
+
+function dayIsClosed(exceptions, day) {
+  return Boolean(exceptionOnDay(exceptions, day)?.closed);
+}
+
+/**
+ * Windows that start on this campus day. An exception replaces the weekly plan.
+ * @param {unknown} weeklyWindows
+ * @param {unknown} exceptions
+ * @param {{ year: number, month: number, day: number }} day
+ * @returns {ParsedWindow[]}
+ */
+export function windowsStartingOnDay(weeklyWindows, exceptions, day) {
+  const ex = exceptionOnDay(exceptions, day);
+  if (ex) {
+    if (ex.closed) return [];
+    return parseWindows(ex.windows);
+  }
+  const weekday = weekdayOfCampusDay(day);
+  return parseWindows(weeklyWindows).filter((w) => windowAppliesOnDay(w, weekday));
+}
+
+function midnightOnDay(day) {
+  return campusLocalToUtc(day.year, day.month, day.day, 0, 0);
+}
+
+function sessionEndHonouringClosedNextDay(window, startDay, exceptions) {
+  const endsAt = sessionEndsAtForStartDay(window, startDay);
+  if (!isOvernightMinutes(window.startMinutes, window.endMinutes)) return endsAt;
+  const nextDay = addCampusDays(startDay, 1);
+  if (dayIsClosed(exceptions, nextDay)) return midnightOnDay(nextDay);
+  return endsAt;
+}
+
+function windowStartOnDay(window, day) {
+  return campusLocalToUtc(
+    day.year,
+    day.month,
+    day.day,
+    Math.floor(window.startMinutes / 60),
+    window.startMinutes % 60
+  );
+}
+
+/** How far ahead schedule lookup walks (covers a stretch of holidays). */
+const SCHEDULE_LOOKAHEAD_DAYS = 21;
+
+/**
  * Resolve the target window for Start accepting tokens.
  * If we are inside a window (including an overnight holdover past midnight),
  * bind that window's end; otherwise bind the next upcoming window's end.
  * Overnight windows end the following campus morning.
+ * Exception dates override the weekly plan for that campus day.
  *
  * @param {ServiceWindow[]} windows
  * @param {Date} [at]
+ * @param {unknown} [exceptions]
  * @returns {{ window: ServiceWindow, sessionEndsAt: Date } | null}
  */
-export function resolveTargetWindow(windows, at = clockNow()) {
-  const parsed = parseWindows(windows);
-  if (parsed.length === 0) return null;
-
+export function resolveTargetWindow(windows, at = clockNow(), exceptions = []) {
   const parts = getCampusParts(at);
   const nowMinutes = parts.hour * 60 + parts.minute;
-  const todayWeekday = weekdayOfCampusDay(parts);
   const yesterday = addCampusDays(parts, -1);
-  const yesterdayWeekday = weekdayOfCampusDay(yesterday);
 
-  for (const w of parsed) {
-    const overnight = isOvernightMinutes(w.startMinutes, w.endMinutes);
-    if (
-      overnight &&
-      windowAppliesOnDay(w, yesterdayWeekday) &&
-      nowMinutes < w.endMinutes
-    ) {
-      return {
-        window: withDays(w.start, w.end, w.days),
-        sessionEndsAt: sessionEndsAtForStartDay(w, yesterday),
-      };
+  if (!dayIsClosed(exceptions, parts)) {
+    const yWindows = windowsStartingOnDay(windows, exceptions, yesterday);
+    for (const w of yWindows) {
+      if (isOvernightMinutes(w.startMinutes, w.endMinutes) && nowMinutes < w.endMinutes) {
+        return {
+          window: withDays(w.start, w.end, w.days),
+          sessionEndsAt: sessionEndHonouringClosedNextDay(w, yesterday, exceptions),
+        };
+      }
     }
-    if (!windowAppliesOnDay(w, todayWeekday)) continue;
+  }
+
+  const todayWindows = windowsStartingOnDay(windows, exceptions, parts);
+  for (const w of todayWindows) {
+    const overnight = isOvernightMinutes(w.startMinutes, w.endMinutes);
     if (overnight && nowMinutes >= w.startMinutes) {
       return {
         window: withDays(w.start, w.end, w.days),
-        sessionEndsAt: sessionEndsAtForStartDay(w, parts),
+        sessionEndsAt: sessionEndHonouringClosedNextDay(w, parts, exceptions),
       };
     }
-    if (
-      !overnight &&
-      nowMinutes >= w.startMinutes &&
-      nowMinutes < w.endMinutes
-    ) {
+    if (!overnight && nowMinutes >= w.startMinutes && nowMinutes < w.endMinutes) {
       return {
         window: withDays(w.start, w.end, w.days),
         sessionEndsAt: sessionEndsAtForStartDay(w, parts),
@@ -450,24 +624,16 @@ export function resolveTargetWindow(windows, at = clockNow()) {
     }
   }
 
-  for (let offset = 0; offset < 8; offset += 1) {
+  for (let offset = 0; offset < SCHEDULE_LOOKAHEAD_DAYS; offset += 1) {
     const day = offset === 0 ? parts : addCampusDays(parts, offset);
-    const weekday = weekdayOfCampusDay(day);
     let best = null;
-    for (const w of parsed) {
-      if (!windowAppliesOnDay(w, weekday)) continue;
-      const startAt = campusLocalToUtc(
-        day.year,
-        day.month,
-        day.day,
-        Math.floor(w.startMinutes / 60),
-        w.startMinutes % 60
-      );
+    for (const w of windowsStartingOnDay(windows, exceptions, day)) {
+      const startAt = windowStartOnDay(w, day);
       if (at.getTime() >= startAt.getTime()) continue;
       if (!best || startAt.getTime() < best.startAt.getTime()) {
         best = {
           window: withDays(w.start, w.end, w.days),
-          sessionEndsAt: sessionEndsAtForStartDay(w, day),
+          sessionEndsAt: sessionEndHonouringClosedNextDay(w, day, exceptions),
           startAt,
         };
       }
@@ -481,34 +647,24 @@ export function resolveTargetWindow(windows, at = clockNow()) {
 
 /**
  * Next scheduled window start strictly after `at` (for reopen messaging).
+ * Exception dates override the weekly plan for that campus day.
  * @param {ServiceWindow[]} windows
  * @param {Date} [at]
+ * @param {unknown} [exceptions]
  * @returns {Date | null}
  */
-export function nextWindowStartAfter(windows, at = clockNow()) {
-  const parsed = parseWindows(windows);
-  if (parsed.length === 0) return null;
-
+export function nextWindowStartAfter(windows, at = clockNow(), exceptions = []) {
   const parts = getCampusParts(at);
 
-  for (let offset = 0; offset < 8; offset += 1) {
+  for (let offset = 0; offset < SCHEDULE_LOOKAHEAD_DAYS; offset += 1) {
     const day = offset === 0 ? parts : addCampusDays(parts, offset);
-    const weekday = getCampusWeekday(
-      campusLocalToUtc(day.year, day.month, day.day, 12, 0)
-    );
-    for (const w of parsed) {
-      if (!windowAppliesOnDay(w, weekday)) continue;
-      const startAt = campusLocalToUtc(
-        day.year,
-        day.month,
-        day.day,
-        Math.floor(w.startMinutes / 60),
-        w.startMinutes % 60
-      );
-      if (at.getTime() < startAt.getTime()) {
-        return startAt;
-      }
+    let best = null;
+    for (const w of windowsStartingOnDay(windows, exceptions, day)) {
+      const startAt = windowStartOnDay(w, day);
+      if (at.getTime() >= startAt.getTime()) continue;
+      if (!best || startAt.getTime() < best.getTime()) best = startAt;
     }
+    if (best) return best;
   }
   return null;
 }

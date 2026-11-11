@@ -219,13 +219,14 @@ export function useAdminConsoleState({
   );
 
   /**
-   * Replace service windows (campus IST HH:mm; optional days).
-   * @param {{ start: string, end: string }[]} serviceWindows
+   * Replace service windows and optional exception dates (campus IST).
+   * @param {{ start: string, end: string, days?: number[] }[]} serviceWindows
+   * @param {{ date: string, closed?: boolean, windows?: { start: string, end: string }[] }[]} [serviceExceptions]
    */
   const adminUpdateServiceWindows = useCallback(
-    (serviceWindows) =>
+    (serviceWindows, serviceExceptions) =>
       runAdminAction(
-        () => updateServiceWindows(token, adminQueueId, serviceWindows),
+        () => updateServiceWindows(token, adminQueueId, serviceWindows, serviceExceptions),
         "Update service windows failed"
       ),
     [token, adminQueueId, runAdminAction]

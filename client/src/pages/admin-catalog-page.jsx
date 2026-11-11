@@ -292,8 +292,8 @@ export function AdminCatalogPage() {
                     data-archived={queue.archived ? "true" : "false"}
                     className="rounded-md border border-border bg-secondary px-3.5 py-3"
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                      <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+                      <div className="min-w-0 flex-1 sm:min-w-56">
                         <Label htmlFor={`queue-name-${queue.id}`}>Queue</Label>
                         <Input
                           id={`queue-name-${queue.id}`}

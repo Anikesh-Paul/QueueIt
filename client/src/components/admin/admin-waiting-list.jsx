@@ -86,10 +86,20 @@ export function AdminWaitingList({
                                     : "Called"}
                                 </span>
                               ) : null}
+                              {isCalled && entry.here ? (
+                                <span
+                                  className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground"
+                                  data-testid="waiting-here-badge"
+                                >
+                                  Here
+                                </span>
+                              ) : null}
                             </span>
                             <span className="block truncate text-xs text-text-muted">
                               {isCalled
-                                ? entry.servingTimerFrozen
+                                ? entry.here
+                                  ? "Checked in · no-show timer stopped"
+                                  : entry.servingTimerFrozen
                                   ? "Timer paused"
                                   : entry.servingRemainingSeconds != null
                                     ? `${Math.max(0, entry.servingRemainingSeconds)}s to arrive`

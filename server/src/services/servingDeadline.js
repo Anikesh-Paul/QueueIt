@@ -53,6 +53,8 @@ export function servingFieldsForJson(entry, { paused = false, at = clockNow(), q
       servingDeadlineAt: null,
       servingRemainingSeconds: null,
       servingTimerFrozen: false,
+      here: false,
+      arrivedAt: null,
       ...counterFields,
     };
   }
@@ -62,6 +64,8 @@ export function servingFieldsForJson(entry, { paused = false, at = clockNow(), q
     servingDeadlineAt: toIsoOrNull(entry.servingDeadlineAt),
     servingRemainingSeconds: remaining == null ? null : Math.ceil(remaining / 1000),
     servingTimerFrozen: Boolean(paused),
+    here: Boolean(entry.arrivedAt),
+    arrivedAt: toIsoOrNull(entry.arrivedAt),
     ...counterFields,
   };
 }
@@ -70,6 +74,7 @@ function clearServingTimer() {
   return {
     servingDeadlineAt: null,
     servingPausedRemainingMs: null,
+    arrivedAt: null,
   };
 }
 
@@ -126,6 +131,7 @@ export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
         calledAt: now,
         servingDeadlineAt: deadline,
         servingPausedRemainingMs: null,
+        arrivedAt: null,
         servingCounterId: target.counter._id,
       },
     },
@@ -313,4 +319,28 @@ export async function expireNoShowCalls({ queueId } = {}) {
     emitQueueChanged(claimed.queue, "skip");
   }
   return skipped;
+}
+
+/**
+ * Called student taps "I'm here": flag presence and stop the no-show auto-skip
+ * by clearing the deadline (and any frozen remainder). Staff can still serve
+ * or skip manually. Idempotent if they already checked in.
+ */
+export async function acknowledgeArrival(queue, entry, at = clockNow()) {
+  if (!entry || entry.status !== "serving") {
+    return {
+      ok: false,
+      status: 409,
+      error: "You can check in only when you are being called.",
+    };
+  }
+  if (entry.arrivedAt) {
+    return { ok: true, already: true, entry };
+  }
+  entry.arrivedAt = at;
+  entry.servingDeadlineAt = null;
+  entry.servingPausedRemainingMs = null;
+  await entry.save();
+  emitQueueChanged(queue._id, "here");
+  return { ok: true, already: false, entry };
 }

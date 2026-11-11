@@ -12,7 +12,7 @@ import {
 } from "../services/queueStatus.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { ensureQueueSessionState } from "../services/queueSession.js";
-import { expireNoShowCalls } from "../services/servingDeadline.js";
+import { acknowledgeArrival, expireNoShowCalls } from "../services/servingDeadline.js";
 import { occupancyByQueueIds, queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 import { toBoardJSON } from "../services/queueBoard.js";
 import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
@@ -383,6 +383,39 @@ router.post("/:queueId/leave", attachJoiner, requireJoiner, async (req, res, nex
         name: queue.name,
       },
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/queues/:queueId/here — called student checks in ("I'm here").
+ * Flags presence and stops the no-show auto-skip for this call. Idempotent.
+ */
+router.post("/:queueId/here", attachJoiner, requireJoiner, async (req, res, next) => {
+  try {
+    const { queueId } = req.params;
+    if (!mongoose.isValidObjectId(queueId)) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+
+    const queue = await Queue.findById(queueId);
+    if (!queue) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+
+    const entry = await findJoinerActiveEntry(queue._id, req);
+    if (!entry) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+
+    const result = await acknowledgeArrival(queue, entry);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    const payload = await buildStatusPayload(queue, result.entry);
+    return res.status(200).json(payload);
   } catch (err) {
     return next(err);
   }

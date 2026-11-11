@@ -16,6 +16,7 @@ import { JoinPage } from "@/pages/join-page";
 import { StatusPage } from "@/pages/status-page";
 import { HistoryPage } from "@/pages/history-page";
 import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
+import { ForgotPasswordPage, ResetPasswordPage } from "@/pages/password-reset-pages";
 
 const AdminConsolePage = lazy(() =>
   import("@/pages/admin-console-page").then((mod) => ({ default: mod.AdminConsolePage }))
@@ -62,6 +63,8 @@ const router = createBrowserRouter([
         children: [
           { path: "/login", element: <LoginPage /> },
           { path: "/register", element: <RegisterPage /> },
+          { path: "/forgot-password", element: <ForgotPasswordPage /> },
+          { path: "/reset-password", element: <ResetPasswordPage /> },
         ],
       },
       {

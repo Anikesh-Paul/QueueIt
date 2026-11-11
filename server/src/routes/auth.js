@@ -13,6 +13,11 @@ import {
   normalizeName,
   passwordError,
 } from "../services/authValidation.js";
+import {
+  RESET_NOTICE,
+  requestPasswordReset,
+  consumePasswordReset,
+} from "../services/passwordReset.js";
 
 const router = Router();
 
@@ -135,6 +140,47 @@ router.post("/login", async (req, res, next) => {
 /** GET /api/auth/me — current session user (protected). */
 router.get("/me", requireAuth, async (req, res) => {
   return res.status(200).json({ user: req.user.toPublicJSON() });
+});
+
+/**
+ * POST /api/auth/forgot-password — always a generic 200 so the response
+ * does not reveal whether the email is registered.
+ */
+router.post("/forgot-password", async (req, res, next) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ error: "Enter a valid email address" });
+    }
+    await requestPasswordReset(email);
+    return res.status(200).json({ message: RESET_NOTICE });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/auth/reset-password — consume a one-time token, set a new
+ * password, and sign the user in.
+ */
+router.post("/reset-password", async (req, res, next) => {
+  try {
+    const result = await consumePasswordReset({
+      token: req.body?.token,
+      password: req.body?.password,
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+
+    const softUpgrade = await softUpgradeFromRequest(req, result.user);
+    const body = {
+      token: signToken(result.user),
+      user: result.user.toPublicJSON(),
+    };
+    if (softUpgrade) body.softUpgrade = softUpgrade;
+    return res.status(200).json(body);
+  } catch (err) {
+    return next(err);
+  }
 });
 
 export default router;

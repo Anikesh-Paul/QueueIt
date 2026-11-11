@@ -49,3 +49,15 @@ export function parseClientOrigins(raw, options = {}) {
   }
   return list;
 }
+
+/**
+ * First public origin for links in email (password reset, etc.).
+ * Falls back to the Vite dev origin when CORS is fail-closed or allow-all.
+ */
+export function publicClientOrigin(raw = process.env.CLIENT_ORIGIN, options = {}) {
+  const fallback = options.fallback ?? "http://localhost:5173";
+  const parsed = parseClientOrigins(raw, options);
+  if (typeof parsed === "string" && parsed) return parsed.replace(/\/$/, "");
+  if (Array.isArray(parsed) && parsed[0]) return String(parsed[0]).replace(/\/$/, "");
+  return fallback;
+}

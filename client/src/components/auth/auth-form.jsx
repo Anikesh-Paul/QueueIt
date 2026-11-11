@@ -144,6 +144,17 @@ export function AuthForm({ mode }) {
             placeholder="8–128 characters"
             className={fieldClass}
           />
+          {mode === "login" ? (
+            <p className="text-right text-sm">
+              <Link
+                to="/forgot-password"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+                data-testid="forgot-password-link"
+              >
+                Forgot password?
+              </Link>
+            </p>
+          ) : null}
         </div>
 
         {error && (

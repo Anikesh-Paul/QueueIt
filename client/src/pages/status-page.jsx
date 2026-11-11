@@ -622,33 +622,48 @@ function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass }) {
 }
 
 function StatusMetric({ label, value, hero = false, testId }) {
+  const valueEl = (
+    <span
+      data-testid={testId}
+      className={cn(
+        "inline-flex items-baseline font-metric text-metric tabular-nums text-foreground",
+        hero &&
+          "text-[2.75rem] font-bold leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[3rem]"
+      )}
+    >
+      {value}
+    </span>
+  );
+  const labelEl = (
+    <span
+      className={cn(
+        "text-label uppercase tracking-wide text-text-muted",
+        hero && "font-medium normal-case tracking-normal text-text-muted"
+      )}
+    >
+      {label}
+    </span>
+  );
   return (
     <div
       className={cn(
         "flex h-full flex-col gap-1 rounded-md border border-border bg-secondary px-4 py-3",
         hero &&
-          /* Token hero keeps the 14px radius; list metrics use radius-md. */
-          "rounded-xl min-h-[6.5rem] justify-center gap-1.5 border-l-4 border-l-primary border-border bg-primary-muted px-6 py-5 sm:min-h-[7rem]"
+          /* 14px radius; number leads, Token is a quiet label, no pastel wash. */
+          "rounded-xl min-h-[6.5rem] justify-center gap-1 border-l-4 border-l-primary border-border bg-card px-6 py-5 sm:min-h-[7rem]"
       )}
     >
-      <span
-        className={cn(
-          "text-label uppercase tracking-wide text-text-muted",
-          hero && "font-semibold text-primary"
-        )}
-      >
-        {label}
-      </span>
-      <span
-        data-testid={testId}
-        className={cn(
-          "inline-flex items-baseline font-metric text-metric tabular-nums text-foreground",
-          hero &&
-            "text-[2.75rem] font-bold leading-[1.05] tracking-[-0.02em] text-primary sm:text-[3rem]"
-        )}
-      >
-        {value}
-      </span>
+      {hero ? (
+        <>
+          {valueEl}
+          {labelEl}
+        </>
+      ) : (
+        <>
+          {labelEl}
+          {valueEl}
+        </>
+      )}
     </div>
   );
 }

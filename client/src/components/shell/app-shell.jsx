@@ -5,14 +5,15 @@ import { UserChip } from "@/components/shell/user-chip";
 import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
 
-function ShellNavLink({ to, end = false, children }) {
+function ShellNavLink({ to, end = false, children, testId }) {
   return (
     <NavLink
       to={to}
       end={end}
+      data-testid={testId}
       className={({ isActive }) =>
         cn(
-          "relative inline-flex h-10 shrink-0 items-center px-1 text-sm font-medium text-text-secondary transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+          "relative inline-flex h-10 shrink-0 items-center whitespace-nowrap px-1 text-sm font-medium text-text-secondary transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
           "after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary after:transition-transform",
           isActive ? "text-foreground after:scale-x-100" : "after:scale-x-0"
         )
@@ -30,9 +31,45 @@ function resolveAdminQueueId(adminQueueId, pathname) {
   return match?.[1] || null;
 }
 
+function ShellNavItems({ isAdmin, inQueue, openAdminQueueId }) {
+  return (
+    <>
+      <ShellNavLink to="/queues" testId="nav-queues">
+        Queues
+      </ShellNavLink>
+      {/* Student / Guest path: History is not an admin surface */}
+      {!isAdmin && (
+        <ShellNavLink to="/history" testId="nav-history">
+          History
+        </ShellNavLink>
+      )}
+      {inQueue && (
+        <ShellNavLink to="/status" testId="nav-in-line">
+          In line
+        </ShellNavLink>
+      )}
+      {isAdmin && openAdminQueueId && (
+        <>
+          <ShellNavLink to={`/admin/queues/${openAdminQueueId}`} testId="nav-admin">
+            Admin
+          </ShellNavLink>
+          <ShellNavLink
+            to={`/admin/queues/${openAdminQueueId}/analytics`}
+            testId="nav-analytics"
+          >
+            Analytics
+          </ShellNavLink>
+        </>
+      )}
+    </>
+  );
+}
+
 /**
  * Shared hybrid chrome for User, Admin, and Guest.
  * Top bar only — page toolbars are composed by Live / Admin / Analytics pages.
+ * On a phone the nav sits on its own row so labels like History and In line
+ * are not clipped by the wordmark or account chip.
  */
 export function AppShell() {
   const { user, isAdmin, isGuest, inQueue, adminQueueId, logout } = useApp();
@@ -55,47 +92,52 @@ export function AppShell() {
     navigate("/login", { replace: true });
   }
 
+  const navItems = (
+    <ShellNavItems
+      isAdmin={isAdmin}
+      inQueue={inQueue}
+      openAdminQueueId={openAdminQueueId}
+    />
+  );
+
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <header
         data-testid="app-top-bar"
         className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-sm"
       >
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
-          <Wordmark />
+        <div className="mx-auto flex w-full max-w-6xl flex-col sm:h-14 sm:flex-row sm:items-center sm:gap-6 sm:px-6">
+          <div className="flex h-14 items-center gap-3 px-4 sm:h-auto sm:flex-1 sm:px-0">
+            <Wordmark />
+            <nav
+              aria-label="Main"
+              data-testid="shell-nav"
+              className="hidden min-w-0 items-center gap-4 sm:flex"
+            >
+              {navItems}
+            </nav>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <UserChip user={identity} softUpgrade={guestSoftUpgrade} />
+              {showLogout ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="whitespace-nowrap"
+                  data-testid="shell-logout"
+                >
+                  Log out
+                </Button>
+              ) : null}
+            </div>
+          </div>
           <nav
             aria-label="Main"
-            data-testid="shell-nav"
-            className="flex min-w-0 items-center gap-1 overflow-x-auto sm:gap-4"
+            data-testid="shell-nav-mobile"
+            className="flex items-center gap-4 overflow-x-auto px-4 pb-1 sm:hidden"
           >
-            <ShellNavLink to="/queues">Queues</ShellNavLink>
-            {/* Student / Guest path: History is not an admin surface */}
-            {!isAdmin && <ShellNavLink to="/history">History</ShellNavLink>}
-            {inQueue && <ShellNavLink to="/status">In line</ShellNavLink>}
-            {isAdmin && openAdminQueueId && (
-              <>
-                <ShellNavLink to={`/admin/queues/${openAdminQueueId}`}>Admin</ShellNavLink>
-                <ShellNavLink to={`/admin/queues/${openAdminQueueId}/analytics`}>
-                  Analytics
-                </ShellNavLink>
-              </>
-            )}
+            {navItems}
           </nav>
-
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <UserChip user={identity} softUpgrade={guestSoftUpgrade} />
-            {showLogout ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="whitespace-nowrap"
-                data-testid="shell-logout"
-              >
-                Log out
-              </Button>
-            ) : null}
-          </div>
         </div>
       </header>
 

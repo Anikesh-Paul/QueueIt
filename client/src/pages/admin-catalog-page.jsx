@@ -183,6 +183,8 @@ export function AdminCatalogPage() {
       draft.recoveryMinutes !== undefined ? draft.recoveryMinutes : (queue.recoveryMinutes ?? "");
     const recoveryPlacesRaw =
       draft.recoveryPlaces !== undefined ? draft.recoveryPlaces : (queue.recoveryPlaces ?? "");
+    const priorityKRaw =
+      draft.priorityEveryK !== undefined ? draft.priorityEveryK : (queue.priorityEveryK ?? "");
     await run(() =>
       updateAdminQueue(token, queue.id, {
         name,
@@ -195,6 +197,7 @@ export function AdminCatalogPage() {
         recoveryMinutes: recoveryMinsRaw === "" || recoveryMinsRaw == null ? "" : Number(recoveryMinsRaw),
         recoveryPlaces:
           recoveryPlacesRaw === "" || recoveryPlacesRaw == null ? "" : Number(recoveryPlacesRaw),
+        priorityEveryK: priorityKRaw === "" || priorityKRaw == null ? "" : Number(priorityKRaw),
       })
     );
   }
@@ -452,6 +455,28 @@ export function AdminCatalogPage() {
                             }))
                           }
                           data-testid="catalog-queue-recovery-places"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="w-full sm:w-40">
+                        <Label htmlFor={`queue-priority-k-${queue.id}`}>Priority every Kth serve</Label>
+                        <Input
+                          id={`queue-priority-k-${queue.id}`}
+                          type="number"
+                          min="1"
+                          max="10"
+                          placeholder="3"
+                          defaultValue={queue.priorityEveryK ?? 3}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                priorityEveryK: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-priority-k"
                           disabled={busy}
                         />
                       </div>

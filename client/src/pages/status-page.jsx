@@ -30,7 +30,7 @@ import { statusConnectionPresentation } from "@/lib/status-connection";
 import { presentServingBoard } from "@/lib/now-serving";
 import { NotifyControls } from "@/components/status/notify-controls";
 import { useI18n } from "@/context/i18n-context";
-import { acknowledgeArrival, rejoinQueue } from "@/api";
+import { acknowledgeArrival, rejoinQueue, requestPriority } from "@/api";
 
 /**
  * Live status — signature student surface.
@@ -71,6 +71,9 @@ export function StatusPage() {
   const [hereError, setHereError] = useState("");
   const [rejoinBusy, setRejoinBusy] = useState(false);
   const [rejoinError, setRejoinError] = useState("");
+  const [priorityBusy, setPriorityBusy] = useState(false);
+  const [priorityError, setPriorityError] = useState("");
+  const [priorityReason, setPriorityReason] = useState("accessibility");
 
   useEffect(() => {
     if (!inQueue) navigate("/queues", { replace: true });
@@ -183,6 +186,20 @@ export function StatusPage() {
       setHereError(err.message || t("status.checkInFailed"));
     } finally {
       setHereBusy(false);
+    }
+  }
+
+  async function handleRequestPriority() {
+    if (priorityBusy || !statusQueueId) return;
+    setPriorityBusy(true);
+    setPriorityError("");
+    try {
+      await requestPriority(token, statusQueueId, priorityReason, guestCredential);
+      await refreshStatus?.();
+    } catch (err) {
+      setPriorityError(err.message || t("status.priorityRequestFailed"));
+    } finally {
+      setPriorityBusy(false);
     }
   }
 
@@ -422,6 +439,19 @@ export function StatusPage() {
           </div>
         )}
 
+        {!isMissed && (
+          <PriorityBanner
+            t={t}
+            status={liveStatus.status}
+            priority={Boolean(liveStatus.priority)}
+            requestStatus={liveStatus.priorityRequestStatus}
+            reason={priorityReason}
+            onReason={setPriorityReason}
+            busy={priorityBusy}
+            onRequest={handleRequestPriority}
+          />
+        )}
+
         {/*
           Signature composition:
           md+: token+metrics | pass+Leave
@@ -525,12 +555,13 @@ export function StatusPage() {
           <NotifyControls called={isCalled} />
         </div>
 
-        {(statusError || leaveError || hereError || rejoinError) && (
+        {(statusError || leaveError || hereError || rejoinError || priorityError) && (
           <div className="mt-4 space-y-2">
             {statusError && <Alert variant="destructive">{statusError}</Alert>}
             {leaveError && <Alert variant="destructive">{leaveError}</Alert>}
             {hereError && <Alert variant="destructive">{hereError}</Alert>}
             {rejoinError && <Alert variant="destructive">{rejoinError}</Alert>}
+            {priorityError && <Alert variant="destructive">{priorityError}</Alert>}
           </div>
         )}
       </ShellContent>
@@ -806,4 +837,60 @@ function useAppStatus() {
     queues.find((q) => q.id === statusQueueId)?.name ||
     "Queue";
   return { ...app, statusQueueName };
+}
+
+
+function PriorityBanner({ t, status, priority, requestStatus, reason, onReason, busy, onRequest }) {
+  if (priority) {
+    return (
+      <div className="mb-4" data-testid="priority-banner">
+        <p className="rounded-xl border border-primary/30 bg-primary-muted px-4 py-3 text-sm font-medium text-foreground">
+          {t("status.priorityApproved")}
+        </p>
+      </div>
+    );
+  }
+  if (status !== "waiting") return null;
+  if (requestStatus === "pending") {
+    return (
+      <div className="mb-4" data-testid="priority-banner">
+        <p className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground">
+          {t("status.priorityRequested")}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3" data-testid="priority-banner">
+      {requestStatus === "rejected" ? (
+        <p className="mb-2 text-sm text-text-secondary">{t("status.priorityRejected")}</p>
+      ) : null}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-medium text-text-secondary">
+          {t("status.priorityReason")}
+          <select
+            value={reason}
+            onChange={(event) => onReason(event.target.value)}
+            disabled={busy}
+            data-testid="priority-reason"
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <option value="accessibility">{t("status.priorityAccessibility")}</option>
+            <option value="pregnancy">{t("status.priorityPregnancy")}</option>
+            <option value="medical">{t("status.priorityMedical")}</option>
+            <option value="other">{t("status.priorityOther")}</option>
+          </select>
+        </label>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={onRequest}
+          data-testid="request-priority"
+        >
+          {busy ? t("status.requestingPriority") : t("status.requestPriority")}
+        </Button>
+      </div>
+    </div>
+  );
 }

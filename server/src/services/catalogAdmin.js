@@ -22,6 +22,12 @@ import {
   RECOVERY_PLACES_MIN,
 } from "./missedTurn.js";
 import {
+  DEFAULT_PRIORITY_EVERY_K,
+  PRIORITY_EVERY_K_MAX,
+  PRIORITY_EVERY_K_MIN,
+  regularServesSincePriorityOf,
+} from "./priorityLane.js";
+import {
   COUNTER_NAME_MAX,
   DEFAULT_COUNTER_NAME,
   ensureDefaultCounters,
@@ -59,6 +65,19 @@ export function cleanRecoveryPlaces(raw) {
   }
   return { value };
 }
+
+export function cleanPriorityEveryK(raw) {
+  if (raw === undefined) return { omitted: true };
+  if (raw === null || raw === "") return { value: DEFAULT_PRIORITY_EVERY_K };
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < PRIORITY_EVERY_K_MIN || value > PRIORITY_EVERY_K_MAX) {
+    return {
+      error: `Priority fairness must be an integer from ${PRIORITY_EVERY_K_MIN} to ${PRIORITY_EVERY_K_MAX} (1 means no cap)`,
+    };
+  }
+  return { value };
+}
+
 
 export function slugifyName(name) {
   const slug = String(name || "")
@@ -215,7 +234,7 @@ export async function updateVenue(venue, { name }) {
   return { ok: true, venue };
 }
 
-export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes, noShowMode, noShowMinMinutes, noShowMaxMinutes, recoveryMinutes, recoveryPlaces }) {
+export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes, noShowMode, noShowMinMinutes, noShowMaxMinutes, recoveryMinutes, recoveryPlaces, priorityEveryK }) {
   if (!venueId) return { ok: false, status: 400, error: "Venue is required" };
   const venue = await Venue.findById(venueId);
   if (!venue) return { ok: false, status: 404, error: "Venue not found" };
@@ -253,6 +272,10 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
     recoveryPlaces === undefined ? DEFAULT_RECOVERY_PLACES : recoveryPlaces
   );
   if (recoveryN.error) return { ok: false, status: 400, error: recoveryN.error };
+  const priorityK = cleanPriorityEveryK(
+    priorityEveryK === undefined ? DEFAULT_PRIORITY_EVERY_K : priorityEveryK
+  );
+  if (priorityK.error) return { ok: false, status: 400, error: priorityK.error };
 
   let windows = [];
   if (serviceWindows !== undefined) {
@@ -284,6 +307,8 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
     noShowMaxMinutes: maxBound.value,
     recoveryMinutes: recoveryMins.value,
     recoveryPlaces: recoveryN.value,
+    priorityEveryK: priorityK.value,
+    regularServesSincePriority: Math.max(0, priorityK.value - 1),
     serviceWindows: windows,
     status: "open",
     acceptingTokens: true,
@@ -337,6 +362,17 @@ export async function updateQueue(queue, patch = {}) {
     const places = cleanRecoveryPlaces(patch.recoveryPlaces);
     if (places.error) return { ok: false, status: 400, error: places.error };
     if (!places.omitted) queue.recoveryPlaces = places.value;
+  }
+  if (patch.priorityEveryK !== undefined) {
+    const priorityK = cleanPriorityEveryK(patch.priorityEveryK);
+    if (priorityK.error) return { ok: false, status: 400, error: priorityK.error };
+    if (!priorityK.omitted) {
+      queue.priorityEveryK = priorityK.value;
+      queue.regularServesSincePriority = Math.min(
+        Math.max(0, priorityK.value - 1),
+        regularServesSincePriorityOf(queue)
+      );
+    }
   }
   if (patch.maxWaiting !== undefined) {
     const cap = normalizeMaxWaiting(patch.maxWaiting);

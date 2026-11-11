@@ -9,7 +9,12 @@ import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRang
 import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessQueueAccess, forbidUnlessVenueAccess, isGlobalAdmin, staffQueueIds } from "../services/staffAccess.js";
-import { compareWaiters } from "../services/missedTurn.js";
+import {
+  decidePriorityRequest,
+  fairCallOrder,
+  markPriority,
+  priorityFieldsForJson,
+} from "../services/priorityLane.js";
 import { noShowConfigForJson, resolveNoShowWindow } from "../services/noShowWindow.js";
 import { listAdminAudit, recordAdminAudit } from "../services/adminAudit.js";
 import { inviteStaff, listStaffAccounts, updateStaffQueues } from "../services/staffInvite.js";
@@ -68,6 +73,7 @@ function toAdminQueueJSON(queue) {
     ...noShowConfigForJson(queue),
     recoveryMinutes: queue.recoveryMinutes ?? 15,
     recoveryPlaces: queue.recoveryPlaces ?? 2,
+    priorityEveryK: queue.priorityEveryK ?? 3,
     counters: countersForJson(queue),
     archived: Boolean(queue.archivedAt),
     ...sessionFieldsForJson(queue),
@@ -122,6 +128,7 @@ function toWaitingRow(entry, position, { paused = false, queue = null } = {}) {
     isGuest,
     joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
     returning: Boolean(entry.returning),
+    ...priorityFieldsForJson(entry),
     ...servingFieldsForJson(entry, { paused, queue }),
   };
 }
@@ -192,10 +199,13 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
     })
       .populate("user")
       .exec();
-    entries.sort((a, b) => {
-      if (a.status !== b.status) return a.status === "serving" ? -1 : 1;
-      return compareWaiters(a, b);
-    });
+    const serving = entries.filter((entry) => entry.status === "serving");
+    const waitingOnly = fairCallOrder(
+      entries.filter((entry) => entry.status !== "serving"),
+      queue
+    );
+    entries.length = 0;
+    entries.push(...serving, ...waitingOnly);
 
     if (reconcileCounterServing(queue, entries)) {
       await queue.save();
@@ -313,6 +323,79 @@ router.post("/queues/:queueId/call", requireAuth, requireAdmin, async (req, res,
         ...servingFieldsForJson(entry, { paused: false, queue: result.queue }),
       },
       queue: toAdminQueueJSON(result.queue),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+/**
+ * POST /api/admin/queues/:queueId/entries/:entryId/priority
+ * Body: { reason } — staff mark a current entry as priority.
+ */
+router.post("/queues/:queueId/entries/:entryId/priority", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    if (!mongoose.isValidObjectId(req.params.entryId)) {
+      return res.status(404).json({ error: "Waiting entry not found" });
+    }
+    const entry = await QueueEntry.findOne({ _id: req.params.entryId, queue: queue._id });
+    if (!entry) return res.status(404).json({ error: "Waiting entry not found" });
+    const result = await markPriority(queue, entry, { reason: req.body?.reason });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    await writeAudit(req, {
+      action: "priority-set",
+      queue,
+      meta: { tokenNumber: result.entry.tokenNumber, reason: result.entry.priorityReason },
+    });
+    emitQueueChanged(queue._id, "priority");
+    return res.status(200).json({
+      entry: toWaitingRow(result.entry, result.entry.status === "serving" ? 0 : 1, {
+        paused: queue.status === "paused",
+        queue,
+      }),
+      queue: toAdminQueueJSON(queue),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/queues/:queueId/entries/:entryId/priority-decision
+ * Body: { approve: true|false }
+ */
+router.post("/queues/:queueId/entries/:entryId/priority-decision", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    if (!mongoose.isValidObjectId(req.params.entryId)) {
+      return res.status(404).json({ error: "Waiting entry not found" });
+    }
+    const entry = await QueueEntry.findOne({ _id: req.params.entryId, queue: queue._id });
+    if (!entry) return res.status(404).json({ error: "Waiting entry not found" });
+    let shouldApprove;
+    if (req.body?.approve === true || req.body?.approve === "true") shouldApprove = true;
+    else if (req.body?.approve === false || req.body?.approve === "false") shouldApprove = false;
+    else {
+      return res.status(400).json({ error: "Set approve to true or false" });
+    }
+    const result = await decidePriorityRequest(queue, entry, { approve: shouldApprove });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    await writeAudit(req, {
+      action: shouldApprove ? "priority-approve" : "priority-reject",
+      queue,
+      meta: { tokenNumber: result.entry.tokenNumber, reason: result.entry.priorityReason },
+    });
+    emitQueueChanged(queue._id, "priority");
+    return res.status(200).json({
+      entry: toWaitingRow(result.entry, result.entry.status === "serving" ? 0 : 1, {
+        paused: queue.status === "paused",
+        queue,
+      }),
+      queue: toAdminQueueJSON(queue),
     });
   } catch (err) {
     return next(err);
@@ -1027,6 +1110,7 @@ router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
       noShowMaxMinutes: req.body?.noShowMaxMinutes,
       recoveryMinutes: req.body?.recoveryMinutes,
       recoveryPlaces: req.body?.recoveryPlaces,
+      priorityEveryK: req.body?.priorityEveryK,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     return res.status(201).json({
@@ -1053,6 +1137,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       noShowMaxMinutes: req.body?.noShowMaxMinutes,
       recoveryMinutes: req.body?.recoveryMinutes,
       recoveryPlaces: req.body?.recoveryPlaces,
+      priorityEveryK: req.body?.priorityEveryK,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     await writeAudit(req, { action: "queue-update", queue: result.queue, meta: { maxWaiting: req.body?.maxWaiting ?? undefined } });

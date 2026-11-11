@@ -12,6 +12,10 @@ const ACTION_LABELS = {
   "staff-invite": "Invited staff",
   "queue-update": "Updated queue settings",
   rejoin: "Recovered a missed turn",
+  "priority-set": "Marked a token as priority",
+  "priority-approve": "Approved a priority request",
+  "priority-reject": "Declined a priority request",
+  "priority-request": "Requested priority",
 };
 
 export function auditActionLabel(action) {
@@ -26,5 +30,6 @@ export function auditMetaLine(event) {
   if (meta.cleared != null) parts.push(`${meta.cleared} places cleared`);
   if (meta.email) parts.push(meta.email);
   if (meta.maxWaiting != null) parts.push(`cap ${meta.maxWaiting || "none"}`);
+  if (meta.reason) parts.push(meta.reason);
   return parts.join(" · ");
 }

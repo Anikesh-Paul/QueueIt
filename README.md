@@ -234,6 +234,8 @@ Confirm: `GET https://<api-host>/api/health` → `{"status":"ok","service":"queu
 
 Socket.IO needs a long-running Node process (local, or a persistent host). It does not work on the Vercel serverless API.
 
+On that same long-running process, a 15-second session closer closes queues whose `sessionEndsAt` has passed even when no one is calling the API. HTTP paths still run the lazy close on the next request (so a join cannot sneak in after the window). The Vercel serverless API does not run this interval — punctual close there would need an external cron; until then, close still happens on the next request. You can override the interval with `SESSION_CLOSE_INTERVAL_MS` (minimum 1000).
+
 ### 3. Frontend (Vercel from `client/`)
 
 ```bash

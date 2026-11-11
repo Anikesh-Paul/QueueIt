@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { prepareApp } from "./bootstrap.js";
 import { createRealtimeServer } from "./realtime.js";
 import { parseClientOrigins } from "./corsOrigin.js";
+import { startSessionCloser } from "./services/sessionCloser.js";
 
 const port = Number(process.env.PORT) || 5000;
 /** Cloud hosts expect 0.0.0.0; override with HOST if needed. */
@@ -20,6 +21,8 @@ async function main() {
 
   httpServer.listen(port, host, () => {
     console.log(`QueueIt server listening on http://${host}:${port}`);
+    // Punctual auto-close — not started on the serverless entry.
+    startSessionCloser();
   });
 }
 

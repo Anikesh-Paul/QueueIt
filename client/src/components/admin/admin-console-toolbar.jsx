@@ -1,17 +1,5 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { PageToolbar } from "@/components/shell/page-toolbar";
 import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
@@ -23,11 +11,8 @@ export function AdminConsoleToolbar({
   acceptingTokens,
   waitingLoading,
   realtimeConnected,
-  adminActionBusy,
-  adminReset,
 }) {
   const navigate = useNavigate();
-  const [resetOpen, setResetOpen] = useState(false);
 
   return (
       <PageToolbar
@@ -71,41 +56,6 @@ export function AdminConsoleToolbar({
         }
         actions={
           <>
-            <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={adminActionBusy}
-                  data-testid="admin-reset"
-                  className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
-                >
-                  Reset queue
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent data-testid="admin-reset-dialog">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reset {queueName}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Clears the line and restarts tokens.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructiveSolid"
-                    data-testid="admin-reset-confirm"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setResetOpen(false);
-                      adminReset();
-                    }}
-                  >
-                    {adminActionBusy ? "Working…" : "Reset"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
             <Button
               variant="outline"
               size="sm"

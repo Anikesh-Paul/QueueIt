@@ -1,6 +1,8 @@
 import { Wordmark } from "@/components/brand/wordmark";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { AUTH_MOTIF_LINE } from "@/lib/auth-copy";
+import { SkipToContent } from "@/components/shell/skip-to-content";
+import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
 
 /**
  * Auth surfaces: elevated card on a flat linen canvas.
@@ -12,6 +14,7 @@ export { AUTH_MOTIF_LINE };
 export function AuthLayout({ children }) {
   return (
     <div className="auth-canvas relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-10 sm:px-6 sm:py-14">
+      <SkipToContent />
       <div
         aria-hidden="true"
         className="auth-grain pointer-events-none absolute inset-0"
@@ -57,10 +60,14 @@ export function AuthLayout({ children }) {
             </div>
           </div>
 
-          <div className="flex flex-col justify-center gap-9 px-6 py-8 sm:px-10 sm:py-12 lg:px-12 lg:py-14">
+          <main
+            id={MAIN_CONTENT_ID}
+            tabIndex={-1}
+            className="flex flex-col justify-center gap-9 px-6 py-8 outline-none sm:px-10 sm:py-12 lg:px-12 lg:py-14"
+          >
             <Wordmark to="/login" className="self-start" />
             {children}
-          </div>
+          </main>
         </div>
       </div>
     </div>

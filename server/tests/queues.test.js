@@ -74,9 +74,12 @@ describe("Venue seed + list queues (HTTP API)", () => {
       assert.equal(queues.length, 2);
     });
 
-    it("preserves admin-edited windows and paused status on re-seed", async () => {
+    it("preserves admin-edited windows, pace, and paused status on re-seed", async () => {
       await seedVenueAndQueues();
       const cafeteria = await Queue.findOne({ slug: "cafeteria" });
+      cafeteria.name = "Lunch Hall";
+      cafeteria.averageServiceTime = 12;
+      cafeteria.noShowMinutes = 8;
       cafeteria.serviceWindows = [{ start: "08:00", end: "10:00" }];
       cafeteria.status = "paused";
       cafeteria.acceptingTokens = false;
@@ -87,6 +90,9 @@ describe("Venue seed + list queues (HTTP API)", () => {
       await seedVenueAndQueues();
 
       const again = await Queue.findOne({ slug: "cafeteria" });
+      assert.equal(again.name, "Lunch Hall");
+      assert.equal(again.averageServiceTime, 12);
+      assert.equal(again.noShowMinutes, 8);
       assert.equal(again.status, "paused");
       assert.equal(again.acceptingTokens, false);
       assert.equal(again.nowServing, 4);
@@ -99,6 +105,9 @@ describe("Venue seed + list queues (HTTP API)", () => {
     it("restores default windows and open status when SEED_RESET_CATALOG is set", async () => {
       await seedVenueAndQueues();
       const cafeteria = await Queue.findOne({ slug: "cafeteria" });
+      cafeteria.name = "Lunch Hall";
+      cafeteria.averageServiceTime = 12;
+      cafeteria.noShowMinutes = 8;
       cafeteria.serviceWindows = [{ start: "08:00", end: "10:00" }];
       cafeteria.status = "paused";
       cafeteria.nextTokenNumber = 9;
@@ -107,6 +116,9 @@ describe("Venue seed + list queues (HTTP API)", () => {
       await seedVenueAndQueues({ ...process.env, SEED_RESET_CATALOG: "true" });
 
       const again = await Queue.findOne({ slug: "cafeteria" });
+      assert.equal(again.name, "Cafeteria");
+      assert.equal(again.averageServiceTime, 3);
+      assert.equal(again.noShowMinutes, 5);
       assert.equal(again.status, "open");
       assert.ok(again.serviceWindows.length >= 1);
       assert.equal(again.serviceWindows[0].start, "11:30");

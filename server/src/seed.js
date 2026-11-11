@@ -75,9 +75,10 @@ function shouldResetCatalog(env = process.env) {
 
 /**
  * Upsert one venue and two queues for local/demo use.
- * Idempotent by slug. Re-running does not overwrite live session fields
- * (windows, status, acceptingTokens, sessionEndsAt, reopenAt, counters)
- * unless SEED_RESET_CATALOG is true.
+ * Idempotent by slug. Re-running does not overwrite live operator or session
+ * fields (name, averageServiceTime, noShowMinutes, windows, status,
+ * acceptingTokens, sessionEndsAt, reopenAt, counters, maxWaiting) unless
+ * SEED_RESET_CATALOG is true.
  *
  * @param {NodeJS.ProcessEnv} [env=process.env]
  */
@@ -85,8 +86,10 @@ export async function seedVenueAndQueues(env = process.env) {
   const resetCatalog = shouldResetCatalog(env);
   let venue = await Venue.findOne({ slug: DEMO_VENUE.slug });
   if (venue) {
-    venue.name = DEMO_VENUE.name;
-    await venue.save();
+    if (resetCatalog) {
+      venue.name = DEMO_VENUE.name;
+      await venue.save();
+    }
   } else {
     venue = await Venue.create(DEMO_VENUE);
   }
@@ -95,9 +98,10 @@ export async function seedVenueAndQueues(env = process.env) {
   for (const def of DEMO_QUEUES) {
     let queue = await Queue.findOne({ venue: venue._id, slug: def.slug });
     if (queue) {
-      queue.name = def.name;
-      queue.averageServiceTime = def.averageServiceTime;
       if (resetCatalog) {
+        queue.name = def.name;
+        queue.averageServiceTime = def.averageServiceTime;
+        queue.noShowMinutes = 5;
         queue.serviceWindows = def.serviceWindows;
         queue.status = "open";
         queue.archivedAt = null;

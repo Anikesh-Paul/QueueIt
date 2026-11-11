@@ -211,7 +211,7 @@ export function AdminCheckArrival({ token, queueId, setSelectedEntryId }) {
               Check arrival
             </h2>
             <p className="mt-1 text-xs leading-5 text-text-secondary" data-testid="verify-disclaimer">
-              A scan confirms this token is waiting in the line, not identity. You can still type a bare token.
+              A scan confirms this token is waiting in the line, not identity. Only a signed pass is accepted.
             </p>
 
             {/* Scan pass primary; manual Pass or token + Verify always secondary. */}
@@ -275,7 +275,7 @@ export function AdminCheckArrival({ token, queueId, setSelectedEntryId }) {
               data-testid="verify-form"
             >
               <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor="verify-value">Pass or token</Label>
+                <Label htmlFor="verify-value">Signed pass</Label>
                 <Input
                   id="verify-value"
                   name="verifyValue"
@@ -287,7 +287,7 @@ export function AdminCheckArrival({ token, queueId, setSelectedEntryId }) {
                       setVerifyError("");
                     }
                   }}
-                  placeholder="Token or QIT:…"
+                  placeholder="QIT:…"
                   disabled={verifyBusy}
                   data-testid="verify-input"
                   className="h-10"

@@ -4,6 +4,7 @@ import request from "supertest";
 import { setupTestDb, teardownTestDb, resetDb, testApp } from "./helpers.js";
 import { seedVenueAndQueues } from "../src/seed.js";
 import { Queue } from "../src/models/Queue.js";
+import { signArrivalPass } from "../src/services/arrivalPass.js";
 import { QueueEntry } from "../src/models/QueueEntry.js";
 import { User } from "../src/models/User.js";
 import { Guest } from "../src/models/Guest.js";
@@ -251,7 +252,7 @@ describe("Guest join path (credential, live status, device-local history)", () =
       const verify = await request(app)
         .post(`/api/admin/queues/${queueId}/verify-qr`)
         .set("Authorization", `Bearer ${adminToken}`)
-        .send({ value: `QIT:${queueId}:${tokenA}` });
+        .send({ value: signArrivalPass(queueId, tokenA) });
       assert.equal(verify.status, 200);
       assert.equal(verify.body.verified, true);
       assert.equal(verify.body.entry.tokenNumber, tokenA);

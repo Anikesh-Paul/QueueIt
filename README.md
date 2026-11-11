@@ -198,6 +198,7 @@ Copy examples to `.env` locally. **Never commit `.env` or real secrets.**
 | `MONGODB_URI` | API host | Atlas connection string |
 | `JWT_SECRET` | API host | Strong random secret |
 | `ARRIVAL_PASS_SECRET` | API host | Optional. HMAC key for signed arrival passes; falls back to `JWT_SECRET` |
+| `ALLOW_UNSIGNED_ARRIVAL` | API host | Optional. Set to `1` to accept legacy unsigned `QIT:` passes and typed token numbers at verify. Default off. |
 | `CLIENT_ORIGIN` | API host | Exact frontend origin(s), comma-separated if needed |
 | `SEED_ON_BOOT` | API host | `true` once to upsert demo data |
 | `SEED_ADMIN_*` / `SEED_USER_*` | API host | Demo logins (host-only) |
@@ -211,7 +212,7 @@ Guest credentials are minted as high-entropy secrets and returned once to the de
 
 Runtime API packages are pinned past known advisories (`mongoose` 9.12.x, `express` 4.22.3, plus overrides for `body-parser`, `engine.io`, `qs`, `proxy-addr`, and `ip-address`). `npm audit --omit=dev` is clean. Remaining `npm audit` findings live in dev/CLI trees (`vercel`, `shadcn`, and their `zod` / `tar` / `undici` dependents), not the production server or client bundle. `vercel` and `shadcn` are devDependencies only.
 
-The arrival-pass QR confirms that a token is waiting in a queue — it is a counter convenience, not proof of identity. Join and status issue a signed pass (`QIT:<queueId>:<tokenNumber>:<mac>`), HMAC-SHA256 with `ARRIVAL_PASS_SECRET` or, if that is unset, `JWT_SECRET`. Admin verify rejects a tampered MAC and still accepts a bare token (or a legacy unsigned pass) typed at the counter.
+The arrival-pass QR confirms that a token is waiting in a queue — it is a counter convenience, not proof of identity. Join and status issue a signed pass (`QIT:<queueId>:<tokenNumber>:<mac>`), HMAC-SHA256 with `ARRIVAL_PASS_SECRET` or, if that is unset, `JWT_SECRET`. Admin verify accepts only a signed pass by default. A tampered MAC is rejected. Legacy unsigned `QIT:` passes and typed token numbers are rejected unless `ALLOW_UNSIGNED_ARRIVAL=1` is set on the API host.
 
 ## Notifications
 

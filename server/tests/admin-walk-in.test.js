@@ -229,6 +229,35 @@ describe("Admin walk-in (HTTP API)", () => {
       assert.equal(badToken.status, 400);
     });
 
+    it("rejects concurrent walk-ins that claim the same manual token", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+      const { token: adminToken } = await createAdmin(app);
+
+      const [a, b] = await Promise.all([
+        request(app)
+          .post(`/api/admin/queues/${queueId}/walk-in`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ name: "Asha", tokenNumber: 12 }),
+        request(app)
+          .post(`/api/admin/queues/${queueId}/walk-in`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ name: "Bala", tokenNumber: 12 }),
+      ]);
+
+      const statuses = [a.status, b.status].sort();
+      assert.deepEqual(statuses, [201, 409]);
+      const conflict = a.status === 409 ? a : b;
+      assert.equal(conflict.body.error, "Token already in use in this queue");
+
+      const list = await request(app)
+        .get(`/api/admin/queues/${queueId}/waiting-list`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(list.status, 200);
+      const tokens = list.body.waiting.map((row) => row.tokenNumber);
+      assert.equal(tokens.filter((n) => n === 12).length, 1);
+    });
+
     it("returns 404 for unknown queue", async () => {
       const app = testApp();
       const { token: adminToken } = await createAdmin(app);

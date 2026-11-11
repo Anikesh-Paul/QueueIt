@@ -97,6 +97,43 @@ queueEntrySchema.index({ queue: 1, tokenNumber: 1 });
 queueEntrySchema.index({ queue: 1, user: 1, status: 1 });
 queueEntrySchema.index({ queue: 1, guest: 1, status: 1 });
 
+// One active token and one active membership per queue (blocks check-then-create races).
+queueEntrySchema.index(
+  { queue: 1, tokenNumber: 1 },
+  {
+    unique: true,
+    name: "unique_active_queue_token",
+    partialFilterExpression: { status: { $in: ACTIVE_ENTRY_STATUSES } },
+  }
+);
+queueEntrySchema.index(
+  { queue: 1, user: 1 },
+  {
+    unique: true,
+    name: "unique_active_queue_user",
+    partialFilterExpression: {
+      status: { $in: ACTIVE_ENTRY_STATUSES },
+      user: { $type: "objectId" },
+    },
+  }
+);
+queueEntrySchema.index(
+  { queue: 1, guest: 1 },
+  {
+    unique: true,
+    name: "unique_active_queue_guest",
+    partialFilterExpression: {
+      status: { $in: ACTIVE_ENTRY_STATUSES },
+      guest: { $type: "objectId" },
+    },
+  }
+);
+
+/** Mongo duplicate-key (unique index) violation. */
+export function isDuplicateKeyError(err) {
+  return Boolean(err && (err.code === 11000 || err.code === 11001));
+}
+
 export const QueueEntry =
   mongoose.models.QueueEntry || mongoose.model("QueueEntry", queueEntrySchema);
 export { ENTRY_STATUSES, ACTIVE_ENTRY_STATUSES };

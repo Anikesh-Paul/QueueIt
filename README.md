@@ -26,7 +26,7 @@ Virtual queues for campus services. People join a line from their phone, watch t
 - **Catalog** — add, rename, or archive venues and queues without re-seeding
 - **Walk-in** tokens for people who arrive without the app
 - **Start / stop accepting tokens**, **extend** a session, and **reset** the line
-- Daily **service windows** (editable; auto-close at window end)
+- **Service windows** in campus IST (editable; optional day-of-week scope; auto-close at window end)
 - **Check arrival** — camera scan or typed token
 - **Poster QR** — print or copy a join link for this queue (not an arrival pass)
 - **Analytics** — served count, wait times, busiest hours (IST)

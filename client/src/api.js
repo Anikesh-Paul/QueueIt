@@ -283,7 +283,7 @@ export function extendAcceptingSession(token, queueId, payload) {
 
 /**
  * PUT /api/admin/queues/:queueId/service-windows
- * Replace daily service windows (campus IST HH:mm). Body: { serviceWindows: [{start,end}] }.
+ * Replace service windows (campus IST HH:mm). Body: { serviceWindows: [{start,end,days?}] }. Optional days scopes a window to weekdays (0=Sun…6=Sat); omit for every day.
  */
 export function updateServiceWindows(token, queueId, serviceWindows) {
   return apiRequest(`/api/admin/queues/${queueId}/service-windows`, {

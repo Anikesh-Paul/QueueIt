@@ -11,6 +11,11 @@ const serviceWindowSchema = new mongoose.Schema(
     /** Campus wall time HH:mm (Asia/Kolkata). */
     start: { type: String, required: true, trim: true },
     end: { type: String, required: true, trim: true },
+    /**
+     * Campus weekdays this window applies (0=Sun … 6=Sat, IST).
+     * Missing or empty means every day.
+     */
+    days: { type: [Number], default: undefined },
   },
   { _id: false }
 );
@@ -67,7 +72,7 @@ const queueSchema = new mongoose.Schema(
       required: true,
     },
     /**
-     * Daily service windows (same pattern every day), campus IST wall times.
+     * Service windows (campus IST wall times). Optional `days` scopes a window to weekdays; missing days means every day.
      * Window start does not auto-open; bound session end auto-closes.
      */
     serviceWindows: {

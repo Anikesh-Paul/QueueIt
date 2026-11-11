@@ -47,19 +47,65 @@ router.get("/", async (_req, res, next) => {
  * Outcomes: joined (active waiting/serving), left, served, skipped.
  * Registered before /:queueId routes so "history" is not parsed as an id.
  */
+export const HISTORY_DEFAULT_LIMIT = 20;
+export const HISTORY_MAX_LIMIT = 50;
+
+function parseHistoryLimit(raw) {
+  if (raw == null || raw === "") return HISTORY_DEFAULT_LIMIT;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) return HISTORY_DEFAULT_LIMIT;
+  return Math.min(n, HISTORY_MAX_LIMIT);
+}
+
+/** Cursor is `<updatedAt ISO>_<entry id>` from the last event of the previous page. */
+function parseHistoryCursor(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  const split = raw.trim().lastIndexOf("_");
+  if (split <= 0) return null;
+  const at = new Date(raw.slice(0, split));
+  const id = raw.slice(split + 1);
+  if (Number.isNaN(at.getTime()) || !mongoose.isValidObjectId(id)) return null;
+  return { at, id };
+}
+
+function historyCursorOf(entry) {
+  const at = entry.updatedAt?.toISOString?.() ?? new Date(entry.updatedAt).toISOString();
+  return `${at}_${entry._id.toString()}`;
+}
+
 router.get("/history", attachJoiner, requireJoiner, async (req, res, next) => {
   try {
     const filter = req.user
       ? { user: req.user._id }
       : { guest: req.guest._id };
 
+    const limit = parseHistoryLimit(req.query?.limit);
+    const cursor = parseHistoryCursor(req.query?.cursor);
+    if (req.query?.cursor && !cursor) {
+      return res.status(400).json({ error: "Invalid history cursor" });
+    }
+    if (cursor) {
+      filter.$or = [
+        { updatedAt: { $lt: cursor.at } },
+        { updatedAt: cursor.at, _id: { $lt: cursor.id } },
+      ];
+    }
+
     const entries = await QueueEntry.find(filter)
       .populate("queue")
-      .sort({ updatedAt: -1, createdAt: -1 })
+      .sort({ updatedAt: -1, _id: -1 })
+      .limit(limit + 1)
       .exec();
 
+    const hasMore = entries.length > limit;
+    const page = hasMore ? entries.slice(0, limit) : entries;
+    const last = page[page.length - 1];
+
     return res.status(200).json({
-      events: entries.map((entry) => toHistoryEvent(entry)),
+      events: page.map((entry) => toHistoryEvent(entry)),
+      limit,
+      hasMore,
+      nextCursor: hasMore && last ? historyCursorOf(last) : null,
     });
   } catch (err) {
     return next(err);

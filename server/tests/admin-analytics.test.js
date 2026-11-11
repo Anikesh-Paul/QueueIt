@@ -6,6 +6,7 @@ import { seedVenueAndQueues } from "../src/seed.js";
 import { Queue } from "../src/models/Queue.js";
 import { QueueEntry } from "../src/models/QueueEntry.js";
 import { User } from "../src/models/User.js";
+import { resolveAnalyticsRange } from "../src/services/analyticsRange.js";
 
 async function registerUser(app, email = "waiter@example.com", name = "Waiter") {
   const res = await request(app).post("/api/auth/register").send({
@@ -56,9 +57,13 @@ function servedAtInIstHour(hourIst) {
  * `hourIst` is the campus-time hour bucket (Asia/Kolkata, 00–23). Storage is
  * still UTC; only the wall-clock intent is IST so peak labels stay stable.
  */
-async function createServedEntry(queueId, { waitMinutes, hourIst, isWalkIn = false } = {}) {
+async function createServedEntry(queueId, { waitMinutes, hourIst, isWalkIn = false, servedAt: servedAtOverride } = {}) {
   const servedAt =
-    hourIst != null ? servedAtInIstHour(hourIst) : new Date(Date.now() - 60_000);
+    servedAtOverride
+      ? new Date(servedAtOverride)
+      : hourIst != null
+        ? servedAtInIstHour(hourIst)
+        : new Date(Date.now() - 60_000);
   const joinedAt = new Date(servedAt.getTime() - waitMinutes * 60_000);
 
   const entry = await QueueEntry.create({
@@ -220,6 +225,38 @@ describe("Admin analytics (HTTP API)", () => {
         { label: "13:00 IST", served: 1 },
       ]);
       assert.equal(res.body.metrics.servedCount, 4);
+    });
+
+    it("scopes served metrics to window=today and leaves waiting unfiltered", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+      const { token: adminToken } = await createAdmin(app);
+      const range = resolveAnalyticsRange({ window: "today" });
+      assert.equal(range.ok, true);
+
+      await createServedEntry(queueId, {
+        waitMinutes: 4,
+        servedAt: new Date(range.from.getTime() - 60 * 60 * 1000),
+      });
+      await createServedEntry(queueId, {
+        waitMinutes: 6,
+        servedAt: new Date(range.from.getTime() + 60 * 60 * 1000),
+      });
+
+      const today = await request(app)
+        .get(`/api/admin/queues/${queueId}/analytics?window=today`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(today.status, 200);
+      assert.equal(today.body.range.preset, "today");
+      assert.equal(today.body.metrics.servedCount, 1);
+      assert.equal(today.body.metrics.averageWaitMinutes, 6);
+
+      const all = await request(app)
+        .get(`/api/admin/queues/${queueId}/analytics?window=all`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(all.status, 200);
+      assert.equal(all.body.range.preset, "all");
+      assert.equal(all.body.metrics.servedCount, 2);
     });
 
     it("returns 404 for an unknown queue", async () => {

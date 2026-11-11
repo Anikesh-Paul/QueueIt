@@ -30,6 +30,7 @@ import {
   API_URL,
 } from "@/api";
 import { createRealtimeClient } from "@/lib/realtime";
+import { resolveStatusPollMs } from "@/lib/poll-interval";
 
 export const TOKEN_KEY = "queueit_token";
 /**
@@ -42,8 +43,7 @@ export const GUEST_CREDENTIAL_KEY = "queueit_guest_credential";
 export const GUEST_MODE_KEY = "queueit_guest_mode";
 /** Session flag: show one-shot soft-upgrade reinforce after Guest leave. */
 export const SOFT_UPGRADE_POST_LEAVE_KEY = "queueit_soft_upgrade_post_leave";
-/** Poll interval for live status and admin waiting list (safe fallback baseline). */
-const STATUS_POLL_MS = 3000;
+/** See `@/lib/poll-interval` for visible / socket / hidden cadences. */
 
 const AppContext = createContext(null);
 
@@ -89,6 +89,13 @@ export function AppProvider({ children }) {
   const [historyEvents, setHistoryEvents] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyNextCursor, setHistoryNextCursor] = useState(null);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+
+  const [tabHidden, setTabHidden] = useState(
+    () => typeof document !== "undefined" && document.hidden
+  );
 
   const [adminQueueId, setAdminQueueId] = useState(null);
   const [adminQueueMeta, setAdminQueueMeta] = useState(null);
@@ -112,6 +119,14 @@ export function AppProvider({ children }) {
   const adminQueueIdRef = useRef(null);
   const activeMembershipsRef = useRef([]);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+
+  useEffect(() => {
+    function onVisibility() {
+      setTabHidden(document.hidden);
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
   // Keep refs in sync so the socket's queue:changed handler always targets the
   // current rooms without re-creating the socket on every state change.
@@ -201,6 +216,9 @@ export function AppProvider({ children }) {
     setHistoryEvents([]);
     setHistoryError("");
     setHistoryLoading(false);
+    setHistoryHasMore(false);
+    setHistoryNextCursor(null);
+    setHistoryLoadingMore(false);
     setAnalyticsData(null);
     setAnalyticsError("");
     setAnalyticsLoading(false);
@@ -430,18 +448,26 @@ export function AppProvider({ children }) {
     client.setSubscriptions(targets);
   }, [statusQueueId, adminQueueId, activeMemberships]);
 
-  const loadHistory = useCallback(async (sessionToken, guestCred) => {
+  const loadHistory = useCallback(async (sessionToken, guestCred, options = {}) => {
     if (!sessionToken && !guestCred) return;
-    setHistoryLoading(true);
+    const append = Boolean(options.append && options.cursor);
+    if (append) setHistoryLoadingMore(true);
+    else setHistoryLoading(true);
     setHistoryError("");
     try {
-      const data = await fetchHistory(sessionToken, guestCred);
-      setHistoryEvents(Array.isArray(data.events) ? data.events : []);
+      const data = await fetchHistory(sessionToken, guestCred, {
+        cursor: options.cursor || undefined,
+      });
+      const events = Array.isArray(data.events) ? data.events : [];
+      setHistoryEvents((prev) => (append ? [...prev, ...events] : events));
+      setHistoryHasMore(Boolean(data.hasMore));
+      setHistoryNextCursor(data.nextCursor || null);
     } catch (err) {
-      setHistoryEvents([]);
+      if (!append) setHistoryEvents([]);
       setHistoryError(err.message || "Could not load history");
     } finally {
       setHistoryLoading(false);
+      setHistoryLoadingMore(false);
     }
   }, []);
 
@@ -449,12 +475,16 @@ export function AppProvider({ children }) {
    * Load ops analytics for one queue (served count, average wait, busy hours).
    * Admin-only route; refreshed on mount and by the Refresh button.
    */
-  const loadAnalytics = useCallback(async (sessionToken, queueId) => {
+  const loadAnalytics = useCallback(async (sessionToken, queueId, options = {}) => {
     if (!sessionToken || !queueId) return;
     setAnalyticsLoading(true);
     setAnalyticsError("");
     try {
-      const data = await fetchAnalytics(sessionToken, queueId);
+      const data = await fetchAnalytics(sessionToken, queueId, {
+        window: options.window,
+        from: options.from,
+        to: options.to,
+      });
       setAnalyticsData(data);
     } catch (err) {
       setAnalyticsData(null);
@@ -463,6 +493,32 @@ export function AppProvider({ children }) {
       setAnalyticsLoading(false);
     }
   }, []);
+
+  const wasHiddenRef = useRef(tabHidden);
+  useEffect(() => {
+    const becameVisible = wasHiddenRef.current && !tabHidden;
+    wasHiddenRef.current = tabHidden;
+    if (!becameVisible) return;
+    const auth = joinerAuth();
+    if ((auth.token || auth.guestCredential) && statusQueueId) {
+      refreshStatus(auth.token, statusQueueId, {
+        silent: true,
+        guestCred: auth.guestCredential,
+      });
+    }
+    if (token && adminQueueId && user?.role === "admin") {
+      loadWaitingList(token, adminQueueId, { silent: true });
+    }
+  }, [
+    tabHidden,
+    statusQueueId,
+    adminQueueId,
+    token,
+    user?.role,
+    joinerAuth,
+    refreshStatus,
+    loadWaitingList,
+  ]);
 
   // Poll live status while the joiner holds a place in line (User JWT or Guest).
   useEffect(() => {
@@ -475,12 +531,20 @@ export function AppProvider({ children }) {
       return;
     }
 
+    const intervalMs = resolveStatusPollMs({
+      hidden: tabHidden,
+      realtimeConnected,
+    });
+    if (intervalMs == null) {
+      return;
+    }
+
     pollRef.current = setInterval(() => {
       refreshStatus(auth.token, statusQueueId, {
         silent: true,
         guestCred: auth.guestCredential,
       });
-    }, STATUS_POLL_MS);
+    }, intervalMs);
 
     return () => {
       if (pollRef.current) {
@@ -488,7 +552,7 @@ export function AppProvider({ children }) {
         pollRef.current = null;
       }
     };
-  }, [token, guestCredential, statusQueueId, liveStatus, refreshStatus, joinerAuth]);
+  }, [token, guestCredential, statusQueueId, liveStatus, refreshStatus, joinerAuth, tabHidden, realtimeConnected]);
 
   // Poll admin waiting list while the console is open.
   useEffect(() => {
@@ -500,9 +564,17 @@ export function AppProvider({ children }) {
       return;
     }
 
+    const intervalMs = resolveStatusPollMs({
+      hidden: tabHidden,
+      realtimeConnected,
+    });
+    if (intervalMs == null) {
+      return;
+    }
+
     adminPollRef.current = setInterval(() => {
       loadWaitingList(token, adminQueueId, { silent: true });
-    }, STATUS_POLL_MS);
+    }, intervalMs);
 
     return () => {
       if (adminPollRef.current) {
@@ -510,7 +582,7 @@ export function AppProvider({ children }) {
         adminPollRef.current = null;
       }
     };
-  }, [token, adminQueueId, user?.role, loadWaitingList]);
+  }, [token, adminQueueId, user?.role, loadWaitingList, tabHidden, realtimeConnected]);
 
   const join = useCallback(
     async (queueId) => {
@@ -803,6 +875,9 @@ export function AppProvider({ children }) {
     historyEvents,
     historyLoading,
     historyError,
+    historyHasMore,
+    historyNextCursor,
+    historyLoadingMore,
     loadHistory,
     adminQueueId,
     adminQueueMeta,

@@ -29,7 +29,9 @@ Virtual queues for campus services. People join a line from their phone, watch t
 
 ### Live updates
 
-Polling is always on. On a long-running API host (local or Render), **Socket.IO** pushes changes instantly. The Vercel serverless API cannot hold sockets; the UI shows polling there and never depends on realtime to work.
+Polling backs the live student status and the admin waiting list. When the tab is visible and no socket is connected, it runs every **3 seconds**. When Socket.IO is connected it slows to **15 seconds** (the socket stays the fast path). Hidden tabs do not poll, and a refresh runs when the tab becomes visible again. On a long-running API host (local or a persistent host), **Socket.IO** still pushes changes instantly. The Vercel serverless API cannot hold sockets; the UI shows the 3-second poll there and never depends on realtime to work.
+
+History is paginated (default **20** events, max 50, newest first, `cursor` + `hasMore`). Admin analytics can be scoped with `?window=today` (campus IST day) or `from` / `to` ISO instants; waiting count stays live. The default (no query) is all-time, which is what existing clients get.
 
 ## Live deployment
 

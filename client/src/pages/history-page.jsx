@@ -27,6 +27,9 @@ export function HistoryPage() {
     historyEvents,
     historyLoading,
     historyError,
+    historyHasMore,
+    historyNextCursor,
+    historyLoadingMore,
     loadHistory,
   } = useApp();
 
@@ -124,6 +127,26 @@ export function HistoryPage() {
           ))}
         </ul>
       )}
+
+      {!historyLoading && !historyError && historyHasMore ? (
+        <div className="mt-4 flex justify-center">
+          <Button
+            variant="secondary"
+            size="lg"
+            disabled={historyLoadingMore}
+            onClick={() =>
+              loadHistory(token || null, guestCredential || null, {
+                append: true,
+                cursor: historyNextCursor,
+              })
+            }
+            data-testid="history-load-more"
+            className="w-full sm:w-auto"
+          >
+            {historyLoadingMore ? "Loading…" : "Load more"}
+          </Button>
+        </div>
+      ) : null}
     </ShellContent>
   );
 }

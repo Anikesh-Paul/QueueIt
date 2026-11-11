@@ -94,6 +94,8 @@ queueEntrySchema.pre("validate", function ensureMembershipIdentity() {
 });
 
 queueEntrySchema.index({ queue: 1, tokenNumber: 1 });
+// Speeds live position / waiting-list scans: count of waiters with a lower token.
+queueEntrySchema.index({ queue: 1, status: 1, tokenNumber: 1 });
 queueEntrySchema.index({ queue: 1, user: 1, status: 1 });
 queueEntrySchema.index({ queue: 1, guest: 1, status: 1 });
 

@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login, register } from "@/api";
 import { useApp } from "@/context/app-context";
 import { Alert } from "@/components/ui/alert";
+import { isSafeAppPath } from "@/lib/join-link";
+import { clearOfflineStatusCache } from "@/lib/register-sw";
 
 /** Form subtitles — closed auth copy exception (craft + utility). */
 const SUBTITLE = {
@@ -18,9 +20,15 @@ const SUBTITLE = {
  * On success the session persists and the router redirects "/" to /status or /queues.
  * Continue as Guest enters the student path without a User account.
  */
+function pathAfterAuth(from, fallback) {
+  return isSafeAppPath(from) ? from : fallback;
+}
+
 export function AuthForm({ mode }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { persistSession, enterGuestMode, guestCredential, isGuest } = useApp();
+  const from = location.state?.from;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -44,8 +52,9 @@ export function AuthForm({ mode }) {
               guestCredential: guestCred,
             });
       persistSession(data.token, data.user);
+      clearOfflineStatusCache();
       setPassword("");
-      navigate("/", { replace: true });
+      navigate(pathAfterAuth(from, "/"), { replace: true });
     } catch (err) {
       setError(err.message || "Request failed");
     } finally {
@@ -55,7 +64,7 @@ export function AuthForm({ mode }) {
 
   function handleContinueAsGuest() {
     enterGuestMode();
-    navigate("/queues", { replace: true });
+    navigate(pathAfterAuth(from, "/queues"), { replace: true });
   }
 
   const fieldClass =

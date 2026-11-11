@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
@@ -8,6 +8,7 @@ import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { formatCampusDateTime } from "@/lib/campus-time";
+import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,6 +37,14 @@ export function QueuesPage() {
     selectMembership,
   } = useApp();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const target = searchParams.get("join");
+    const path = isQueueId(target) ? joinPath(target) : null;
+    if (path) navigate(path, { replace: true });
+  }, [searchParams, navigate]);
+
   const [showPostLeaveUpgrade, setShowPostLeaveUpgrade] = useState(() => {
     if (typeof sessionStorage === "undefined") return false;
     try {

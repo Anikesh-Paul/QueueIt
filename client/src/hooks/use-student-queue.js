@@ -37,6 +37,7 @@ export function useStudentQueue({
   const [joinError, setJoinError] = useState("");
   const [statusError, setStatusError] = useState("");
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusOffline, setStatusOffline] = useState(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [leaveError, setLeaveError] = useState("");
 
@@ -64,6 +65,7 @@ export function useStudentQueue({
     setJoinError("");
     setStatusError("");
     setStatusUpdating(false);
+    setStatusOffline(false);
     setLeaveError("");
     setLeaveBusy(false);
     if (pollRef.current) {
@@ -153,10 +155,12 @@ export function useStudentQueue({
       if (!silent) setStatusUpdating(true);
       try {
         const data = await fetchQueueStatus(sessionToken, queueId, guestCred);
+        const fromCache = Boolean(data?._fromOfflineCache);
         setLiveStatus((current) =>
           !current || current.queue?.id === queueId ? data : current
         );
-        if (statusQueueIdRef.current === queueId) {
+        setStatusOffline(fromCache);
+        if (!fromCache && statusQueueIdRef.current === queueId) {
           setStatusLastUpdatedAt(Date.now());
         }
         setActiveMemberships((list) => {
@@ -369,6 +373,7 @@ export function useStudentQueue({
     joinError,
     statusError,
     statusUpdating,
+    statusOffline,
     leaveBusy,
     leaveError,
     join,

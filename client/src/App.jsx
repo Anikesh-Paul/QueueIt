@@ -5,12 +5,14 @@ import { AppShell } from "@/components/shell/app-shell";
 import { Wordmark } from "@/components/brand/wordmark";
 import {
   HomeRedirect,
+  JoinSessionGate,
   RequireAdmin,
   RequireLoggedOut,
   RequireShellAccess,
   RequireUser,
 } from "@/routes/guards";
 import { QueuesPage } from "@/pages/queues-page";
+import { JoinPage } from "@/pages/join-page";
 import { StatusPage } from "@/pages/status-page";
 import { HistoryPage } from "@/pages/history-page";
 import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
@@ -57,6 +59,15 @@ const router = createBrowserRouter([
         children: [
           { path: "/login", element: <LoginPage /> },
           { path: "/register", element: <RegisterPage /> },
+        ],
+      },
+      {
+        element: <JoinSessionGate />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [{ path: "join/:queueId", element: <JoinPage /> }],
+          },
         ],
       },
       {

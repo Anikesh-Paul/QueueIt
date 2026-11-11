@@ -16,6 +16,8 @@ Virtual queues for campus services. People join a line from their phone, watch t
 - Get a **near-front** prompt when you’re in the next three
 - Show an **arrival pass** QR at the counter
 - Leave if plans change; review **history** (portable after login)
+- Open a **poster join link** (`/join/:queueId`) from a shared QR — no need to browse the catalog first
+- **Add to Home Screen** (web app manifest + theme color) on a phone
 - Optionally **register or log in** later — guest place and device history move onto the account
 
 ### For staff
@@ -25,6 +27,7 @@ Virtual queues for campus services. People join a line from their phone, watch t
 - **Start / stop accepting tokens**, **extend** a session, and **reset** the line
 - Daily **service windows** (editable; auto-close at window end)
 - **Check arrival** — camera scan or typed token
+- **Poster QR** — print or copy a join link for this queue (not an arrival pass)
 - **Analytics** — served count, wait times, busiest hours (IST)
 
 ### Live updates
@@ -214,6 +217,14 @@ The arrival-pass QR confirms that a token is waiting in a queue — it is a coun
 The live-status page can request the browser **Notification** permission and fire a one-shot alert when a student enters the top-3 (near the front), becomes next, or — if the status API still shows it — when their token is now serving. Polls do not re-notify the same state. Paused queues do not tell people to approach the counter. Optional sound and vibrate are user-controlled. Declining permission leaves the in-page banner working.
 
 These alerts only work while the QueueIt tab is open (including in the background). They do **not** arrive after the tab or browser is killed.
+
+## Poster join and install
+
+Staff can reveal a **poster QR** on the admin console and copy a join link (`/join/:queueId`). Scanning it on a phone opens that queue’s join action for a guest or a signed-in user, or explains why the line is closed. The QR encodes the app URL, not an arrival pass (`QIT:…`). A compact `QITJ:<queueId>` payload is also accepted if someone pastes it by hand. `/queues?join=<queueId>` redirects to the same page.
+
+`index.html` includes a description, forest `theme-color` (`#1b4332`), and a web app manifest so phones can Add to Home Screen.
+
+A small production service worker (`client/public/sw.js`, registered only in the production build) caches the app shell and the last successful catalog, status, and active-membership responses with a **network-first** policy. While you are online, live polling and Socket.IO behave as before — the worker only falls back when a fetch fails. Offline, the last-known place in line may appear with an “offline” note; it is stale until the network returns. Mutations (join, leave, login, admin actions) and Socket.IO are never cached. Logging out or logging in clears the status cache so a later session on the same device does not see the previous one. The worker does not implement Web Push (see Notifications above). Vite dev does not register the worker, so local HMR and polling are never intercepted.
 
 True push-when-the-app-is-closed needs [Web Push](https://developer.mozilla.org/en-US/docs/Web/API/Push_API) (VAPID keys, a service worker `push` handler, and a server that holds subscription endpoints). That is a follow-up: the operator would generate a VAPID key pair, set something like `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` on a **long-running** API host (Vercel serverless is a poor fit for push fan-out), expose the public key to the client, and never commit the private key. Do not put real VAPID secrets in the repo.
 

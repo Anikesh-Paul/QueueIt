@@ -5,6 +5,7 @@ import { useSession } from "@/hooks/use-session";
 import { useStudentQueue } from "@/hooks/use-student-queue";
 import { useAdminConsoleState } from "@/hooks/use-admin-console";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { clearOfflineStatusCache } from "@/lib/register-sw";
 
 export {
   TOKEN_KEY,
@@ -83,6 +84,7 @@ export function AppProvider({ children }) {
     clearStudentSession();
     clearAdminConsole();
     clearAnalytics();
+    clearOfflineStatusCache();
   }, [persistSession, clearStudentSession, clearAdminConsole, clearAnalytics]);
 
   // Restore JWT session or Guest path on boot.
@@ -237,6 +239,7 @@ export function AppProvider({ children }) {
     joinError: student.joinError,
     statusError: student.statusError,
     statusUpdating: student.statusUpdating,
+    statusOffline: student.statusOffline,
     leaveBusy: student.leaveBusy,
     leaveError: student.leaveError,
     join: student.join,
@@ -341,6 +344,7 @@ export function useLiveStatus() {
     joinError,
     statusError,
     statusUpdating,
+    statusOffline,
     leaveBusy,
     leaveError,
     join,
@@ -374,6 +378,7 @@ export function useLiveStatus() {
     joinError,
     statusError,
     statusUpdating,
+    statusOffline,
     leaveBusy,
     leaveError,
     join,

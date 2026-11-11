@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import { AppProvider, useApp } from "@/context/app-context";
 import { AppShell } from "@/components/shell/app-shell";
@@ -12,9 +13,36 @@ import {
 import { QueuesPage } from "@/pages/queues-page";
 import { StatusPage } from "@/pages/status-page";
 import { HistoryPage } from "@/pages/history-page";
-import { AdminConsolePage } from "@/pages/admin-console-page";
-import { AnalyticsPage } from "@/pages/analytics-page";
 import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
+
+const AdminConsolePage = lazy(() =>
+  import("@/pages/admin-console-page").then((mod) => ({ default: mod.AdminConsolePage }))
+);
+const AnalyticsPage = lazy(() =>
+  import("@/pages/analytics-page").then((mod) => ({ default: mod.AnalyticsPage }))
+);
+
+/** Calm placeholder while a lazy admin route chunk loads. */
+function RouteFallback() {
+  return (
+    <div
+      className="flex flex-1 flex-col items-center justify-center gap-3 py-24"
+      data-testid="route-fallback"
+    >
+      <p className="text-sm text-text-muted" aria-live="polite">
+        Loading…
+      </p>
+    </div>
+  );
+}
+
+function AdminRouteOutlet() {
+  return (
+    <Suspense fallback={<RouteFallback />}>
+      <Outlet />
+    </Suspense>
+  );
+}
 
 const router = createBrowserRouter([
   {
@@ -50,8 +78,13 @@ const router = createBrowserRouter([
                 path: "admin",
                 element: <RequireAdmin />,
                 children: [
-                  { path: "queues/:queueId", element: <AdminConsolePage /> },
-                  { path: "queues/:queueId/analytics", element: <AnalyticsPage /> },
+                  {
+                    element: <AdminRouteOutlet />,
+                    children: [
+                      { path: "queues/:queueId", element: <AdminConsolePage /> },
+                      { path: "queues/:queueId/analytics", element: <AnalyticsPage /> },
+                    ],
+                  },
                 ],
               },
               { path: "*", element: <NotFoundPage /> },

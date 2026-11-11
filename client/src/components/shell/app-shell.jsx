@@ -6,6 +6,8 @@ import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
 import { shellNavEnd } from "@/lib/shell-nav";
 import { QueueNotifyProvider } from "@/hooks/use-queue-notifications";
+import { SkipToContent } from "@/components/shell/skip-to-content";
+import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
 
 function ShellNavLink({ to, end, children, testId }) {
   const exact = end ?? shellNavEnd(to);
@@ -111,6 +113,7 @@ export function AppShell() {
   return (
     <QueueNotifyProvider>
     <div className="flex min-h-dvh flex-col bg-background">
+      <SkipToContent />
       <header
         data-testid="app-top-bar"
         className="sticky top-0 z-40 border-b border-border bg-card"
@@ -150,7 +153,7 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="flex-1">
+      <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 outline-none">
         <Outlet />
       </main>
     </div>

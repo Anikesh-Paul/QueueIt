@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { UserChip } from "@/components/shell/user-chip";
 import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
+import { QueueNotifyProvider } from "@/hooks/use-queue-notifications";
 
 function ShellNavLink({ to, end = false, children, testId }) {
   return (
@@ -101,6 +102,7 @@ export function AppShell() {
   );
 
   return (
+    <QueueNotifyProvider>
     <div className="flex min-h-dvh flex-col bg-background">
       <header
         data-testid="app-top-bar"
@@ -145,5 +147,6 @@ export function AppShell() {
         <Outlet />
       </main>
     </div>
+    </QueueNotifyProvider>
   );
 }

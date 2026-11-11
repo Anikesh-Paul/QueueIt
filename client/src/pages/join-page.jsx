@@ -8,6 +8,7 @@ import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
+import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +60,8 @@ export function JoinPage() {
   const queue = validId ? queues.find((row) => row.id === queueId) : null;
   const membership = activeMemberships.find((row) => row.queue?.id === queueId);
   const closed = queue?.acceptingTokens === false;
-  const occupancyLine = formatWaitingOccupancy(queue);
+  const occupancyLine = queue ? formatWaitingOccupancy(queue) : "";
+  const servingLine = queue ? formatCatalogServing(queue) : "";
   const full = queue?.full === true;
   const paused = queue?.status === "paused";
   const primaryLabel = !queue ? null : closed ? "Closed" : full ? "Full" : paused ? "Paused" : "Open";
@@ -166,7 +168,11 @@ export function JoinPage() {
               </h2>
               <p className="mt-0.5 text-sm text-text-muted">
                 {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
-                {occupancyLine ? ` · ${occupancyLine}` : ""}
+                {" · "}
+                <span data-testid="queue-occupancy">{occupancyLine}</span>
+              </p>
+              <p className="mt-0.5 text-sm text-text-muted" data-testid="queue-now-serving">
+                {servingLine}
               </p>
             </div>
             <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">

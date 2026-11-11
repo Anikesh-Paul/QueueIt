@@ -14,8 +14,30 @@ import { emitQueueChanged } from "../services/realtime.js";
 import { ensureQueueSessionState } from "../services/queueSession.js";
 import { expireNoShowCalls } from "../services/servingDeadline.js";
 import { queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
+import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
+
+/** Reconcile live vs last-served counters before the public catalog is serialized. */
+async function reconcileCatalogServing(queues) {
+  if (!queues.length) return;
+  const serving = await QueueEntry.find({
+    queue: { $in: queues.map((q) => q._id) },
+    status: "serving",
+  }).select("tokenNumber servingCounterId status queue");
+  const byQueue = new Map();
+  for (const entry of serving) {
+    const id = String(entry.queue);
+    const list = byQueue.get(id);
+    if (list) list.push(entry);
+    else byQueue.set(id, [entry]);
+  }
+  for (const queue of queues) {
+    const missing = ensureDefaultCounters(queue);
+    const reconciled = reconcileCounterServing(queue, byQueue.get(String(queue._id)) || []);
+    if (missing || reconciled) await queue.save();
+  }
+}
 
 const router = Router();
 
@@ -36,6 +58,7 @@ router.get("/", async (_req, res, next) => {
       await ensureQueueSessionState(q);
       await expireNoShowCalls({ queueId: q._id });
     }
+    await reconcileCatalogServing(queues);
 
     return res.status(200).json({
       queues: await queuesWithOccupancy(queues),

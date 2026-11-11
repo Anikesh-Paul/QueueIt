@@ -35,3 +35,22 @@ export function presentServingBoard(counters = [], fallbackNowServing = null) {
     value: rows[0]?.value ?? "—",
   };
 }
+
+/**
+ * Compact now-serving / last-served line for catalog and join cards.
+ * Multi-counter queues name each counter; mixed live/idle rows keep their own labels.
+ */
+export function formatCatalogServing({ counters, nowServing } = {}) {
+  const board = presentServingBoard(counters, nowServing ?? null);
+  if (!board.multi) {
+    return `${board.label} ${board.value}`;
+  }
+  const parts = board.rows.map((row) => {
+    const name = row.name ? `${row.name} ` : "";
+    if (row.live === (board.label === "Now serving") || row.value === "—") {
+      return `${name}${row.value}`.trim();
+    }
+    return `${name}${row.label.toLowerCase()} ${row.value}`.trim();
+  });
+  return `${board.label} ${parts.join(", ")}`;
+}

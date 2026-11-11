@@ -39,7 +39,19 @@ export async function teardownTestDb() {
   }
 }
 
-/** Fresh Express app bound to the current test DB connection. */
-export function testApp() {
-  return createApp();
+/**
+ * Fresh Express app bound to the current test DB connection.
+ * Rate limits are off by default so existing suites are not throttled;
+ * pass options.rateLimit / authRateLimit / joinRateLimit to exercise them.
+ */
+export function testApp(options = {}) {
+  const { rateLimit, authRateLimit, joinRateLimit, ...rest } = options;
+  const enable =
+    rateLimit === true || authRateLimit != null || joinRateLimit != null;
+  return createApp({
+    ...rest,
+    authRateLimit,
+    joinRateLimit,
+    rateLimit: rateLimit === false || !enable ? false : rateLimit,
+  });
 }

@@ -7,14 +7,14 @@ import {
   signToken,
 } from "../middleware/auth.js";
 import { claimGuestOntoUser } from "../services/softUpgrade.js";
+import {
+  isValidEmail,
+  normalizeEmail,
+  normalizeName,
+  passwordError,
+} from "../services/authValidation.js";
 
 const router = Router();
-
-function normalizeEmail(email) {
-  return String(email || "")
-    .trim()
-    .toLowerCase();
-}
 
 /**
  * Soft upgrade: if a non-retired Guest credential is present, claim its
@@ -41,14 +41,22 @@ router.post("/register", async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
-    const name = String(req.body?.name || "").trim() || "User";
+    const named = normalizeName(req.body?.name);
 
-    if (!email || !password) {
+    if (!email || password == null || password === "") {
       return res.status(400).json({ error: "Email and password are required" });
     }
-    if (typeof password !== "string" || password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: "Enter a valid email address" });
     }
+    const passwordProblem = passwordError(password);
+    if (passwordProblem) {
+      return res.status(400).json({ error: passwordProblem });
+    }
+    if (!named.ok) {
+      return res.status(400).json({ error: named.error });
+    }
+    const name = named.name;
 
     const existing = await User.findOne({ email });
     if (existing) {
@@ -85,8 +93,17 @@ router.post("/login", async (req, res, next) => {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
 
-    if (!email || !password) {
+    if (!email || password == null || password === "") {
       return res.status(400).json({ error: "Email and password are required" });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: "Enter a valid email address" });
+    }
+    if (typeof password !== "string") {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+    if (password.length > 128) {
+      return res.status(400).json({ error: "Password must be at most 128 characters" });
     }
 
     const user = await User.findOne({ email }).select("+passwordHash");

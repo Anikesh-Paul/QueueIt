@@ -70,6 +70,42 @@ describe("Auth & roles (HTTP API)", () => {
 
       assert.equal(res.status, 400);
     });
+
+    it("rejects register with an invalid email address", async () => {
+      const app = testApp();
+      const res = await request(app).post("/api/auth/register").send({
+        email: "not-an-email",
+        password: "password123",
+        name: "Nope",
+      });
+
+      assert.equal(res.status, 400);
+      assert.match(res.body.error, /valid email/i);
+    });
+
+    it("rejects a password longer than 128 characters", async () => {
+      const app = testApp();
+      const res = await request(app).post("/api/auth/register").send({
+        email: "longpass@example.com",
+        password: "a".repeat(129),
+        name: "Long Pass",
+      });
+
+      assert.equal(res.status, 400);
+      assert.match(res.body.error, /at most 128/i);
+    });
+
+    it("rejects a display name longer than 80 characters", async () => {
+      const app = testApp();
+      const res = await request(app).post("/api/auth/register").send({
+        email: "hugename@example.com",
+        password: "password123",
+        name: "N".repeat(81),
+      });
+
+      assert.equal(res.status, 400);
+      assert.match(res.body.error, /too long/i);
+    });
   });
 
   describe("POST /api/auth/login", () => {
@@ -106,6 +142,28 @@ describe("Auth & roles (HTTP API)", () => {
       });
 
       assert.equal(res.status, 401);
+    });
+
+    it("rejects login with an invalid email address", async () => {
+      const app = testApp();
+      const res = await request(app).post("/api/auth/login").send({
+        email: "not-an-email",
+        password: "password123",
+      });
+
+      assert.equal(res.status, 400);
+      assert.match(res.body.error, /valid email/i);
+    });
+
+    it("rejects login with a password longer than 128 characters", async () => {
+      const app = testApp();
+      const res = await request(app).post("/api/auth/login").send({
+        email: "login@example.com",
+        password: "a".repeat(129),
+      });
+
+      assert.equal(res.status, 400);
+      assert.match(res.body.error, /at most 128/i);
     });
 
     it("logs in seeded admin and returns an admin-scoped session", async () => {

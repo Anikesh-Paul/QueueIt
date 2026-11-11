@@ -198,6 +198,8 @@ Copy examples to `.env` locally. **Never commit `.env` or real secrets.**
 
 CORS rejects browser calls if `CLIENT_ORIGIN` does not match the site origin exactly (scheme + host + port).
 
+The API also applies Helmet security headers, a 16kb JSON body cap, and per-IP rate limits on `POST /api/auth/login`, `POST /api/auth/register`, and `POST /api/queues/:id/join`. Register and login reject invalid emails, passwords outside 8–128 characters (register also enforces a minimum of 8), and names longer than 80 characters. Do not set `trust proxy` unless the process is behind a known reverse proxy; rate limits are keyed by the direct client IP.
+
 ## Deploy
 
 Suggested free-tier path:

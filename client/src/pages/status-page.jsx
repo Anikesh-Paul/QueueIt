@@ -252,7 +252,7 @@ export function StatusPage() {
             className="mb-4 rounded-lg border border-border bg-secondary px-3.5 py-2.5 text-sm text-text-secondary"
             aria-live="polite"
           >
-            Offline — showing your last known place in line. Live updates resume when you're back online.
+            Offline — showing your last known place in line. Live updates resume when you’re back online.
           </p>
         ) : null}
         <header className="mb-6">

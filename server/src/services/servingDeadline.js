@@ -154,7 +154,6 @@ export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
  */
 export async function advanceLineEntry(queue, { entryId, counterId } = {}, terminalStatus) {
   ensureDefaultCounters(queue);
-  const now = clockNow();
   const clear = {
     $set: {
       status: terminalStatus,

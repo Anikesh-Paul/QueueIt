@@ -68,7 +68,21 @@ export async function seedDemoAccounts(env = process.env) {
  * Upsert one venue and two queues for local/demo use.
  * Idempotent by slug; does not introduce multi-venue management UI.
  */
-export async function seedVenueAndQueues() {
+function shouldResetCatalog(env = process.env) {
+  const v = (env.SEED_RESET_CATALOG || "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+/**
+ * Upsert one venue and two queues for local/demo use.
+ * Idempotent by slug. Re-running does not overwrite live session fields
+ * (windows, status, acceptingTokens, sessionEndsAt, reopenAt, counters)
+ * unless SEED_RESET_CATALOG is true.
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env]
+ */
+export async function seedVenueAndQueues(env = process.env) {
+  const resetCatalog = shouldResetCatalog(env);
   let venue = await Venue.findOne({ slug: DEMO_VENUE.slug });
   if (venue) {
     venue.name = DEMO_VENUE.name;
@@ -83,8 +97,10 @@ export async function seedVenueAndQueues() {
     if (queue) {
       queue.name = def.name;
       queue.averageServiceTime = def.averageServiceTime;
-      queue.serviceWindows = def.serviceWindows;
-      queue.status = "open";
+      if (resetCatalog) {
+        queue.serviceWindows = def.serviceWindows;
+        queue.status = "open";
+      }
       await queue.save();
     } else {
       queue = await Queue.create({
@@ -107,7 +123,7 @@ export async function seedVenueAndQueues() {
  */
 export async function seedAll(env = process.env) {
   const accounts = await seedDemoAccounts(env);
-  const catalog = await seedVenueAndQueues();
+  const catalog = await seedVenueAndQueues(env);
   return { ...accounts, ...catalog };
 }
 

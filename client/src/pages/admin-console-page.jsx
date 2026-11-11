@@ -11,6 +11,7 @@ import { AdminCheckArrival } from "@/components/admin/admin-check-arrival";
 import { AdminPosterQr } from "@/components/admin/admin-poster-qr";
 import { AdminCounters } from "@/components/admin/admin-counters";
 import { AdminResetDangerZone } from "@/components/admin/admin-reset-danger-zone";
+import { AdminAuditPanel } from "@/components/admin/admin-audit-panel";
 
 /**
  * Admin console — medium-density waiting list + operate | Check arrival (lg+).
@@ -155,6 +156,7 @@ export function AdminConsolePage() {
             setSelectedEntryId={setSelectedEntryId}
           />
         </div>
+        <AdminAuditPanel token={token} queueId={queueId} />
         <AdminResetDangerZone
           queueName={queueName}
           adminActionBusy={adminActionBusy}

@@ -9,6 +9,7 @@ import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRang
 import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessVenueAccess, isGlobalAdmin } from "../services/staffAccess.js";
+import { listAdminAudit, recordAdminAudit } from "../services/adminAudit.js";
 import { inviteStaff } from "../services/staffInvite.js";
 import {
   applyExtend,
@@ -120,6 +121,10 @@ function toWaitingRow(entry, position, { paused = false, queue = null } = {}) {
   };
 }
 
+async function writeAudit(req, { action, queue = null, venue = null, meta = null } = {}) {
+  await recordAdminAudit({ actor: req.user, action, queue, venue, meta });
+}
+
 async function loadQueueOr404(queueId, res, user) {
   if (!mongoose.isValidObjectId(queueId)) {
     res.status(404).json({ error: "Queue not found" });
@@ -219,6 +224,8 @@ router.post("/queues/:queueId/serve", requireAuth, requireAdmin, async (req, res
       return res.status(result.status).json({ error: result.error });
     }
 
+    await writeAudit(req, { action: "serve", queue: result.queue, meta: { tokenNumber: result.entry.tokenNumber } });
+
     const { entry } = result;
     return res.status(200).json({
       served: {
@@ -248,6 +255,8 @@ router.post("/queues/:queueId/skip", requireAuth, requireAdmin, async (req, res,
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }
+
+    await writeAudit(req, { action: "skip", queue: result.queue, meta: { tokenNumber: result.entry.tokenNumber } });
 
     const { entry } = result;
     return res.status(200).json({
@@ -280,6 +289,8 @@ router.post("/queues/:queueId/call", requireAuth, requireAdmin, async (req, res,
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }
+
+    await writeAudit(req, { action: "call", queue: result.queue, meta: { tokenNumber: result.entry.tokenNumber } });
 
     const { entry } = result;
     return res.status(200).json({
@@ -508,6 +519,8 @@ router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res
       { $set: { status: "left", servingDeadlineAt: null, servingPausedRemainingMs: null } }
     );
 
+    await writeAudit(req, { action: "reset", queue: updated, meta: { cleared: closed.modifiedCount } });
+
     emitQueueChanged(queue._id, "reset");
 
     return res.status(200).json({
@@ -637,6 +650,8 @@ router.post("/queues/:queueId/pause", requireAuth, requireAdmin, async (req, res
     await freezeServingDeadlines(queue._id);
     await queue.save();
 
+    await writeAudit(req, { action: "pause", queue });
+
     emitQueueChanged(queue._id, "pause");
 
     return res.status(200).json({
@@ -659,6 +674,8 @@ router.post("/queues/:queueId/resume", requireAuth, requireAdmin, async (req, re
     queue.status = "open";
     await resumeServingDeadlines(queue._id);
     await queue.save();
+
+    await writeAudit(req, { action: "resume", queue });
 
     emitQueueChanged(queue._id, "resume");
 
@@ -692,6 +709,8 @@ router.post(
       await autoPrepareIfClosedEmpty(queue);
       await queue.save();
 
+      await writeAudit(req, { action: "stop-accepting", queue });
+
       emitQueueChanged(queue._id, "stop-accepting");
 
       return res.status(200).json({
@@ -719,6 +738,8 @@ router.post(
 
       applyStartAccepting(queue);
       await queue.save();
+
+      await writeAudit(req, { action: "start-accepting", queue });
 
       emitQueueChanged(queue._id, "start-accepting");
 
@@ -788,6 +809,8 @@ router.put(
         return res.status(applied.status).json({ error: applied.error });
       }
       await queue.save();
+
+      await writeAudit(req, { action: "service-windows", queue });
 
       emitQueueChanged(queue._id, "service-windows");
 
@@ -859,6 +882,30 @@ router.get("/analytics.csv", requireAuth, requireAdmin, async (req, res, next) =
   }
 });
 
+/**
+ * GET /api/admin/audit
+ * Paginated admin action log (newest first). Staff are locked to their venue.
+ * Optional queueId / venueId filters. Cursor is the last event id.
+ */
+router.get("/audit", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await listAdminAudit(req.user, {
+      queueId: req.query.queueId,
+      venueId: req.query.venueId,
+      cursor: req.query.cursor,
+      limit: req.query.limit,
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(200).json({
+      events: result.events,
+      hasMore: result.hasMore,
+      cursor: result.cursor,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.get("/catalog", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const venues = await listAdminCatalog(req.user);
@@ -884,6 +931,7 @@ router.post("/staff", requireAuth, requireAdmin, async (req, res, next) => {
       temporaryPassword: req.body?.temporaryPassword,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
+    await writeAudit(req, { action: "staff-invite", venue: { _id: result.user.staffVenue, name: null }, meta: { email: result.user.email } });
     return res.status(201).json({
       staff: result.user.toPublicJSON(),
       temporaryPassword: result.temporaryPassword,
@@ -953,6 +1001,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       noShowMinutes: req.body?.noShowMinutes,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
+    await writeAudit(req, { action: "queue-update", queue: result.queue, meta: { maxWaiting: req.body?.maxWaiting ?? undefined } });
     const venue = await Venue.findById(result.queue.venue);
     return res.status(200).json({
       queue: toAdminCatalogQueueJSON(result.queue, venue),

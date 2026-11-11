@@ -1,0 +1,29 @@
+/** Human labels for persisted admin audit actions. */
+const ACTION_LABELS = {
+  pause: "Paused the queue",
+  resume: "Resumed the queue",
+  skip: "Skipped a token",
+  serve: "Served a token",
+  call: "Called a token",
+  reset: "Reset the queue",
+  "stop-accepting": "Stopped accepting tokens",
+  "start-accepting": "Started accepting tokens",
+  "service-windows": "Updated service windows",
+  "staff-invite": "Invited staff",
+  "queue-update": "Updated queue settings",
+};
+
+export function auditActionLabel(action) {
+  if (!action) return "Admin action";
+  return ACTION_LABELS[action] || String(action).replace(/-/g, " ");
+}
+
+export function auditMetaLine(event) {
+  const meta = event?.meta || {};
+  const parts = [];
+  if (meta.tokenNumber != null) parts.push(`token ${meta.tokenNumber}`);
+  if (meta.cleared != null) parts.push(`${meta.cleared} places cleared`);
+  if (meta.email) parts.push(meta.email);
+  if (meta.maxWaiting != null) parts.push(`cap ${meta.maxWaiting || "none"}`);
+  return parts.join(" · ");
+}

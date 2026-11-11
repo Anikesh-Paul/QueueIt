@@ -32,7 +32,8 @@ export function QueuesPage() {
     joinError,
     join,
     openAdminConsole,
-    inQueue,
+    activeMemberships,
+    selectMembership,
   } = useApp();
   const navigate = useNavigate();
   const [showPostLeaveUpgrade, setShowPostLeaveUpgrade] = useState(() => {
@@ -43,12 +44,6 @@ export function QueuesPage() {
       return false;
     }
   });
-
-  // Session restore can resolve an active membership after the router landed
-  // on /queues — bounce queued users back to their live status view.
-  useEffect(() => {
-    if (inQueue) navigate("/status", { replace: true });
-  }, [inQueue, navigate]);
 
   // Soft upgrade clears Guest path — drop any leftover post-leave reinforce.
   useEffect(() => {
@@ -76,6 +71,11 @@ export function QueuesPage() {
     if (!selectedQueueId || joinBusy) return;
     const ok = await join(selectedQueueId);
     if (ok) navigate("/status");
+  }
+
+  async function handleViewPlace(queueId) {
+    await selectMembership(queueId);
+    navigate("/status");
   }
 
   async function handleManage() {
@@ -197,6 +197,17 @@ export function QueuesPage() {
                   <span className="text-sm text-text-muted">
                     {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
                   </span>
+                  {activeMemberships.some((row) => row.queue?.id === queue.id) ? (
+                    <span
+                      data-testid="queue-in-line"
+                      className="mt-1 text-sm font-medium text-primary"
+                    >
+                      You're in this line
+                      {activeMemberships.find((row) => row.queue?.id === queue.id)?.tokenNumber
+                        ? ` · token ${activeMemberships.find((row) => row.queue?.id === queue.id).tokenNumber}`
+                        : ""}
+                    </span>
+                  ) : null}
                   {closed && queue.reopenAt ? (
                     <span
                       data-testid="queue-reopen"
@@ -222,6 +233,15 @@ export function QueuesPage() {
               className="w-full sm:w-auto"
             >
               Manage {selected.name}
+            </Button>
+          ) : activeMemberships.some((row) => row.queue?.id === selected.id) ? (
+            <Button
+              size="lg"
+              onClick={() => handleViewPlace(selected.id)}
+              data-testid="view-place-in-line"
+              className="w-full sm:w-auto"
+            >
+              View place in {selected.name}
             </Button>
           ) : (
             <Button

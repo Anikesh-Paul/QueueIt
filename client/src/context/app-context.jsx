@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  fetchActiveMemberships,
   fetchAnalytics,
   fetchHistory,
   fetchMe,
@@ -70,6 +71,8 @@ export function AppProvider({ children }) {
 
   const [liveStatus, setLiveStatus] = useState(null);
   const [statusQueueId, setStatusQueueId] = useState(null);
+  /** All active memberships for this joiner (one per queue). */
+  const [activeMemberships, setActiveMemberships] = useState([]);
   /** Wall-clock ms of last successful live status payload (join / poll / restore). */
   const [statusLastUpdatedAt, setStatusLastUpdatedAt] = useState(null);
   const [joinBusy, setJoinBusy] = useState(false);
@@ -103,6 +106,7 @@ export function AppProvider({ children }) {
   const realtimeRef = useRef(null);
   const statusQueueIdRef = useRef(null);
   const adminQueueIdRef = useRef(null);
+  const activeMembershipsRef = useRef([]);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   // Keep refs in sync so the socket's queue:changed handler always targets the
@@ -110,7 +114,8 @@ export function AppProvider({ children }) {
   useEffect(() => {
     statusQueueIdRef.current = statusQueueId;
     adminQueueIdRef.current = adminQueueId;
-  }, [statusQueueId, adminQueueId]);
+    activeMembershipsRef.current = activeMemberships;
+  }, [statusQueueId, adminQueueId, activeMemberships]);
 
   /**
    * Persist JWT User/Admin session. When establishing a session, clears the
@@ -152,6 +157,7 @@ export function AppProvider({ children }) {
   const clearLiveStatus = useCallback(() => {
     setLiveStatus(null);
     setStatusQueueId(null);
+    setActiveMemberships([]);
     setStatusLastUpdatedAt(null);
     setJoinError("");
     setStatusError("");
@@ -204,22 +210,45 @@ export function AppProvider({ children }) {
     return { token: null, guestCredential: guestCredential || null };
   }, [token, guestCredential]);
 
-  const restoreActiveMembership = useCallback(async (sessionToken, catalog, guestCred) => {
-    if ((!sessionToken && !guestCred) || !Array.isArray(catalog)) return false;
-    for (const queue of catalog) {
-      try {
-        const data = await fetchQueueStatus(sessionToken, queue.id, guestCred);
-        setLiveStatus(data);
-        setStatusQueueId(queue.id);
-        setStatusLastUpdatedAt(Date.now());
-        setStatusError("");
-        return true;
-      } catch {
-        // Not in this queue — try next.
-      }
+  const applyMemberships = useCallback((memberships, preferredQueueId) => {
+    const list = Array.isArray(memberships) ? memberships : [];
+    setActiveMemberships(list);
+    if (list.length === 0) {
+      setLiveStatus(null);
+      setStatusQueueId(null);
+      setStatusLastUpdatedAt(null);
+      return false;
     }
-    return false;
+    const preferred =
+      (preferredQueueId && list.find((row) => row.queue?.id === preferredQueueId)) ||
+      list[0];
+    setLiveStatus(preferred);
+    setStatusQueueId(preferred.queue.id);
+    setStatusLastUpdatedAt(Date.now());
+    setStatusError("");
+    return true;
   }, []);
+
+  const restoreActiveMembership = useCallback(async (sessionToken, catalog, guestCred, preferredQueueId) => {
+    if (!sessionToken && !guestCred) return false;
+    try {
+      const data = await fetchActiveMemberships(sessionToken, guestCred);
+      return applyMemberships(data.memberships, preferredQueueId);
+    } catch {
+      // Fallback: probe the catalog one queue at a time (legacy / older API).
+      if (!Array.isArray(catalog)) return false;
+      const found = [];
+      for (const queue of catalog) {
+        try {
+          const row = await fetchQueueStatus(sessionToken, queue.id, guestCred);
+          found.push(row);
+        } catch {
+          // Not in this queue — try next.
+        }
+      }
+      return applyMemberships(found, preferredQueueId);
+    }
+  }, [applyMemberships]);
 
   const loadQueues = useCallback(
     async (sessionToken, { restoreStatus = false, guestCred } = {}) => {
@@ -248,13 +277,33 @@ export function AppProvider({ children }) {
       if (!silent) setStatusUpdating(true);
       try {
         const data = await fetchQueueStatus(sessionToken, queueId, guestCred);
-        setLiveStatus(data);
-        setStatusQueueId(queueId);
-        setStatusLastUpdatedAt(Date.now());
+        setLiveStatus((current) =>
+          !current || current.queue?.id === queueId ? data : current
+        );
+        if (statusQueueIdRef.current === queueId) {
+          setStatusLastUpdatedAt(Date.now());
+        }
+        setActiveMemberships((list) => {
+          const rest = list.filter((row) => row.queue?.id !== queueId);
+          return [...rest, data].sort((a, b) =>
+            String(a.queue?.name || "").localeCompare(String(b.queue?.name || ""))
+          );
+        });
         setStatusError("");
       } catch (err) {
         if (err.status === 404) {
-          clearLiveStatus();
+          const rest = activeMembershipsRef.current.filter((row) => row.queue?.id !== queueId);
+          setActiveMemberships(rest);
+          if (statusQueueIdRef.current === queueId) {
+            if (rest.length === 0) {
+              clearLiveStatus();
+            } else {
+              const next = rest[0];
+              setLiveStatus(next);
+              setStatusQueueId(next.queue.id);
+              setStatusLastUpdatedAt(Date.now());
+            }
+          }
           return;
         }
         setStatusError(err.message || "Could not refresh status");
@@ -347,8 +396,11 @@ export function AppProvider({ children }) {
       token,
       onStatusChange: (connected) => setRealtimeConnected(connected),
       onQueueChanged: ({ queueId }) => {
-        if (queueId === statusQueueIdRef.current) {
-          refreshStatus(token, statusQueueIdRef.current, { silent: true });
+        const inMemberships = activeMembershipsRef.current.some(
+          (row) => row.queue?.id === queueId
+        );
+        if (queueId === statusQueueIdRef.current || inMemberships) {
+          refreshStatus(token, queueId, { silent: true });
         }
         if (queueId === adminQueueIdRef.current) {
           loadWaitingList(token, adminQueueIdRef.current, { silent: true });
@@ -369,9 +421,10 @@ export function AppProvider({ children }) {
   useEffect(() => {
     const client = realtimeRef.current;
     if (!client) return;
-    const targets = [statusQueueId, adminQueueId].filter(Boolean);
+    const membershipIds = activeMemberships.map((row) => row.queue?.id).filter(Boolean);
+    const targets = [...new Set([...membershipIds, statusQueueId, adminQueueId].filter(Boolean))];
     client.setSubscriptions(targets);
-  }, [statusQueueId, adminQueueId]);
+  }, [statusQueueId, adminQueueId, activeMemberships]);
 
   const loadHistory = useCallback(async (sessionToken, guestCred) => {
     if (!sessionToken && !guestCred) return;
@@ -470,6 +523,10 @@ export function AppProvider({ children }) {
         }
         setLiveStatus(data);
         setStatusQueueId(queueId);
+        setActiveMemberships((list) => {
+          const rest = list.filter((row) => row.queue?.id !== queueId);
+          return [...rest, data];
+        });
         setStatusLastUpdatedAt(Date.now());
         setStatusError("");
         return true;
@@ -501,20 +558,38 @@ export function AppProvider({ children }) {
     setLeaveBusy(true);
     try {
       await leaveQueue(auth.token, statusQueueId, auth.guestCredential);
+      const remaining = activeMemberships.filter((row) => row.queue?.id !== statusQueueId);
       // Optional post-leave soft-upgrade reinforce (Guest only; not a banner).
-      if (!auth.token && auth.guestCredential) {
+      if (!auth.token && auth.guestCredential && remaining.length === 0) {
         try {
           sessionStorage.setItem(SOFT_UPGRADE_POST_LEAVE_KEY, "1");
         } catch {
           // Private mode / blocked storage — skip reinforce.
         }
       }
-      clearLiveStatus();
-      setSelectedQueueId(null);
+      if (remaining.length === 0) {
+        clearLiveStatus();
+        setSelectedQueueId(null);
+      } else {
+        setActiveMemberships(remaining);
+        const next = remaining[0];
+        setLiveStatus(next);
+        setStatusQueueId(next.queue.id);
+        setStatusLastUpdatedAt(Date.now());
+      }
       return true;
     } catch (err) {
       if (err.status === 404) {
-        clearLiveStatus();
+        const remaining = activeMemberships.filter((row) => row.queue?.id !== statusQueueId);
+        if (remaining.length === 0) {
+          clearLiveStatus();
+        } else {
+          setActiveMemberships(remaining);
+          const next = remaining[0];
+          setLiveStatus(next);
+          setStatusQueueId(next.queue.id);
+          setStatusLastUpdatedAt(Date.now());
+        }
         return true;
       }
       setLeaveError(err.message || "Could not leave queue");
@@ -522,7 +597,7 @@ export function AppProvider({ children }) {
     } finally {
       setLeaveBusy(false);
     }
-  }, [joinerAuth, statusQueueId, clearLiveStatus]);
+  }, [joinerAuth, statusQueueId, activeMemberships, clearLiveStatus]);
 
   const openAdminConsole = useCallback(
     async (queueId) => {
@@ -673,6 +748,20 @@ export function AppProvider({ children }) {
   // Guest persona when no JWT User/Admin and (mode or credential) is present.
   const isGuest = !user && (guestMode || Boolean(guestCredential));
 
+  const selectMembership = useCallback(
+    async (queueId) => {
+      const cached = activeMemberships.find((row) => row.queue?.id === queueId);
+      if (cached) {
+        setLiveStatus(cached);
+        setStatusQueueId(queueId);
+        setStatusLastUpdatedAt(Date.now());
+      }
+      const auth = joinerAuth();
+      await refreshStatus(auth.token, queueId, { guestCred: auth.guestCredential });
+    },
+    [activeMemberships, joinerAuth, refreshStatus]
+  );
+
   const value = {
     token,
     user,
@@ -696,6 +785,8 @@ export function AppProvider({ children }) {
     statusQueueId,
     statusLastUpdatedAt,
     inQueue: Boolean(liveStatus && statusQueueId),
+    activeMemberships,
+    selectMembership,
     joinBusy,
     joinError,
     statusError,

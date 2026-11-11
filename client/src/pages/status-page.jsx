@@ -68,6 +68,8 @@ export function StatusPage() {
     leaveBusy,
     leaveError,
     realtimeConnected,
+    activeMemberships,
+    selectMembership,
   } = useAppStatus();
   const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -227,6 +229,39 @@ export function StatusPage() {
           >
             Your place in line
           </h1>
+          {activeMemberships.length > 1 ? (
+            <div
+              className="mt-3 flex flex-wrap items-center gap-2"
+              data-testid="status-membership-switcher"
+              role="tablist"
+              aria-label="Your lines"
+            >
+              {activeMemberships.map((row) => {
+                const id = row.queue?.id;
+                const name = row.queue?.name || "Queue";
+                const selected = id === statusQueueId;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    data-testid="status-queue-tab"
+                    onClick={() => id && selectMembership(id)}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-sm font-semibold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                      selected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-text-secondary hover:bg-secondary/80"
+                    )}
+                  >
+                    {name}
+                    {row.tokenNumber != null ? ` · #${row.tokenNumber}` : ""}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </header>
 
         {closed && (

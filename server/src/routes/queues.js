@@ -67,6 +67,36 @@ router.get("/history", attachJoiner, requireJoiner, async (req, res, next) => {
 });
 
 /**
+ * GET /api/queues/active — every active membership for the current joiner.
+ * Registered before /:queueId routes so "active" is not parsed as an id.
+ */
+router.get("/active", attachJoiner, requireJoiner, async (req, res, next) => {
+  try {
+    const filter = req.user
+      ? { user: req.user._id, status: { $in: ACTIVE_ENTRY_STATUSES } }
+      : { guest: req.guest._id, status: { $in: ACTIVE_ENTRY_STATUSES } };
+
+    const entries = await QueueEntry.find(filter)
+      .populate("queue")
+      .sort({ createdAt: 1 })
+      .exec();
+
+    const memberships = [];
+    for (const entry of entries) {
+      const queue = entry.queue;
+      if (!queue) continue;
+      await ensureQueueSessionState(queue);
+      memberships.push(await buildStatusPayload(queue, entry));
+    }
+
+    return res.status(200).json({ memberships });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+/**
  * Resolve active membership for the current joiner (User or Guest).
  */
 async function findJoinerActiveEntry(queueId, req) {

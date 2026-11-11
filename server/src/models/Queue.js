@@ -193,6 +193,19 @@ const queueSchema = new mongoose.Schema(
       max: 20,
       default: 2,
     },
+    /** At most every Kth serve may be a priority entry (1 = no cap). */
+    priorityEveryK: {
+      type: Number,
+      min: 1,
+      max: 10,
+      default: 3,
+    },
+    /** Regular serves completed since the last priority serve. Caps at K-1. */
+    regularServesSincePriority: {
+      type: Number,
+      min: 0,
+      default: 2,
+    },
   },
   { timestamps: true }
 );
@@ -224,6 +237,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     noShowMaxMinutes: this.noShowMaxMinutes ?? 15,
     recoveryMinutes: this.recoveryMinutes ?? 15,
     recoveryPlaces: this.recoveryPlaces ?? 2,
+    priorityEveryK: this.priorityEveryK ?? 3,
     status: this.status,
     acceptingTokens: this.acceptingTokens !== false,
     serviceWindows: normalizeServiceWindows(this.serviceWindows),

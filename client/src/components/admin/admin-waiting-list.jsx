@@ -1,6 +1,18 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+const PRIORITY_REASON_LABELS = {
+  accessibility: "Accessibility",
+  pregnancy: "Pregnancy",
+  medical: "Medical / urgent",
+  other: "Other",
+};
+
+export function priorityReasonLabel(reason) {
+  return PRIORITY_REASON_LABELS[reason] || reason;
+}
+
+
 export function AdminWaitingList({
   waitingList,
   waitingLoading,
@@ -100,6 +112,22 @@ export function AdminWaitingList({
                                   data-testid="waiting-returning-badge"
                                 >
                                   Returning
+                                </span>
+                              ) : null}
+                              {entry.priority ? (
+                                <span
+                                  className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground"
+                                  data-testid="waiting-priority-badge"
+                                >
+                                  Priority
+                                  {entry.priorityReason ? ` · ${priorityReasonLabel(entry.priorityReason)}` : ""}
+                                </span>
+                              ) : entry.priorityRequestStatus === "pending" ? (
+                                <span
+                                  className="shrink-0 rounded-full bg-primary-muted px-2 py-0.5 text-xs font-semibold text-primary ring-1 ring-primary/30"
+                                  data-testid="waiting-priority-requested-badge"
+                                >
+                                  Priority requested
                                 </span>
                               ) : null}
                             </span>

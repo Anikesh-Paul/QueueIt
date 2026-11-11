@@ -13,6 +13,8 @@ import {
   updateServiceWindows,
   walkInQueue,
   addQueueCounter,
+  markEntryPriority,
+  decidePriorityRequest,
   renameQueueCounter,
   removeQueueCounter,
 } from "@/api";
@@ -292,6 +294,24 @@ export function useAdminConsoleState({
     [token, adminQueueId, runAdminAction]
   );
 
+  const adminMarkPriority = useCallback(
+    (entryId, reason) =>
+      runAdminAction(
+        () => markEntryPriority(token, adminQueueId, entryId, reason),
+        "Could not mark priority"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
+  const adminDecidePriorityRequest = useCallback(
+    (entryId, approve) =>
+      runAdminAction(
+        () => decidePriorityRequest(token, adminQueueId, entryId, approve),
+        approve ? "Could not approve priority" : "Could not decline priority"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
   return {
     adminQueueId,
     adminQueueMeta,
@@ -319,6 +339,8 @@ export function useAdminConsoleState({
     adminAddCounter,
     adminRenameCounter,
     adminRemoveCounter,
+    adminMarkPriority,
+    adminDecidePriorityRequest,
     adminQueueIdRef,
   };
 }

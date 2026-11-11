@@ -91,6 +91,21 @@ const queueEntrySchema = new mongoose.Schema(
     waitOrder: { type: Number, default: null },
     /** True while the student is back in line after a missed-turn recovery. */
     returning: { type: Boolean, default: false },
+    /** Approved priority flag. Pending requests leave this false. */
+    priority: { type: Boolean, default: false },
+    priorityReason: {
+      type: String,
+      enum: ["accessibility", "pregnancy", "medical", "other"],
+      default: null,
+    },
+    priorityRequestStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: null,
+    },
+    priorityRequestedAt: { type: Date, default: null },
+    /** When this entry was served. */
+    servedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

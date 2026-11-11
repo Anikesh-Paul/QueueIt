@@ -154,6 +154,31 @@ export function rejoinQueue(token, queueId, guestCredential) {
   });
 }
 
+export function requestPriority(token, queueId, reason, guestCredential) {
+  return apiRequest(`/api/queues/${queueId}/priority-request`, {
+    method: "POST",
+    token,
+    guestCredential,
+    body: { reason },
+  });
+}
+
+export function markEntryPriority(token, queueId, entryId, reason) {
+  return apiRequest(`/api/admin/queues/${queueId}/entries/${entryId}/priority`, {
+    method: "POST",
+    token,
+    body: { reason },
+  });
+}
+
+export function decidePriorityRequest(token, queueId, entryId, approve) {
+  return apiRequest(`/api/admin/queues/${queueId}/entries/${entryId}/priority-decision`, {
+    method: "POST",
+    token,
+    body: { approve: Boolean(approve) },
+  });
+}
+
 /** GET /api/queues/history — paginated User or Guest history (newest first, default 20). */
 export function fetchHistory(token, guestCredential, options = {}) {
   const params = new URLSearchParams();

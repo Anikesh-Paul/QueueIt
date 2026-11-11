@@ -35,8 +35,11 @@ export function AdminOperatePanel({
   adminStopAccepting,
   adminStartAccepting,
   adminExtend,
+  adminMarkPriority,
+  adminDecidePriorityRequest,
 }) {
   const [extendEndsAt, setExtendEndsAt] = useState("");
+  const [priorityReason, setPriorityReason] = useState("accessibility");
   const [reopenOverride, setReopenOverride] = useState("");
   const [skipOpen, setSkipOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
@@ -57,6 +60,8 @@ export function AdminOperatePanel({
     adminQueueMeta?.noShowWindow?.minutes ?? adminQueueMeta?.noShowMinutes ?? null;
   const noShowWindowMode =
     adminQueueMeta?.noShowWindow?.mode ?? adminQueueMeta?.noShowMode ?? "fixed";
+  const selectedEntry = waitingList.find((entry) => entry.id === selectedEntryId) || null;
+  const k = adminQueueMeta?.priorityEveryK ?? 3;
   const canCall =
     !adminActionBusy &&
     !paused &&
@@ -339,6 +344,74 @@ export function AdminOperatePanel({
                 <p className="mt-3 text-xs text-text-muted" data-testid="admin-pause-stop-help">
                   Pause stops serving, but people can still join. Stop accepting refuses new tokens and keeps the current line.
                 </p>
+
+                {selectedEntry ? (
+                  <div
+                    className="mt-3 flex flex-col gap-2 rounded-lg border border-border bg-secondary px-3 py-3"
+                    data-testid="admin-priority-panel"
+                  >
+                    <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                      Priority · token #{selectedEntry.tokenNumber}
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      At most every {k}th serve may be priority so the regular line is not starved.
+                    </p>
+                    {selectedEntry.priority ? (
+                      <p className="text-sm text-foreground" data-testid="admin-priority-current">
+                        This token already has priority
+                        {selectedEntry.priorityReason ? ` ({selectedEntry.priorityReason})` : ""}.
+                      </p>
+                    ) : selectedEntry.priorityRequestStatus === "pending" ? (
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          disabled={adminActionBusy}
+                          onClick={() => adminDecidePriorityRequest(selectedEntry.id, true)}
+                          data-testid="admin-priority-approve"
+                        >
+                          Approve request
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={adminActionBusy}
+                          onClick={() => adminDecidePriorityRequest(selectedEntry.id, false)}
+                          data-testid="admin-priority-reject"
+                        >
+                          Decline
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-medium text-text-secondary">
+                          Reason
+                          <select
+                            value={priorityReason}
+                            onChange={(event) => setPriorityReason(event.target.value)}
+                            disabled={adminActionBusy}
+                            data-testid="admin-priority-reason"
+                            className="h-8 rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
+                            <option value="accessibility">Accessibility</option>
+                            <option value="pregnancy">Pregnancy</option>
+                            <option value="medical">Medical / urgent</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </label>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={adminActionBusy}
+                          onClick={() => adminMarkPriority(selectedEntry.id, priorityReason)}
+                          data-testid="admin-priority-mark"
+                        >
+                          Mark priority
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
 
                 {acceptingTokens ? (
                   <div className="mt-3 flex flex-col gap-3">

@@ -12,6 +12,7 @@ import {
   completeCounterTurn,
 } from "./counters.js";
 import { resolveNoShowWindow } from "./noShowWindow.js";
+import { applyServedFairness, claimNextWaiting } from "./priorityLane.js";
 
 export { DEFAULT_NO_SHOW_MINUTES, resolveNoShowMinutes } from "./noShowWindow.js";
 
@@ -112,21 +113,13 @@ export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
     };
   }
 
-  const filter = { queue: queue._id, status: "waiting" };
-  if (entryId) {
-    if (!mongoose.isValidObjectId(entryId)) {
-      return { ok: false, status: 404, error: "Waiting entry not found" };
-    }
-    filter._id = entryId;
-  }
-
   const now = clockNow();
   const window = await resolveNoShowWindow(queue);
   const deadline = new Date(now.getTime() + window.minutes * 60_000);
 
-  const entry = await QueueEntry.findOneAndUpdate(
-    filter,
-    {
+  const claimed = await claimNextWaiting(queue, {
+    entryId,
+    update: {
       $set: {
         status: "serving",
         calledAt: now,
@@ -138,18 +131,9 @@ export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
         noShowWindowMode: window.mode,
       },
     },
-    {
-      sort: entryId ? undefined : { waitOrder: 1, tokenNumber: 1 },
-      returnDocument: "after",
-    }
-  );
-  if (!entry) {
-    return {
-      ok: false,
-      status: 404,
-      error: entryId ? "Waiting entry not found" : "No one waiting",
-    };
-  }
+  });
+  if (!claimed.ok) return claimed;
+  const entry = claimed.entry;
 
   setCounterNowServing(queue, target.counter, entry.tokenNumber);
   await autoPrepareIfClosedEmpty(queue);
@@ -170,6 +154,7 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
       returning: false,
       ...clearServingTimer(),
       ...(terminalStatus === "skipped" ? { skippedAt: clockNow() } : {}),
+      ...(terminalStatus === "served" ? { servedAt: clockNow() } : {}),
     },
   };
 
@@ -182,6 +167,7 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
       returnDocument: "after",
     });
     if (serving) {
+      if (terminalStatus === "served") applyServedFairness(queue, serving);
       const counter =
         findCounterForEntry(queue, serving) ||
         (counterId ? null : queue.counters[0]);
@@ -193,29 +179,13 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
     }
   }
 
-  const filter = { queue: queue._id, status: { $in: ["waiting", "serving"] } };
-  if (entryId) {
-    if (!mongoose.isValidObjectId(entryId)) {
-      return { ok: false, status: 404, error: "Waiting entry not found" };
-    }
-    filter._id = entryId;
-  }
-
-  const entry = await QueueEntry.findOneAndUpdate(
-    filter,
-    clear,
-    {
-      sort: entryId ? undefined : { waitOrder: 1, tokenNumber: 1 },
-      returnDocument: "after",
-    }
-  );
-  if (!entry) {
-    return {
-      ok: false,
-      status: 404,
-      error: entryId ? "Waiting entry not found" : "No one waiting",
-    };
-  }
+  const claimed = await claimNextWaiting(queue, {
+    entryId,
+    update: clear,
+    extraStatuses: entryId ? ["serving"] : [],
+  });
+  if (!claimed.ok) return claimed;
+  const entry = claimed.entry;
 
   let counter = findCounterForEntry(queue, entry);
   if (!counter) {
@@ -230,6 +200,7 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
     entry.servingCounterId = counter._id;
     await entry.save();
   }
+  if (terminalStatus === "served") applyServedFairness(queue, entry);
   completeCounterTurn(queue, counter, entry.tokenNumber, { served: terminalStatus === "served" });
   await autoPrepareIfClosedEmpty(queue);
   await queue.save();

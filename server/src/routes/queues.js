@@ -14,6 +14,7 @@ import { emitQueueChanged } from "../services/realtime.js";
 import { ensureQueueSessionState } from "../services/queueSession.js";
 import { acknowledgeArrival, expireNoShowCalls } from "../services/servingDeadline.js";
 import { findRecoverableEntry, isRecoverable, recoverMissedTurn, recoveryDeadline } from "../services/missedTurn.js";
+import { requestPriority } from "../services/priorityLane.js";
 import { recordAdminAudit } from "../services/adminAudit.js";
 import { occupancyByQueueIds, queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 import { toBoardJSON } from "../services/queueBoard.js";
@@ -495,6 +496,42 @@ router.post("/:queueId/rejoin", attachJoiner, requireJoiner, async (req, res, ne
       meta: { tokenNumber: result.entry.tokenNumber },
     });
 
+    const payload = await buildStatusPayload(queue, result.entry);
+    return res.status(200).json(payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+/**
+ * POST /api/queues/:queueId/priority-request — student asks staff for priority.
+ * Body: { reason: accessibility|pregnancy|medical|other }
+ * Pending and rejected requests do not change place in line.
+ */
+router.post("/:queueId/priority-request", attachJoiner, requireJoiner, async (req, res, next) => {
+  try {
+    const { queueId } = req.params;
+    if (!mongoose.isValidObjectId(queueId)) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+    const queue = await Queue.findById(queueId);
+    if (!queue || queue.archivedAt) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+    await ensureQueueSessionState(queue);
+    const entry = await findJoinerActiveEntry(queue._id, req);
+    if (!entry) return res.status(404).json({ error: "Not in this queue" });
+    const result = await requestPriority(queue, entry, { reason: req.body?.reason });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+
+    await recordAdminAudit({
+      actor: auditActor(req),
+      action: "priority-request",
+      queue,
+      meta: { tokenNumber: result.entry.tokenNumber, reason: result.entry.priorityReason },
+    });
+    emitQueueChanged(queue._id, "priority");
     const payload = await buildStatusPayload(queue, result.entry);
     return res.status(200).json(payload);
   } catch (err) {

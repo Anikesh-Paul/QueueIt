@@ -46,6 +46,8 @@ export function AdminConsolePage() {
     adminAddCounter,
     adminRenameCounter,
     adminRemoveCounter,
+    adminMarkPriority,
+    adminDecidePriorityRequest,
     realtimeConnected,
   } = useAdminConsole();
 
@@ -125,6 +127,8 @@ export function AdminConsolePage() {
               adminStopAccepting={adminStopAccepting}
               adminStartAccepting={adminStartAccepting}
               adminExtend={adminExtend}
+              adminMarkPriority={adminMarkPriority}
+              adminDecidePriorityRequest={adminDecidePriorityRequest}
             />
             <AdminServiceWindows
               queueId={queueId}

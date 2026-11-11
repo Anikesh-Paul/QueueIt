@@ -101,6 +101,7 @@ export async function seedVenueAndQueues(env = process.env) {
         queue.serviceWindows = def.serviceWindows;
         queue.status = "open";
         queue.archivedAt = null;
+        queue.maxWaiting = null;
       }
       if (!Array.isArray(queue.counters) || queue.counters.length === 0) {
         queue.counters = [{ name: "Counter 1", nowServing: queue.nowServing ?? null }];

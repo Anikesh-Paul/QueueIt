@@ -50,8 +50,9 @@ export function JoinPage() {
   const queue = validId ? queues.find((row) => row.id === queueId) : null;
   const membership = activeMemberships.find((row) => row.queue?.id === queueId);
   const closed = queue?.acceptingTokens === false;
+  const full = queue?.full === true;
   const paused = queue?.status === "paused";
-  const primaryLabel = !queue ? null : closed ? "Closed" : paused ? "Paused" : "Open";
+  const primaryLabel = !queue ? null : closed ? "Closed" : full ? "Full" : paused ? "Paused" : "Open";
 
   async function handleJoin() {
     if (!validId || joinBusy) return;
@@ -155,6 +156,9 @@ export function JoinPage() {
               </h2>
               <p className="mt-0.5 text-sm text-text-muted">
                 {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
+                {queue.maxWaiting
+                  ? ` · ${queue.waitingCount ?? 0}/${queue.maxWaiting} waiting`
+                  : ""}
               </p>
             </div>
             <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
@@ -162,20 +166,23 @@ export function JoinPage() {
                 data-testid={
                   closed
                     ? "queue-state-closed"
-                    : paused
-                      ? "queue-state-paused"
-                      : "queue-state-open"
+                    : full
+                      ? "queue-state-full"
+                      : paused
+                        ? "queue-state-paused"
+                        : "queue-state-open"
                 }
                 className={cn(
                   "rounded-full px-2 py-0.5 text-xs font-semibold",
                   closed && "bg-secondary text-text-secondary",
-                  !closed && paused && "bg-[#FEF3C7] text-[#92400E]",
-                  !closed && !paused && "bg-primary-muted text-primary"
+                  !closed && full && "bg-[#FEE2E2] text-[#991B1B]",
+                  !closed && !full && paused && "bg-[#FEF3C7] text-[#92400E]",
+                  !closed && !full && !paused && "bg-primary-muted text-primary"
                 )}
               >
                 {primaryLabel}
               </span>
-              {closed && paused ? (
+              {(closed || full) && paused ? (
                 <span
                   data-testid="queue-state-paused"
                   className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-semibold text-[#92400E]"
@@ -208,6 +215,14 @@ export function JoinPage() {
             </p>
           ) : null}
 
+          {full && !closed && !membership && !isAdmin ? (
+            <p data-testid="join-full-reason" className="mt-3 text-sm text-text-secondary">
+              This queue is full
+              {queue.maxWaiting ? ` (${queue.waitingCount ?? 0}/${queue.maxWaiting})` : ""}.
+              Try again when someone is served.
+            </p>
+          ) : null}
+
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
             {isAdmin ? (
               <Button
@@ -231,7 +246,7 @@ export function JoinPage() {
               <Button
                 size="lg"
                 onClick={handleJoin}
-                disabled={joinBusy || closed}
+                disabled={joinBusy || closed || full}
                 data-testid="join-queue"
                 className="w-full sm:w-auto"
               >
@@ -239,7 +254,9 @@ export function JoinPage() {
                   ? "Joining…"
                   : closed
                     ? `${queue.name} is closed`
-                    : `Join ${queue.name}`}
+                    : full
+                      ? `${queue.name} is full`
+                      : `Join ${queue.name}`}
               </Button>
             )}
             <Button

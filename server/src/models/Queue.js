@@ -123,6 +123,16 @@ const queueSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    /**
+     * Optional cap on active (waiting + serving) memberships.
+     * Missing or null means no cap.
+     */
+    maxWaiting: {
+      type: Number,
+      min: 1,
+      max: 500,
+      default: null,
+    },
     /** Minutes a called (serving) entry has to arrive before an auto-skip. */
     noShowMinutes: {
       type: Number,
@@ -164,6 +174,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     venue,
     counters: countersForJson(this),
     archived: Boolean(this.archivedAt),
+    maxWaiting: this.maxWaiting ?? null,
   };
 };
 

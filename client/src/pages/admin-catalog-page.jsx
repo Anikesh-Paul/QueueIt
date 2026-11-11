@@ -30,6 +30,7 @@ export function AdminCatalogPage() {
   const [queueVenueId, setQueueVenueId] = useState("");
   const [queueName, setQueueName] = useState("");
   const [queuePace, setQueuePace] = useState("3");
+  const [queueCap, setQueueCap] = useState("");
   const [drafts, setDrafts] = useState({});
 
   const load = useCallback(async () => {
@@ -81,16 +82,19 @@ export function AdminCatalogPage() {
     const name = queueName.trim();
     const pace = Number(queuePace);
     if (!name || !queueVenueId) return;
+    const capRaw = queueCap.trim();
     const ok = await run(() =>
       createAdminQueue(token, {
         venueId: queueVenueId,
         name,
         averageServiceTime: pace,
+        maxWaiting: capRaw === "" ? null : Number(capRaw),
       })
     );
     if (ok) {
       setQueueName("");
       setQueuePace("3");
+      setQueueCap("");
     }
   }
 
@@ -98,10 +102,12 @@ export function AdminCatalogPage() {
     const draft = drafts[queue.id] || {};
     const name = (draft.name ?? queue.name).trim();
     const pace = Number(draft.averageServiceTime ?? queue.averageServiceTime);
+    const capRaw = draft.maxWaiting !== undefined ? draft.maxWaiting : (queue.maxWaiting ?? "");
     await run(() =>
       updateAdminQueue(token, queue.id, {
         name,
         averageServiceTime: pace,
+        maxWaiting: capRaw === "" || capRaw == null ? null : Number(capRaw),
       })
     );
   }
@@ -220,6 +226,28 @@ export function AdminCatalogPage() {
                           disabled={busy}
                         />
                       </div>
+                      <div className="w-full sm:w-32">
+                        <Label htmlFor={`queue-cap-${queue.id}`}>Max waiting</Label>
+                        <Input
+                          id={`queue-cap-${queue.id}`}
+                          type="number"
+                          min="1"
+                          max="500"
+                          placeholder="No cap"
+                          defaultValue={queue.maxWaiting ?? ""}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                maxWaiting: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-cap"
+                          disabled={busy}
+                        />
+                      </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
@@ -323,6 +351,20 @@ export function AdminCatalogPage() {
                   onChange={(event) => setQueuePace(event.target.value)}
                   disabled={busy}
                   data-testid="catalog-new-queue-pace"
+                />
+              </div>
+              <div className="w-full sm:w-28">
+                <Label htmlFor="new-queue-cap">Max waiting</Label>
+                <Input
+                  id="new-queue-cap"
+                  type="number"
+                  min="1"
+                  max="500"
+                  placeholder="No cap"
+                  value={queueCap}
+                  onChange={(event) => setQueueCap(event.target.value)}
+                  disabled={busy}
+                  data-testid="catalog-new-queue-cap"
                 />
               </div>
               <Button

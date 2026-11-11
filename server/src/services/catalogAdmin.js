@@ -2,6 +2,7 @@ import { Venue } from "../models/Venue.js";
 import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { normalizeServiceWindows, validateServiceWindows } from "./serviceWindows.js";
+import { normalizeMaxWaiting } from "./capacity.js";
 import {
   COUNTER_NAME_MAX,
   DEFAULT_COUNTER_NAME,
@@ -116,7 +117,7 @@ export async function updateVenue(venue, { name }) {
   return { ok: true, venue };
 }
 
-export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters }) {
+export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting }) {
   if (!venueId) return { ok: false, status: 400, error: "Venue is required" };
   const venue = await Venue.findById(venueId);
   if (!venue) return { ok: false, status: 404, error: "Venue not found" };
@@ -125,6 +126,9 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
   if (cleaned.error) return { ok: false, status: 400, error: cleaned.error };
   const pace = cleanServiceTime(averageServiceTime ?? 3);
   if (pace.error) return { ok: false, status: 400, error: pace.error };
+
+  const cap = normalizeMaxWaiting(maxWaiting === undefined ? null : maxWaiting);
+  if (cap.error) return { ok: false, status: 400, error: cap.error };
 
   let windows = [];
   if (serviceWindows !== undefined) {
@@ -154,6 +158,7 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
     status: "open",
     acceptingTokens: true,
     counters: counterDocs,
+    ...(cap.value != null ? { maxWaiting: cap.value } : {}),
   });
   return { ok: true, queue, venue };
 }
@@ -168,6 +173,13 @@ export async function updateQueue(queue, patch = {}) {
     const pace = cleanServiceTime(patch.averageServiceTime);
     if (pace.error) return { ok: false, status: 400, error: pace.error };
     queue.averageServiceTime = pace.value;
+  }
+  if (patch.maxWaiting !== undefined) {
+    const cap = normalizeMaxWaiting(patch.maxWaiting);
+    if (cap.error) return { ok: false, status: 400, error: cap.error };
+    if (!cap.omitted) {
+      queue.maxWaiting = cap.value;
+    }
   }
   if (patch.serviceWindows !== undefined) {
     const check = validateServiceWindows(patch.serviceWindows);

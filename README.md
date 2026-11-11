@@ -209,6 +209,14 @@ Runtime API packages are pinned past known advisories (`mongoose` 9.12.x, `expre
 
 The arrival-pass QR confirms that a token is waiting in a queue — it is a counter convenience, not proof of identity. Join and status issue a signed pass (`QIT:<queueId>:<tokenNumber>:<mac>`), HMAC-SHA256 with `ARRIVAL_PASS_SECRET` or, if that is unset, `JWT_SECRET`. Admin verify rejects a tampered MAC and still accepts a bare token (or a legacy unsigned pass) typed at the counter.
 
+## Notifications
+
+The live-status page can request the browser **Notification** permission and fire a one-shot alert when a student enters the top-3 (near the front), becomes next, or — if the status API still shows it — when their token is now serving. Polls do not re-notify the same state. Paused queues do not tell people to approach the counter. Optional sound and vibrate are user-controlled. Declining permission leaves the in-page banner working.
+
+These alerts only work while the QueueIt tab is open (including in the background). They do **not** arrive after the tab or browser is killed.
+
+True push-when-the-app-is-closed needs [Web Push](https://developer.mozilla.org/en-US/docs/Web/API/Push_API) (VAPID keys, a service worker `push` handler, and a server that holds subscription endpoints). That is a follow-up: the operator would generate a VAPID key pair, set something like `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` on a **long-running** API host (Vercel serverless is a poor fit for push fan-out), expose the public key to the client, and never commit the private key. Do not put real VAPID secrets in the repo.
+
 ## Deploy
 
 Suggested free-tier path:

@@ -25,14 +25,13 @@ import {
   presentLiveEta,
 } from "@/lib/campus-time";
 import { resolveArrivalPass } from "@/lib/arrival-pass";
+import { NEAR_FRONT_POSITION_LIMIT } from "@/lib/queue-notifications";
+import { NotifyControls } from "@/components/status/notify-controls";
 
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
   return String(value);
 }
-
-/** Top-3 near-front rule: position <= 3 (1 = front of the waiting line). */
-const NEAR_FRONT_POSITION_LIMIT = 3;
 
 /** Quiet relative age for polling honesty (no absolute campus clocks here). */
 function formatStatusAge(updatedAt, nowMs) {
@@ -295,6 +294,10 @@ export function StatusPage() {
             <NearFrontBanner position={liveStatus.position} />
           </div>
         )}
+
+        <div className="mb-4">
+          <NotifyControls />
+        </div>
 
         {/*
           Signature composition:

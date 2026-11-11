@@ -273,6 +273,18 @@ export function inviteStaff(token, payload) {
   return apiRequest("/api/admin/staff", { method: "POST", token, body: payload });
 }
 
+export function fetchStaffAccounts(token) {
+  return apiRequest("/api/admin/staff", { token });
+}
+
+export function updateStaffQueues(token, staffId, { queueIds }) {
+  return apiRequest(`/api/admin/staff/${staffId}`, {
+    method: "PATCH",
+    token,
+    body: { queueIds },
+  });
+}
+
 export function updateVenue(token, venueId, { name }) {
   return apiRequest(`/api/admin/venues/${venueId}`, { method: "PATCH", token, body: { name } });
 }

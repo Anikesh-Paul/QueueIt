@@ -3,7 +3,7 @@ import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { normalizeServiceWindows, validateServiceWindows } from "./serviceWindows.js";
 import { normalizeMaxWaiting, rejectIfCapBelowOccupancy } from "./capacity.js";
-import { isStaff, staffVenueId } from "./staffAccess.js";
+import { isStaff, staffQueueIds, staffVenueId } from "./staffAccess.js";
 import { DEFAULT_NO_SHOW_MINUTES } from "./servingDeadline.js";
 import {
   COUNTER_NAME_MAX,
@@ -110,6 +110,8 @@ export function toAdminCatalogQueueJSON(queue, venue) {
 export async function listAdminCatalog(user) {
   const venueFilter = isStaff(user) && staffVenueId(user) ? { _id: staffVenueId(user) } : {};
   const queueFilter = isStaff(user) && staffVenueId(user) ? { venue: staffVenueId(user) } : {};
+  const allowedQueues = staffQueueIds(user);
+  if (allowedQueues) queueFilter._id = { $in: allowedQueues };
   const venues = await Venue.find(venueFilter).sort({ name: 1 }).exec();
   const queues = await Queue.find(queueFilter).sort({ name: 1 }).exec();
   const byVenue = new Map();

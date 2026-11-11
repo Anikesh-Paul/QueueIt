@@ -13,6 +13,7 @@ import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/context/i18n-context";
+import { staffCanManageQueue } from "@/lib/staff-access";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
 
 /**
@@ -45,10 +46,7 @@ export function JoinPage() {
   const validId = isQueueId(queueId || "");
   function canManageQueue(target) {
     if (!isAdmin) return false;
-    if (user?.role === "staff" && user.staffVenueId) {
-      return target?.venue?.id === user.staffVenueId;
-    }
-    return true;
+    return staffCanManageQueue(user, target);
   }
 
   useEffect(() => {

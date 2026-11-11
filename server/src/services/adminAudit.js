@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { AdminAudit } from "../models/AdminAudit.js";
 import { Queue } from "../models/Queue.js";
 import { Venue } from "../models/Venue.js";
-import { isStaff, staffVenueId, VENUE_FORBIDDEN } from "./staffAccess.js";
+import { canAccessQueue, isStaff, staffQueueIds, staffVenueId, QUEUE_FORBIDDEN, VENUE_FORBIDDEN } from "./staffAccess.js";
 
 export const AUDIT_PAGE_DEFAULT = 20;
 export const AUDIT_PAGE_MAX = 50;
@@ -115,6 +115,9 @@ export async function listAdminAudit(user, query = {}) {
     if (isStaff(user) && staffVenueId(user) !== qVenue) {
       return { ok: false, status: 403, error: VENUE_FORBIDDEN };
     }
+    if (isStaff(user) && !canAccessQueue(user, queue)) {
+      return { ok: false, status: 403, error: QUEUE_FORBIDDEN };
+    }
     if (venueId && venueId !== qVenue) {
       return { ok: false, status: 400, error: "That queue is not in the selected venue" };
     }
@@ -132,6 +135,10 @@ export async function listAdminAudit(user, query = {}) {
   const filter = {};
   if (queueId) filter["queue.id"] = queueId;
   if (venueId) filter["venue.id"] = venueId;
+  const allowedQueues = staffQueueIds(user);
+  if (allowedQueues && !queueId) {
+    filter["queue.id"] = { $in: allowedQueues };
+  }
 
   if (query.cursor) {
     if (!mongoose.isValidObjectId(query.cursor)) {

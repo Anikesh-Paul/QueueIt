@@ -28,6 +28,9 @@ const AnalyticsPage = lazy(() =>
 const AdminCatalogPage = lazy(() =>
   import("@/pages/admin-catalog-page").then((mod) => ({ default: mod.AdminCatalogPage }))
 );
+const CampusAnalyticsPage = lazy(() =>
+  import("@/pages/campus-analytics-page").then((mod) => ({ default: mod.CampusAnalyticsPage }))
+);
 
 /** Calm placeholder while a lazy admin route chunk loads. */
 function RouteFallback() {
@@ -101,6 +104,7 @@ const router = createBrowserRouter([
                     element: <AdminRouteOutlet />,
                     children: [
                       { path: "catalog", element: <AdminCatalogPage /> },
+                      { path: "analytics", element: <CampusAnalyticsPage /> },
                       { path: "queues/:queueId", element: <AdminConsolePage /> },
                       { path: "queues/:queueId/analytics", element: <AnalyticsPage /> },
                     ],

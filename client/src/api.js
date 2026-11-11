@@ -159,6 +159,44 @@ export function fetchWaitingList(token, queueId) {
  * GET /api/admin/queues/:queueId/analytics
  * Ops metrics: served count, average wait, simple peaks (busiest hours).
  */
+export function fetchCampusAnalytics(token, options = {}) {
+  const params = new URLSearchParams();
+  if (options.window) params.set("window", options.window);
+  if (options.venueId) params.set("venueId", options.venueId);
+  const qs = params.toString();
+  return apiRequest(`/api/admin/analytics${qs ? `?${qs}` : ""}`, { token });
+}
+
+export async function downloadCampusAnalyticsCsv(token, options = {}) {
+  const params = new URLSearchParams();
+  if (options.window) params.set("window", options.window);
+  if (options.venueId) params.set("venueId", options.venueId);
+  const qs = params.toString();
+  const res = await fetch(`${API_URL}/api/admin/analytics.csv${qs ? `?${qs}` : ""}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = await res.json();
+      if (data?.error) message = data.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(message);
+  }
+  const blob = await res.blob();
+  const preset = options.window || "all";
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `queueit-analytics-${preset}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function fetchAnalytics(token, queueId, options = {}) {
   const params = new URLSearchParams();
   if (options.window) params.set("window", options.window);

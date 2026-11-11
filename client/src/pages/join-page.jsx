@@ -187,6 +187,11 @@ export function JoinPage() {
                   </Link>
                 </p>
               ) : null}
+              {queue.quietHint?.label ? (
+                <p className="mt-2 text-sm text-text-secondary" data-testid="quiet-hint">
+                  {t("queues.quietHint", { time: queue.quietHint.label })}
+                </p>
+              ) : null}
             </div>
             <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
               <span

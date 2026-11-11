@@ -207,9 +207,91 @@ export function AnalyticsPage() {
                 )}
               </div>
             </section>
+
+            <BusynessChart busyness={analyticsData?.busyness} />
           </>
         )}
       </ShellContent>
     </>
+  );
+}
+
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function BusynessChart({ busyness }) {
+  const days = Array.isArray(busyness?.days) ? busyness.days : [];
+  const total = busyness?.total ?? 0;
+  const hint = busyness?.quietHint;
+  const max = Math.max(1, ...days.flatMap((day) => day.hours || []));
+
+  return (
+    <section className="mt-6 overflow-hidden rounded-xl border border-border bg-card shadow-card">
+      <div className="border-b border-border px-5 py-4">
+        <p className="font-heading text-sm font-semibold text-foreground">Usual busyness</p>
+        <p className="mt-0.5 text-xs text-text-muted" data-testid="analytics-busyness-caption">
+          Joins in the last 60 days · campus time (IST)
+        </p>
+      </div>
+      <div className="px-5 py-5">
+        {total === 0 ? (
+          <p className="text-sm text-text-muted" data-testid="analytics-busyness-empty">
+            Not enough history yet
+          </p>
+        ) : (
+          <>
+            {hint?.label ? (
+              <p className="mb-3 text-sm font-medium text-foreground" data-testid="analytics-quiet-hint">
+                Usually quiet around {hint.label}
+              </p>
+            ) : (
+              <p className="mb-3 text-sm text-text-muted" data-testid="analytics-busyness-low">
+                Not enough history yet to name a quiet hour
+              </p>
+            )}
+            <div className="overflow-x-auto" data-testid="analytics-busyness-chart">
+              <div className="inline-grid grid-cols-[auto_repeat(24,minmax(0.55rem,1fr))] gap-0.5">
+                <span />
+                {Array.from({ length: 24 }, (_, hour) => (
+                  <span
+                    key={hour}
+                    className="text-center text-[9px] text-text-muted"
+                  >
+                    {hour % 3 === 0 ? hour : ""}
+                  </span>
+                ))}
+                {days.map((day) => (
+                  <div key={day.weekday} className="contents">
+                    <span className="pr-2 text-xs text-text-secondary">
+                      {day.label || WEEKDAY_LABELS[day.weekday]}
+                    </span>
+                    {(day.hours || []).map((count, hour) => {
+                      const intensity = count === 0 ? 0 : 0.18 + (count / max) * 0.82;
+                      return (
+                        <span
+                          key={`${day.weekday}-${hour}`}
+                          title={`${day.label || WEEKDAY_LABELS[day.weekday]} ${hour}:00 · ${count}`}
+                          data-testid="busyness-cell"
+                          data-weekday={day.weekday}
+                          data-hour={hour}
+                          data-count={count}
+                          className="h-3.5 w-3.5 rounded-sm ring-1 ring-black/5"
+                          style={{
+                            backgroundColor:
+                              count === 0
+                                ? "var(--color-secondary, #f1f5f4)"
+                                : `color-mix(in srgb, var(--color-primary, #1f4d3a) ${Math.round(intensity * 100)}%, #edf3f0)`,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   );
 }

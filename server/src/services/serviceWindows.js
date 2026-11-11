@@ -67,6 +67,12 @@ export function getCampusWeekday(date) {
   return ist.getUTCDay();
 }
 
+/** Campus hour 0–23 in Asia/Kolkata. */
+export function getCampusHour(date) {
+  const ist = new Date(date.getTime() + IST_OFFSET_MS);
+  return ist.getUTCHours();
+}
+
 function parseDayToken(raw) {
   if (typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && raw <= 6) {
     return raw;

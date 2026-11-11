@@ -22,6 +22,7 @@ export function JoinPage() {
     guestCredential,
     isGuest,
     isAdmin,
+    user,
     queues,
     queuesLoading,
     queuesError,
@@ -36,6 +37,13 @@ export function JoinPage() {
   } = useApp();
 
   const validId = isQueueId(queueId || "");
+  function canManageQueue(target) {
+    if (!isAdmin) return false;
+    if (user?.role === "staff" && user.staffVenueId) {
+      return target?.venue?.id === user.staffVenueId;
+    }
+    return true;
+  }
 
   useEffect(() => {
     if (!validId) return undefined;
@@ -224,7 +232,7 @@ export function JoinPage() {
           ) : null}
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-            {isAdmin ? (
+            {canManageQueue(queue) ? (
               <Button
                 size="lg"
                 onClick={handleManage}

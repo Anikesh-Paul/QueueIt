@@ -20,7 +20,7 @@ import {
  * Seeded Campus Hub / Cafeteria / Gym stay the demo starter.
  */
 export function AdminCatalogPage() {
-  const { token, openAdminConsole } = useApp();
+  const { token, user, openAdminConsole } = useApp();
   const navigate = useNavigate();
   const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -295,6 +295,7 @@ export function AdminCatalogPage() {
             <h2 className="font-display text-headline font-semibold tracking-[-0.01em] text-foreground">
               Add to the catalog
             </h2>
+            {user?.role === "staff" ? null : (
             <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleCreateVenue}>
               <div className="min-w-0 flex-1">
                 <Label htmlFor="new-venue-name">New venue</Label>
@@ -311,6 +312,7 @@ export function AdminCatalogPage() {
                 Add venue
               </Button>
             </form>
+            )}
             <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleCreateQueue}>
               <div className="min-w-0 flex-1">
                 <Label htmlFor="new-queue-name">New queue</Label>

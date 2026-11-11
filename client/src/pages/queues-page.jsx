@@ -22,6 +22,7 @@ export function QueuesPage() {
     guestCredential,
     isGuest,
     isAdmin,
+    user,
     queues,
     queuesLoading,
     queuesError,
@@ -37,6 +38,13 @@ export function QueuesPage() {
     selectMembership,
   } = useApp();
   const navigate = useNavigate();
+  function canManageQueue(queue) {
+    if (!isAdmin) return false;
+    if (user?.role === "staff" && user.staffVenueId) {
+      return queue?.venue?.id === user.staffVenueId;
+    }
+    return true;
+  }
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -252,6 +260,7 @@ export function QueuesPage() {
             >
               Manage catalog
             </Button>
+            {canManageQueue(selected) ? (
             <Button
               size="lg"
               onClick={handleManage}
@@ -260,6 +269,7 @@ export function QueuesPage() {
             >
               Manage {selected.name}
             </Button>
+            ) : null}
             </>
           ) : activeMemberships.some((row) => row.queue?.id === selected.id) ? (
             <Button

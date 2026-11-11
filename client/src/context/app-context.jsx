@@ -79,6 +79,16 @@ export function AppProvider({ children }) {
   const analytics = useAnalytics();
   const { clearAnalytics } = analytics;
 
+  const invalidateMemberships = student.invalidateMemberships;
+
+  const persistSessionAndReset = useCallback(
+    (nextToken, nextUser) => {
+      if (nextToken) invalidateMemberships();
+      persistSession(nextToken, nextUser);
+    },
+    [persistSession, invalidateMemberships]
+  );
+
   const logout = useCallback(() => {
     persistSession("", null);
     clearStudentSession();
@@ -218,7 +228,7 @@ export function AppProvider({ children }) {
     isGuest,
     booting,
     isAdmin: user?.role === "admin" || user?.role === "staff",
-    persistSession,
+    persistSession: persistSessionAndReset,
     persistGuestCredential,
     enterGuestMode,
     queues: student.queues,
@@ -233,6 +243,7 @@ export function AppProvider({ children }) {
     statusQueueId: student.statusQueueId,
     statusLastUpdatedAt: student.statusLastUpdatedAt,
     inQueue: Boolean(student.liveStatus && student.statusQueueId),
+    membershipsReady: student.membershipsReady,
     activeMemberships: student.activeMemberships,
     selectMembership: student.selectMembership,
     joinBusy: student.joinBusy,

@@ -22,7 +22,7 @@ export function PageToolbar({
       data-testid={testId}
       data-shell-tier={tier}
       className={cn(
-        "sticky top-14 z-30 border-b border-border bg-card/90 backdrop-blur-sm",
+        "sticky top-14 z-30 border-b border-border bg-card",
         className
       )}
     >

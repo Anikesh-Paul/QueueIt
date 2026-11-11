@@ -94,6 +94,14 @@ export function AdminWaitingList({
                                   Here
                                 </span>
                               ) : null}
+                              {entry.returning ? (
+                                <span
+                                  className="shrink-0 rounded-full bg-primary-muted px-2 py-0.5 text-xs font-semibold text-primary ring-1 ring-primary/30"
+                                  data-testid="waiting-returning-badge"
+                                >
+                                  Returning
+                                </span>
+                              ) : null}
                             </span>
                             <span className="block truncate text-xs text-text-muted">
                               {isCalled

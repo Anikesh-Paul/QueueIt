@@ -159,6 +159,20 @@ const queueSchema = new mongoose.Schema(
       max: 30,
       default: 5,
     },
+    /** Minutes after a skip during which the student may rejoin once. */
+    recoveryMinutes: {
+      type: Number,
+      min: 1,
+      max: 60,
+      default: 15,
+    },
+    /** How many waiting places behind the serving point a recovery is inserted. */
+    recoveryPlaces: {
+      type: Number,
+      min: 1,
+      max: 20,
+      default: 2,
+    },
   },
   { timestamps: true }
 );
@@ -185,6 +199,8 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     name: this.name,
     averageServiceTime: this.averageServiceTime,
     noShowMinutes: this.noShowMinutes ?? 5,
+    recoveryMinutes: this.recoveryMinutes ?? 15,
+    recoveryPlaces: this.recoveryPlaces ?? 2,
     status: this.status,
     acceptingTokens: this.acceptingTokens !== false,
     serviceWindows: normalizeServiceWindows(this.serviceWindows),

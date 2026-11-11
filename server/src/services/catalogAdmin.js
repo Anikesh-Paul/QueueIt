@@ -6,6 +6,14 @@ import { normalizeMaxWaiting, rejectIfCapBelowOccupancy } from "./capacity.js";
 import { isStaff, staffQueueIds, staffVenueId } from "./staffAccess.js";
 import { DEFAULT_NO_SHOW_MINUTES } from "./servingDeadline.js";
 import {
+  DEFAULT_RECOVERY_MINUTES,
+  DEFAULT_RECOVERY_PLACES,
+  RECOVERY_MINUTES_MAX,
+  RECOVERY_MINUTES_MIN,
+  RECOVERY_PLACES_MAX,
+  RECOVERY_PLACES_MIN,
+} from "./missedTurn.js";
+import {
   COUNTER_NAME_MAX,
   DEFAULT_COUNTER_NAME,
   ensureDefaultCounters,
@@ -18,6 +26,31 @@ export const SERVICE_TIME_MIN = 1;
 export const SERVICE_TIME_MAX = 60;
 export const NO_SHOW_MIN = 1;
 export const NO_SHOW_MAX = 30;
+
+
+export function cleanRecoveryMinutes(raw) {
+  if (raw === undefined) return { omitted: true };
+  if (raw === null || raw === "") return { value: DEFAULT_RECOVERY_MINUTES };
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < RECOVERY_MINUTES_MIN || value > RECOVERY_MINUTES_MAX) {
+    return {
+      error: `Recovery window must be an integer from ${RECOVERY_MINUTES_MIN} to ${RECOVERY_MINUTES_MAX} minutes`,
+    };
+  }
+  return { value };
+}
+
+export function cleanRecoveryPlaces(raw) {
+  if (raw === undefined) return { omitted: true };
+  if (raw === null || raw === "") return { value: DEFAULT_RECOVERY_PLACES };
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < RECOVERY_PLACES_MIN || value > RECOVERY_PLACES_MAX) {
+    return {
+      error: `Recovery places must be an integer from ${RECOVERY_PLACES_MIN} to ${RECOVERY_PLACES_MAX}`,
+    };
+  }
+  return { value };
+}
 
 export function slugifyName(name) {
   const slug = String(name || "")
@@ -141,7 +174,7 @@ export async function updateVenue(venue, { name }) {
   return { ok: true, venue };
 }
 
-export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes }) {
+export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes, recoveryMinutes, recoveryPlaces }) {
   if (!venueId) return { ok: false, status: 400, error: "Venue is required" };
   const venue = await Venue.findById(venueId);
   if (!venue) return { ok: false, status: 404, error: "Venue not found" };
@@ -156,6 +189,14 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
 
   const noShow = cleanNoShowMinutes(noShowMinutes === undefined ? DEFAULT_NO_SHOW_MINUTES : noShowMinutes);
   if (noShow.error) return { ok: false, status: 400, error: noShow.error };
+  const recoveryMins = cleanRecoveryMinutes(
+    recoveryMinutes === undefined ? DEFAULT_RECOVERY_MINUTES : recoveryMinutes
+  );
+  if (recoveryMins.error) return { ok: false, status: 400, error: recoveryMins.error };
+  const recoveryN = cleanRecoveryPlaces(
+    recoveryPlaces === undefined ? DEFAULT_RECOVERY_PLACES : recoveryPlaces
+  );
+  if (recoveryN.error) return { ok: false, status: 400, error: recoveryN.error };
 
   let windows = [];
   if (serviceWindows !== undefined) {
@@ -182,6 +223,8 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
     venue: venue._id,
     averageServiceTime: pace.value,
     noShowMinutes: noShow.value,
+    recoveryMinutes: recoveryMins.value,
+    recoveryPlaces: recoveryN.value,
     serviceWindows: windows,
     status: "open",
     acceptingTokens: true,
@@ -206,6 +249,16 @@ export async function updateQueue(queue, patch = {}) {
     const noShow = cleanNoShowMinutes(patch.noShowMinutes);
     if (noShow.error) return { ok: false, status: 400, error: noShow.error };
     if (!noShow.omitted) queue.noShowMinutes = noShow.value;
+  }
+  if (patch.recoveryMinutes !== undefined) {
+    const recovery = cleanRecoveryMinutes(patch.recoveryMinutes);
+    if (recovery.error) return { ok: false, status: 400, error: recovery.error };
+    if (!recovery.omitted) queue.recoveryMinutes = recovery.value;
+  }
+  if (patch.recoveryPlaces !== undefined) {
+    const places = cleanRecoveryPlaces(patch.recoveryPlaces);
+    if (places.error) return { ok: false, status: 400, error: places.error };
+    if (!places.omitted) queue.recoveryPlaces = places.value;
   }
   if (patch.maxWaiting !== undefined) {
     const cap = normalizeMaxWaiting(patch.maxWaiting);

@@ -392,7 +392,9 @@ describe("Admin control: waiting list / serve / skip / pause (HTTP API)", () => 
       const status1 = await request(app)
         .get(`/api/queues/${queueId}/status`)
         .set("Authorization", `Bearer ${t1}`);
-      assert.equal(status1.status, 404);
+      assert.equal(status1.status, 200);
+      assert.equal(status1.body.status, "skipped");
+      assert.equal(status1.body.canRecover, true);
 
       const status2 = await request(app)
         .get(`/api/queues/${queueId}/status`)

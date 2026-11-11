@@ -13,6 +13,8 @@ import {
 import { emitQueueChanged } from "../services/realtime.js";
 import { ensureQueueSessionState } from "../services/queueSession.js";
 import { acknowledgeArrival, expireNoShowCalls } from "../services/servingDeadline.js";
+import { findRecoverableEntry, isRecoverable, recoverMissedTurn, recoveryDeadline } from "../services/missedTurn.js";
+import { recordAdminAudit } from "../services/adminAudit.js";
 import { occupancyByQueueIds, queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 import { toBoardJSON } from "../services/queueBoard.js";
 import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
@@ -181,12 +183,27 @@ router.get("/active", attachJoiner, requireJoiner, async (req, res, next) => {
       .exec();
 
     const memberships = [];
+    const seen = new Set();
     for (const entry of entries) {
       const queue = entry.queue;
       if (!queue) continue;
       await ensureQueueSessionState(queue);
-    await expireNoShowCalls({ queueId: queue._id });
+      await expireNoShowCalls({ queueId: queue._id });
       memberships.push(await buildStatusPayload(queue, entry));
+      seen.add(queue._id.toString());
+    }
+
+    const skippedFilter = req.user
+      ? { user: req.user._id, status: "skipped" }
+      : { guest: req.guest._id, status: "skipped" };
+    const skipped = await QueueEntry.find(skippedFilter).populate("queue").sort({ skippedAt: -1 });
+    for (const entry of skipped) {
+      const queue = entry.queue;
+      if (!queue || seen.has(queue._id.toString())) continue;
+      await ensureQueueSessionState(queue);
+      if (!isRecoverable(entry, queue)) continue;
+      memberships.push(await buildStatusPayload(queue, entry));
+      seen.add(queue._id.toString());
     }
 
     return res.status(200).json({ memberships });
@@ -205,6 +222,25 @@ async function findJoinerActiveEntry(queueId, req) {
   }
   if (req.guest) {
     return findActiveGuestEntry(queueId, req.guest._id);
+  }
+  return null;
+}
+
+function joinerIdentity(req) {
+  if (req.user) return { user: req.user._id };
+  if (req.guest) return { guest: req.guest._id };
+  return null;
+}
+
+function auditActor(req) {
+  if (req.user) return req.user;
+  if (req.guest) {
+    return {
+      _id: req.guest._id,
+      name: "Guest",
+      email: null,
+      role: "guest",
+    };
   }
   return null;
 }
@@ -275,6 +311,15 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
     if (existing) {
       return res.status(409).json({
         error: "Already in this queue",
+      });
+    }
+    const recoverable = await findRecoverableEntry(queue, joinerIdentity(req));
+    if (recoverable) {
+      const until = recoveryDeadline(recoverable, queue);
+      return res.status(409).json({
+        error: "You can rejoin your missed turn",
+        canRecover: true,
+        recoverUntil: until ? until.toISOString() : null,
       });
     }
 
@@ -422,8 +467,44 @@ router.post("/:queueId/here", attachJoiner, requireJoiner, async (req, res, next
 });
 
 /**
+ * POST /api/queues/:queueId/rejoin — recover a skipped (no-show) place once.
+ */
+router.post("/:queueId/rejoin", attachJoiner, requireJoiner, async (req, res, next) => {
+  try {
+    const { queueId } = req.params;
+    if (!mongoose.isValidObjectId(queueId)) {
+      return res.status(404).json({ error: "Not a missed turn" });
+    }
+    const queue = await Queue.findById(queueId);
+    if (!queue || queue.archivedAt) {
+      return res.status(404).json({ error: "Not a missed turn" });
+    }
+    await ensureQueueSessionState(queue);
+    await expireNoShowCalls({ queueId: queue._id });
+
+    const result = await recoverMissedTurn({
+      queue,
+      identity: joinerIdentity(req),
+    });
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+
+    await recordAdminAudit({
+      actor: auditActor(req),
+      action: "rejoin",
+      queue,
+      meta: { tokenNumber: result.entry.tokenNumber },
+    });
+
+    const payload = await buildStatusPayload(queue, result.entry);
+    return res.status(200).json(payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
  * GET /api/queues/:queueId/status — poll token, position, ETA, now serving.
- * Requires the caller to hold an active membership in this queue.
+ * Requires an active membership, or a skipped entry still inside the recovery window.
  */
 router.get("/:queueId/status", attachJoiner, requireJoiner, async (req, res, next) => {
   try {
@@ -440,7 +521,10 @@ router.get("/:queueId/status", attachJoiner, requireJoiner, async (req, res, nex
     await ensureQueueSessionState(queue);
     await expireNoShowCalls({ queueId: queue._id });
 
-    const entry = await findJoinerActiveEntry(queue._id, req);
+    let entry = await findJoinerActiveEntry(queue._id, req);
+    if (!entry) {
+      entry = await findRecoverableEntry(queue, joinerIdentity(req));
+    }
     if (!entry) {
       return res.status(404).json({ error: "Not in this queue" });
     }

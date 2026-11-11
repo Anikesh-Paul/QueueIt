@@ -9,6 +9,7 @@ import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRang
 import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessQueueAccess, forbidUnlessVenueAccess, isGlobalAdmin, staffQueueIds } from "../services/staffAccess.js";
+import { compareWaiters } from "../services/missedTurn.js";
 import { listAdminAudit, recordAdminAudit } from "../services/adminAudit.js";
 import { inviteStaff, listStaffAccounts, updateStaffQueues } from "../services/staffInvite.js";
 import {
@@ -64,6 +65,8 @@ function toAdminQueueJSON(queue) {
     nowServing: queue.nowServing ?? null,
     averageServiceTime: queue.averageServiceTime,
     noShowMinutes: queue.noShowMinutes ?? 5,
+    recoveryMinutes: queue.recoveryMinutes ?? 15,
+    recoveryPlaces: queue.recoveryPlaces ?? 2,
     counters: countersForJson(queue),
     archived: Boolean(queue.archivedAt),
     ...sessionFieldsForJson(queue),
@@ -117,6 +120,7 @@ function toWaitingRow(entry, position, { paused = false, queue = null } = {}) {
     isWalkIn,
     isGuest,
     joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
+    returning: Boolean(entry.returning),
     ...servingFieldsForJson(entry, { paused, queue }),
   };
 }
@@ -186,8 +190,11 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
       status: { $in: ["waiting", "serving"] },
     })
       .populate("user")
-      .sort({ status: 1, tokenNumber: 1 }) // serving before waiting
       .exec();
+    entries.sort((a, b) => {
+      if (a.status !== b.status) return a.status === "serving" ? -1 : 1;
+      return compareWaiters(a, b);
+    });
 
     if (reconcileCounterServing(queue, entries)) {
       await queue.save();
@@ -1010,6 +1017,8 @@ router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
       counters: req.body?.counters,
       maxWaiting: req.body?.maxWaiting,
       noShowMinutes: req.body?.noShowMinutes,
+      recoveryMinutes: req.body?.recoveryMinutes,
+      recoveryPlaces: req.body?.recoveryPlaces,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     return res.status(201).json({
@@ -1031,6 +1040,8 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       archived: req.body?.archived,
       maxWaiting: req.body?.maxWaiting,
       noShowMinutes: req.body?.noShowMinutes,
+      recoveryMinutes: req.body?.recoveryMinutes,
+      recoveryPlaces: req.body?.recoveryPlaces,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     await writeAudit(req, { action: "queue-update", queue: result.queue, meta: { maxWaiting: req.body?.maxWaiting ?? undefined } });

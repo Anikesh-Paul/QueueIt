@@ -4,18 +4,31 @@ import { signArrivalPass } from "./arrivalPass.js";
 import { resolveEtaServicePace } from "./recentServicePace.js";
 import { servingFieldsForJson } from "./servingDeadline.js";
 import { countersForJson, ensureDefaultCounters, reconcileCounterServing } from "./counters.js";
+import { isRecoverable, recoveryDeadline, waitSortKey } from "./missedTurn.js";
 
 /**
  * Live position among active waiters (1 = front of waiting line).
  * Waiting entries ordered by tokenNumber ascending.
  */
-export async function computePosition(queueId, tokenNumber, entryStatus = "waiting") {
-  if (entryStatus === "serving") return 0;
-  const ahead = await QueueEntry.countDocuments({
-    queue: queueId,
-    status: "waiting",
-    tokenNumber: { $lt: tokenNumber },
-  });
+export async function computePosition(queueId, tokenOrEntry, entryStatus = "waiting") {
+  const entry =
+    tokenOrEntry && typeof tokenOrEntry === "object"
+      ? tokenOrEntry
+      : { tokenNumber: tokenOrEntry, status: entryStatus };
+  const status = entry.status || entryStatus;
+  if (status === "serving") return 0;
+  if (status === "skipped" || status === "left" || status === "served") return null;
+  const key = waitSortKey(entry);
+  const token = Number(entry.tokenNumber);
+  const waiters = await QueueEntry.find({ queue: queueId, status: "waiting" }).select(
+    "tokenNumber waitOrder"
+  );
+  const ahead = waiters.filter((row) => {
+    const rowKey = waitSortKey(row);
+    if (rowKey < key) return true;
+    if (rowKey === key) return Number(row.tokenNumber) < token;
+    return false;
+  }).length;
   return ahead + 1;
 }
 
@@ -39,10 +52,12 @@ export async function buildStatusPayload(queue, entry) {
   const missingCounters = ensureDefaultCounters(queue);
   const reconciled = reconcileCounterServing(queue, servingEntries);
   if (missingCounters || reconciled) await queue.save();
-  const position = await computePosition(queue._id, entry.tokenNumber, entry.status);
+  const position = await computePosition(queue._id, entry);
   const averageServiceTime = queue.averageServiceTime;
   const { pace: etaServiceTime, source: etaPaceSource } = await resolveEtaServicePace(queue);
-  const etaMinutes = computeEtaMinutes(position, etaServiceTime);
+  const etaMinutes = position == null ? null : computeEtaMinutes(position, etaServiceTime);
+  const recoverable = isRecoverable(entry, queue);
+  const until = recoverable ? recoveryDeadline(entry, queue) : null;
 
   return {
     tokenNumber: entry.tokenNumber,
@@ -55,6 +70,10 @@ export async function buildStatusPayload(queue, entry) {
     etaPaceSource,
     status: entry.status,
     arrivalPass: signArrivalPass(queue._id, entry.tokenNumber),
+    missedTurn: entry.status === "skipped",
+    canRecover: recoverable,
+    recoverUntil: until ? until.toISOString() : null,
+    returning: Boolean(entry.returning),
     ...servingFieldsForJson(entry, { paused: queue.status === "paused", queue }),
     queue: {
       id: queue._id.toString(),

@@ -215,7 +215,9 @@ describe("Call / serving no-show timer", () => {
     const status = await request(app)
       .get(`/api/queues/${queueId}/status`)
       .set("Authorization", `Bearer ${first.token}`);
-    assert.equal(status.status, 404);
+    assert.equal(status.status, 200);
+    assert.equal(status.body.status, "skipped");
+    assert.equal(status.body.canRecover, true);
 
     const entry = await QueueEntry.findOne({ queue: queueId, tokenNumber: 1 });
     assert.equal(entry.status, "skipped");
@@ -263,7 +265,9 @@ describe("Call / serving no-show timer", () => {
     const expired = await request(app)
       .get(`/api/queues/${queueId}/status`)
       .set("Authorization", `Bearer ${first.token}`);
-    assert.equal(expired.status, 404);
+    assert.equal(expired.status, 200);
+    assert.equal(expired.body.status, "skipped");
+    assert.equal(expired.body.canRecover, true);
     const entry = await QueueEntry.findOne({ queue: queueId, tokenNumber: 1 });
     assert.equal(entry.status, "skipped");
   });

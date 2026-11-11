@@ -174,12 +174,19 @@ export function AdminCatalogPage() {
     const pace = Number(draft.averageServiceTime ?? queue.averageServiceTime);
     const capRaw = draft.maxWaiting !== undefined ? draft.maxWaiting : (queue.maxWaiting ?? "");
     const noShowRaw = draft.noShowMinutes !== undefined ? draft.noShowMinutes : (queue.noShowMinutes ?? "");
+    const recoveryMinsRaw =
+      draft.recoveryMinutes !== undefined ? draft.recoveryMinutes : (queue.recoveryMinutes ?? "");
+    const recoveryPlacesRaw =
+      draft.recoveryPlaces !== undefined ? draft.recoveryPlaces : (queue.recoveryPlaces ?? "");
     await run(() =>
       updateAdminQueue(token, queue.id, {
         name,
         averageServiceTime: pace,
         maxWaiting: capRaw === "" || capRaw == null ? null : Number(capRaw),
         noShowMinutes: noShowRaw === "" || noShowRaw == null ? "" : Number(noShowRaw),
+        recoveryMinutes: recoveryMinsRaw === "" || recoveryMinsRaw == null ? "" : Number(recoveryMinsRaw),
+        recoveryPlaces:
+          recoveryPlacesRaw === "" || recoveryPlacesRaw == null ? "" : Number(recoveryPlacesRaw),
       })
     );
   }
@@ -327,6 +334,50 @@ export function AdminCatalogPage() {
                             }))
                           }
                           data-testid="catalog-queue-noshow"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="w-full sm:w-32">
+                        <Label htmlFor={`queue-recovery-${queue.id}`}>Rejoin window (min)</Label>
+                        <Input
+                          id={`queue-recovery-${queue.id}`}
+                          type="number"
+                          min="1"
+                          max="60"
+                          placeholder="15"
+                          defaultValue={queue.recoveryMinutes ?? 15}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                recoveryMinutes: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-recovery-minutes"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="w-full sm:w-32">
+                        <Label htmlFor={`queue-recovery-places-${queue.id}`}>Rejoin places</Label>
+                        <Input
+                          id={`queue-recovery-places-${queue.id}`}
+                          type="number"
+                          min="1"
+                          max="20"
+                          placeholder="2"
+                          defaultValue={queue.recoveryPlaces ?? 2}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                recoveryPlaces: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-recovery-places"
                           disabled={busy}
                         />
                       </div>

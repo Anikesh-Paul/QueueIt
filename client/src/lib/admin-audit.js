@@ -11,6 +11,7 @@ const ACTION_LABELS = {
   "service-windows": "Updated service windows",
   "staff-invite": "Invited staff",
   "queue-update": "Updated queue settings",
+  rejoin: "Recovered a missed turn",
 };
 
 export function auditActionLabel(action) {

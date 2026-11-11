@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 // Ensure Venue is registered whenever Queue is loaded (needed for populate).
 import "./Venue.js";
 import { normalizeServiceWindows } from "../services/serviceWindows.js";
+import { countersForJson } from "../services/counters.js";
 
 const QUEUE_STATUSES = ["open", "paused"];
 
@@ -10,8 +11,21 @@ const serviceWindowSchema = new mongoose.Schema(
     /** Campus wall time HH:mm (Asia/Kolkata). */
     start: { type: String, required: true, trim: true },
     end: { type: String, required: true, trim: true },
+    /**
+     * Campus weekdays this window applies (0=Sun … 6=Sat, IST).
+     * Missing or empty means every day.
+     */
+    days: { type: [Number], default: undefined },
   },
   { _id: false }
+);
+
+const counterSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 40 },
+    nowServing: { type: Number, default: null, min: 1 },
+  },
+  { _id: true }
 );
 
 const queueSchema = new mongoose.Schema(
@@ -58,7 +72,7 @@ const queueSchema = new mongoose.Schema(
       required: true,
     },
     /**
-     * Daily service windows (same pattern every day), campus IST wall times.
+     * Service windows (campus IST wall times). Optional `days` scopes a window to weekdays; missing days means every day.
      * Window start does not auto-open; bound session end auto-closes.
      */
     serviceWindows: {
@@ -88,13 +102,43 @@ const queueSchema = new mongoose.Schema(
       default: 1,
     },
     /**
-     * Token number currently at the counter.
-     * null until an admin serves someone (ticket 07).
+     * Token number currently at the counter (called or just served).
+     * null until an admin calls or serves someone.
      */
     nowServing: {
       type: Number,
       default: null,
       min: 1,
+    },
+    /**
+     * Counters at this queue (at least one after ensureDefaultCounters).
+     * Each has its own nowServing; queue.nowServing is the most recent token.
+     */
+    counters: {
+      type: [counterSchema],
+      default: undefined,
+    },
+    /** When set, the queue is hidden from the student catalog and new joins are refused. */
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
+    /**
+     * Optional cap on active (waiting + serving) memberships.
+     * Missing or null means no cap.
+     */
+    maxWaiting: {
+      type: Number,
+      min: 1,
+      max: 500,
+      default: null,
+    },
+    /** Minutes a called (serving) entry has to arrive before an auto-skip. */
+    noShowMinutes: {
+      type: Number,
+      min: 1,
+      max: 30,
+      default: 5,
     },
   },
   { timestamps: true }
@@ -121,12 +165,16 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     id: this._id.toString(),
     name: this.name,
     averageServiceTime: this.averageServiceTime,
+    noShowMinutes: this.noShowMinutes ?? 5,
     status: this.status,
     acceptingTokens: this.acceptingTokens !== false,
     serviceWindows: normalizeServiceWindows(this.serviceWindows),
     sessionEndsAt: toIsoOrNull(this.sessionEndsAt),
     reopenAt: toIsoOrNull(this.reopenAt),
     venue,
+    counters: countersForJson(this),
+    archived: Boolean(this.archivedAt),
+    maxWaiting: this.maxWaiting ?? null,
   };
 };
 

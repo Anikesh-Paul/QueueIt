@@ -5,12 +5,14 @@ import { AppShell } from "@/components/shell/app-shell";
 import { Wordmark } from "@/components/brand/wordmark";
 import {
   HomeRedirect,
+  JoinSessionGate,
   RequireAdmin,
   RequireLoggedOut,
   RequireShellAccess,
   RequireUser,
 } from "@/routes/guards";
 import { QueuesPage } from "@/pages/queues-page";
+import { JoinPage } from "@/pages/join-page";
 import { StatusPage } from "@/pages/status-page";
 import { HistoryPage } from "@/pages/history-page";
 import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
@@ -20,6 +22,9 @@ const AdminConsolePage = lazy(() =>
 );
 const AnalyticsPage = lazy(() =>
   import("@/pages/analytics-page").then((mod) => ({ default: mod.AnalyticsPage }))
+);
+const AdminCatalogPage = lazy(() =>
+  import("@/pages/admin-catalog-page").then((mod) => ({ default: mod.AdminCatalogPage }))
 );
 
 /** Calm placeholder while a lazy admin route chunk loads. */
@@ -60,6 +65,15 @@ const router = createBrowserRouter([
         ],
       },
       {
+        element: <JoinSessionGate />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [{ path: "join/:queueId", element: <JoinPage /> }],
+          },
+        ],
+      },
+      {
         element: <RequireShellAccess />,
         children: [
           {
@@ -81,6 +95,7 @@ const router = createBrowserRouter([
                   {
                     element: <AdminRouteOutlet />,
                     children: [
+                      { path: "catalog", element: <AdminCatalogPage /> },
                       { path: "queues/:queueId", element: <AdminConsolePage /> },
                       { path: "queues/:queueId/analytics", element: <AnalyticsPage /> },
                     ],

@@ -1,12 +1,16 @@
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "../models/QueueEntry.js";
 import { sessionFieldsForJson } from "./queueSession.js";
 import { signArrivalPass } from "./arrivalPass.js";
+import { resolveEtaServicePace } from "./recentServicePace.js";
+import { servingFieldsForJson } from "./servingDeadline.js";
+import { countersForJson, ensureDefaultCounters } from "./counters.js";
 
 /**
  * Live position among active waiters (1 = front of waiting line).
  * Waiting entries ordered by tokenNumber ascending.
  */
-export async function computePosition(queueId, tokenNumber) {
+export async function computePosition(queueId, tokenNumber, entryStatus = "waiting") {
+  if (entryStatus === "serving") return 0;
   const ahead = await QueueEntry.countDocuments({
     queue: queueId,
     status: "waiting",
@@ -16,28 +20,38 @@ export async function computePosition(queueId, tokenNumber) {
 }
 
 /**
- * Product ETA rule: position × averageServiceTime (minutes).
+ * Product ETA rule: position × service pace (minutes).
+ * Pace is the recent inter-serve average when the sample is thick enough,
+ * otherwise the queue's configured averageServiceTime.
  */
-export function computeEtaMinutes(position, averageServiceTime) {
-  return position * averageServiceTime;
+export function computeEtaMinutes(position, servicePaceMinutes) {
+  return position * servicePaceMinutes;
 }
 
 /**
  * Build the public join/status payload for an active entry + queue.
  */
 export async function buildStatusPayload(queue, entry) {
-  const position = await computePosition(queue._id, entry.tokenNumber);
+  if (ensureDefaultCounters(queue)) {
+    await queue.save();
+  }
+  const position = await computePosition(queue._id, entry.tokenNumber, entry.status);
   const averageServiceTime = queue.averageServiceTime;
-  const etaMinutes = computeEtaMinutes(position, averageServiceTime);
+  const { pace: etaServiceTime, source: etaPaceSource } = await resolveEtaServicePace(queue);
+  const etaMinutes = computeEtaMinutes(position, etaServiceTime);
 
   return {
     tokenNumber: entry.tokenNumber,
     position,
     etaMinutes,
     nowServing: queue.nowServing ?? null,
+    counters: countersForJson(queue),
     averageServiceTime,
+    etaServiceTime,
+    etaPaceSource,
     status: entry.status,
     arrivalPass: signArrivalPass(queue._id, entry.tokenNumber),
+    ...servingFieldsForJson(entry, { paused: queue.status === "paused", queue }),
     queue: {
       id: queue._id.toString(),
       name: queue.name,

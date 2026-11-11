@@ -25,14 +25,13 @@ import {
   presentLiveEta,
 } from "@/lib/campus-time";
 import { resolveArrivalPass } from "@/lib/arrival-pass";
+import { NEAR_FRONT_POSITION_LIMIT } from "@/lib/queue-notifications";
+import { NotifyControls } from "@/components/status/notify-controls";
 
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
   return String(value);
 }
-
-/** Top-3 near-front rule: position <= 3 (1 = front of the waiting line). */
-const NEAR_FRONT_POSITION_LIMIT = 3;
 
 /** Quiet relative age for polling honesty (no absolute campus clocks here). */
 function formatStatusAge(updatedAt, nowMs) {
@@ -62,6 +61,7 @@ export function StatusPage() {
     statusQueueName,
     statusLastUpdatedAt,
     statusUpdating,
+    statusOffline,
     statusError,
     refreshStatus,
     leave,
@@ -73,6 +73,9 @@ export function StatusPage() {
   } = useAppStatus();
   const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [browserOffline, setBrowserOffline] = useState(
+    () => typeof navigator !== "undefined" && navigator.onLine === false
+  );
   /** Pin ETA as-of while Paused so polls/wall clock cannot slide the primary. */
   const [frozenEtaAsOfMs, setFrozenEtaAsOfMs] = useState(null);
 
@@ -85,6 +88,21 @@ export function StatusPage() {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, [inQueue, statusLastUpdatedAt]);
+
+  useEffect(() => {
+    function goOnline() {
+      setBrowserOffline(false);
+    }
+    function goOffline() {
+      setBrowserOffline(true);
+    }
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   const paused = liveStatus?.queue?.status === "paused";
 
@@ -103,13 +121,19 @@ export function StatusPage() {
   const queueTitle = liveStatus.queue?.name || statusQueueName;
   // Banner suppressed while paused: position is near the front but the line is
   // frozen, so "approach the counter" would be dishonest. Closed drain may still approach.
+  const isCalled = liveStatus.status === "serving";
   const nearFront =
-    !paused && Number.isInteger(liveStatus.position) && liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
+    !isCalled &&
+    !paused &&
+    Number.isInteger(liveStatus.position) &&
+    liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
 
-  const paceLine = formatPaceLine(
-    liveStatus.position,
-    liveStatus.averageServiceTime
-  );
+  const paceLine = isCalled
+    ? null
+    : formatPaceLine(
+        liveStatus.position,
+        liveStatus.etaServiceTime ?? liveStatus.averageServiceTime
+      );
   // Live: wall clock (remaining wait). Paused: first pinned snapshot for this pause.
   const etaAsOfMs = paused
     ? (frozenEtaAsOfMs ?? statusLastUpdatedAt ?? nowMs)
@@ -222,6 +246,15 @@ export function StatusPage() {
       />
 
       <ShellContent tier="student">
+        {statusOffline || browserOffline ? (
+          <p
+            data-testid="status-offline"
+            className="mb-4 rounded-lg border border-border bg-secondary px-3.5 py-2.5 text-sm text-text-secondary"
+            aria-live="polite"
+          >
+            Offline — showing your last known place in line. Live updates resume when you're back online.
+          </p>
+        ) : null}
         <header className="mb-6">
           <h1
             data-testid="status-heading"
@@ -290,11 +323,34 @@ export function StatusPage() {
           </p>
         ) : null}
 
+        {isCalled && (
+          <div className="mb-4">
+            <CalledBanner
+              remainingSeconds={
+                liveStatus.servingTimerFrozen
+                  ? liveStatus.servingRemainingSeconds
+                  : liveStatus.servingDeadlineAt
+                    ? Math.max(
+                        0,
+                        Math.ceil((new Date(liveStatus.servingDeadlineAt).getTime() - nowMs) / 1000)
+                      )
+                    : liveStatus.servingRemainingSeconds
+              }
+              frozen={Boolean(liveStatus.servingTimerFrozen)}
+              counterName={liveStatus.servingCounterName}
+            />
+          </div>
+        )}
+
         {nearFront && (
           <div className="mb-4">
             <NearFrontBanner position={liveStatus.position} />
           </div>
         )}
+
+        <div className="mb-4">
+          <NotifyControls />
+        </div>
 
         {/*
           Signature composition:
@@ -313,7 +369,7 @@ export function StatusPage() {
               testId="token-number"
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
-              <StatusMetric label="Position" value={liveStatus.position} testId="position" />
+              <StatusMetric label="Position" value={isCalled ? "Called" : liveStatus.position} testId="position" />
               <StatusMetric
                 label="ETA"
                 value={
@@ -322,9 +378,9 @@ export function StatusPage() {
                     data-eta-mode={etaPresented.mode}
                   >
                     <span data-testid="eta-clock" className="leading-none">
-                      {etaPresented.primary}
+                      {isCalled ? "—" : etaPresented.primary}
                     </span>
-                    {etaPresented.secondary ? (
+                    {!isCalled && etaPresented.secondary ? (
                       <span
                         data-testid="eta-minutes"
                         className="text-sm font-medium tracking-normal text-text-muted"
@@ -345,7 +401,28 @@ export function StatusPage() {
               />
               <StatusMetric
                 label="Now serving"
-                value={formatNowServing(liveStatus.nowServing)}
+                value={
+                  Array.isArray(liveStatus.counters) && liveStatus.counters.length > 1 ? (
+                    <ul className="flex flex-col gap-1 text-left" data-testid="now-serving-counters">
+                      {liveStatus.counters.map((counter) => (
+                        <li
+                          key={counter.id || counter.name}
+                          className="flex items-baseline justify-between gap-2 text-sm font-medium"
+                          data-testid="now-serving-counter"
+                        >
+                          <span className="truncate font-sans text-xs font-semibold uppercase tracking-wide text-text-muted">
+                            {counter.name}
+                          </span>
+                          <span className="font-metric tabular-nums">
+                            {formatNowServing(counter.nowServing)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    formatNowServing(liveStatus.nowServing)
+                  )
+                }
                 testId="now-serving"
               />
             </div>
@@ -412,6 +489,42 @@ function LeaveControl({ leaveBusy, onLeave }) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+function formatCallRemaining(seconds) {
+  if (seconds == null || !Number.isFinite(Number(seconds))) return null;
+  const total = Math.max(0, Math.ceil(Number(seconds)));
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  if (minutes <= 0) return `${secs}s left`;
+  return `${minutes}:${String(secs).padStart(2, "0")} left`;
+}
+
+function CalledBanner({ remainingSeconds, frozen, counterName }) {
+  const remaining = formatCallRemaining(remainingSeconds);
+  const place = counterName ? counterName : "the counter";
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="called-banner"
+      className="flex items-start gap-2.5 rounded-lg border border-primary/30 bg-primary-muted px-4 py-3"
+    >
+      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+      <div>
+        <p className="font-heading text-sm font-semibold text-foreground">
+          You&apos;re being called{counterName ? ` at ${counterName}` : ""}
+        </p>
+        <p className="mt-0.5 text-xs leading-5 text-text-secondary" data-testid="called-remaining">
+          {frozen
+            ? "Timer paused until the line resumes."
+            : remaining
+              ? `${remaining} to arrive at ${place}.`
+              : `Please come to ${place}.`}
+        </p>
+      </div>
+    </div>
   );
 }
 

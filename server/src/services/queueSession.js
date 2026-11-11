@@ -12,6 +12,7 @@ import {
   validateServiceWindows,
 } from "./serviceWindows.js";
 import { emitQueueChanged } from "./realtime.js";
+import { clearAllCounterNowServing } from "./counters.js";
 
 /**
  * @param {import("mongoose").Document} queue
@@ -35,6 +36,7 @@ export async function autoPrepareIfClosedEmpty(queue) {
   if (!empty) return false;
   queue.nextTokenNumber = 1;
   queue.nowServing = null;
+  clearAllCounterNowServing(queue);
   return true;
 }
 
@@ -187,7 +189,7 @@ export function applyExtend(queue, body = {}) {
 }
 
 /**
- * Replace daily service windows. When Closed, recompute schedule-based reopenAt
+ * Replace service windows. When Closed, recompute schedule-based reopenAt
  * so catalog messaging follows the new plan. Does not rebind an active session end.
  *
  * @param {import("mongoose").Document} queue

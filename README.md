@@ -12,19 +12,24 @@ Virtual queues for campus services. People join a line from their phone, watch t
 
 - Browse the venue’s queues (Campus Hub — Cafeteria and Gym)
 - Join without standing physically in line — or **continue as a guest**, no account required
-- See **token**, **position**, **ETA** (campus clock, IST), and **now serving**
+- See **token**, **position**, **ETA** (campus clock, IST), and **now serving** (including the counter, when a queue has more than one)
 - Get a **near-front** prompt when you’re in the next three
 - Show an **arrival pass** QR at the counter
 - Leave if plans change; review **history** (portable after login)
+- Open a **poster join link** (`/join/:queueId`) from a shared QR — no need to browse the catalog first
+- **Add to Home Screen** (web app manifest + theme color) on a phone
 - Optionally **register or log in** later — guest place and device history move onto the account
 
 ### For staff
 
-- Waiting list with serve, skip, pause, and resume
+- Waiting list with serve, skip, pause, and resume — **call/serve can target a counter** when a queue has more than one
+- **Catalog** — add, rename, or archive venues and queues without re-seeding; optional **max waiting** cap (catalog shows Full; join and walk-in return 409 at capacity)
+- **Venue-scoped staff** — a staff account only manages its assigned venue; the seeded demo admin stays global
 - **Walk-in** tokens for people who arrive without the app
 - **Start / stop accepting tokens**, **extend** a session, and **reset** the line
-- Daily **service windows** (editable; auto-close at window end)
+- **Service windows** in campus IST (editable; optional day-of-week scope; auto-close at window end)
 - **Check arrival** — camera scan or typed token
+- **Poster QR** — print or copy a join link for this queue (not an arrival pass)
 - **Analytics** — served count, wait times, busiest hours (IST)
 
 ### Live updates
@@ -165,7 +170,7 @@ npm run lint
 
 `npm test` runs the server HTTP API suite and the client unit tests (`client/src/lib/*.test.js`). Server tests use in-memory MongoDB (`mongodb-memory-server`); no local `mongod` is required. They cover auth and role gates, seed, join / leave / status / history, admin control (serve, skip, pause, walk-in, reset, windows, analytics, QR verify), guest join and soft upgrade, Socket.IO room broadcasts, and CORS.
 
-`npm run lint` runs ESLint over the client and server. GitHub Actions runs lint, `npm test`, and `npm run build:client` on every pull request and on pushes to `main`. Playwright stays a separate, manual job (`npm run test:e2e`) because it needs a local MongoDB.
+`npm run lint` runs ESLint over the client and server (ESLint 9). A GitHub Actions workflow that runs lint, `npm test`, and `npm run build:client` on pull requests and pushes to `main` can be added later (the workflow file is ready locally, but is not in the repo yet). Playwright stays a separate, manual job (`npm run test:e2e`) because it needs a local MongoDB.
 
 ### Playwright
 
@@ -208,6 +213,67 @@ Runtime API packages are pinned past known advisories (`mongoose` 9.12.x, `expre
 
 The arrival-pass QR confirms that a token is waiting in a queue — it is a counter convenience, not proof of identity. Join and status issue a signed pass (`QIT:<queueId>:<tokenNumber>:<mac>`), HMAC-SHA256 with `ARRIVAL_PASS_SECRET` or, if that is unset, `JWT_SECRET`. Admin verify rejects a tampered MAC and still accepts a bare token (or a legacy unsigned pass) typed at the counter.
 
+## Notifications
+
+The live-status page can request the browser **Notification** permission and fire a one-shot alert when a student enters the top-3 (near the front), becomes next, or — if the status API still shows it — when their token is now serving. Polls do not re-notify the same state. Paused queues do not tell people to approach the counter. Optional sound and vibrate are user-controlled. Declining permission leaves the in-page banner working.
+
+These alerts only work while the QueueIt tab is open (including in the background). They do **not** arrive after the tab or browser is killed.
+
+## Poster join and install
+
+Staff can reveal a **poster QR** on the admin console and copy a join link (`/join/:queueId`). Scanning it on a phone opens that queue’s join action for a guest or a signed-in user, or explains why the line is closed. The QR encodes the app URL, not an arrival pass (`QIT:…`). A compact `QITJ:<queueId>` payload is also accepted if someone pastes it by hand. `/queues?join=<queueId>` redirects to the same page.
+
+`index.html` includes a description, forest `theme-color` (`#1b4332`), and a web app manifest so phones can Add to Home Screen.
+
+A small production service worker (`client/public/sw.js`, registered only in the production build) caches the app shell and the last successful catalog, status, and active-membership responses with a **network-first** policy. While you are online, live polling and Socket.IO behave as before — the worker only falls back when a fetch fails. Offline, the last-known place in line may appear with an “offline” note; it is stale until the network returns. Mutations (join, leave, login, admin actions) and Socket.IO are never cached. Logging out or logging in clears the status cache so a later session on the same device does not see the previous one. The worker does not implement Web Push (see Notifications above). Vite dev does not register the worker, so local HMR and polling are never intercepted.
+
+True push-when-the-app-is-closed needs [Web Push](https://developer.mozilla.org/en-US/docs/Web/API/Push_API) (VAPID keys, a service worker `push` handler, and a server that holds subscription endpoints). That is a follow-up: the operator would generate a VAPID key pair, set something like `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` on a **long-running** API host (Vercel serverless is a poor fit for push fan-out), expose the public key to the client, and never commit the private key. Do not put real VAPID secrets in the repo.
+
+
+## How to run the API as a long-running process for Instant updates
+
+The live production API at `queueit-api.vercel.app` is a Vercel **serverless** function (`server/api/index.js`). That path is fine for HTTP (join, status, admin, polling). It cannot hold WebSocket connections, so the production app stays on “Updates every few seconds,” and the 15-second session closer in `server/src/index.js` does not run there (lazy close still happens on the next request).
+
+Instant updates (`Socket.IO`) and punctual auto-close need a **long-running Node process** that starts `server/src/index.js` (`npm start` in `server/`, or `npm run dev:server` locally). This is already how local development works.
+
+This section is a plan, not a production cutover. Do not move DNS, buy a paid plan, or copy production secrets in a drive-by change. The serverless entry should stay deployed and working with polling until an operator chooses to switch `VITE_API_URL` or DNS.
+
+### What will not work on Vercel serverless
+
+- **Socket.IO** (“Instant updates”). Guests also cannot use sockets today even on a long-running host: the handshake is JWT-only (`auth.token`). Guest-credential socket auth is a follow-up and is not implemented here.
+- The 15-second `SESSION_CLOSE_INTERVAL_MS` closer (override; minimum 1000). Without it, sessions still close lazily on the next HTTP request.
+- Web Push fan-out (see Notifications) is also a poor fit for serverless.
+
+Polling (3 seconds when the tab is visible and no socket is connected, 15 seconds when Socket.IO is connected, paused when the tab is hidden) remains the fallback everywhere and is enough for the product to work.
+
+### Recommended hosts
+
+Any host that can run a persistent Node process and reach MongoDB Atlas is enough, for example:
+
+- A VPS (a campus VM, Hostinger, or similar)
+- [Render](https://render.com) Web Service (not a serverless function)
+- [Fly.io](https://fly.io)
+
+Point the process at `npm start` with the working directory `server/`. Put a TLS reverse proxy in front if the host does not terminate HTTPS for you.
+
+### Environment
+
+Set the same API variables as production, on the long-running host only (**never commit them**):
+
+- `MONGODB_URI` — Atlas (or other Mongo) connection string
+- `JWT_SECRET` — existing production secret; do not rotate casually
+- `CLIENT_ORIGIN` — exact frontend origin (`https://queueit-seven.vercel.app`, or a new origin), comma-separated if you need more than one during a cutover
+- `ARRIVAL_PASS_SECRET` — optional; falls back to `JWT_SECRET`
+- `SEED_*` / `SEED_ON_BOOT` — only if you intend to upsert demo accounts
+- `PORT` / `HOST` — as required by the host (`HOST=0.0.0.0` is typical behind a proxy)
+- Optional: `SESSION_CLOSE_INTERVAL_MS`, `JWT_EXPIRES_IN`
+
+The frontend needs `VITE_API_URL` at **build** time pointing at the long-running API origin (no trailing slash). After a cutover, set API `CLIENT_ORIGIN` to the frontend origin and rebuild the client.
+
+### Operator cutover (not done in this repo change)
+
+When you are ready: provision the host, set env vars on that host, confirm `GET /api/health`, confirm a logged-in user sees Instant updates, then change `VITE_API_URL` (and DNS if you use a custom API domain) and redeploy the client. Leave the Vercel API up until that is verified. Paid plans, DNS, and production secrets stay with the operator.
+
 ## Deploy
 
 Suggested free-tier path:
@@ -233,7 +299,7 @@ Set on the project:
 
 Confirm: `GET https://<api-host>/api/health` → `{"status":"ok","service":"queueit-server"}`.
 
-Socket.IO needs a long-running Node process (local, or a persistent host). It does not work on the Vercel serverless API.
+Socket.IO needs a long-running Node process (local, or a persistent host). It does not work on the Vercel serverless API. See [How to run the API as a long-running process for Instant updates](#how-to-run-the-api-as-a-long-running-process-for-instant-updates) for the hosting plan (this is not a production cutover).
 
 On that same long-running process, a 15-second session closer closes queues whose `sessionEndsAt` has passed even when no one is calling the API. HTTP paths still run the lazy close on the next request (so a join cannot sneak in after the window). The Vercel serverless API does not run this interval — punctual close there would need an external cron; until then, close still happens on the next request. You can override the interval with `SESSION_CLOSE_INTERVAL_MS` (minimum 1000).
 

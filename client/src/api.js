@@ -39,6 +39,17 @@ export async function apiRequest(path, options = {}) {
     throw err;
   }
 
+  if (
+    res.headers.get("X-QueueIt-Cache") === "offline" &&
+    data &&
+    typeof data === "object"
+  ) {
+    Object.defineProperty(data, "_fromOfflineCache", {
+      value: true,
+      enumerable: false,
+    });
+  }
+
   return data;
 }
 
@@ -137,21 +148,82 @@ export function fetchAnalytics(token, queueId, options = {}) {
   return apiRequest(`/api/admin/queues/${queueId}/analytics${qs ? `?${qs}` : ""}`, { token });
 }
 
-/** POST /api/admin/queues/:queueId/serve — serve next or selected waiting entry. */
-export function serveQueue(token, queueId, entryId) {
+/** POST /api/admin/queues/:queueId/call — call next or selected waiter to the counter. */
+export function callQueue(token, queueId, entryId, counterId) {
+  const body = {};
+  if (entryId) body.entryId = entryId;
+  if (counterId) body.counterId = counterId;
+  return apiRequest(`/api/admin/queues/${queueId}/call`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+/** POST /api/admin/queues/:queueId/serve — serve next or selected waiting/serving entry. */
+export function serveQueue(token, queueId, entryId, counterId) {
+  const body = {};
+  if (entryId) body.entryId = entryId;
+  if (counterId) body.counterId = counterId;
   return apiRequest(`/api/admin/queues/${queueId}/serve`, {
     method: "POST",
     token,
-    body: entryId ? { entryId } : {},
+    body,
   });
 }
 
 /** POST /api/admin/queues/:queueId/skip — skip next or selected waiting entry. */
-export function skipQueue(token, queueId, entryId) {
+export function skipQueue(token, queueId, entryId, counterId) {
+  const body = {};
+  if (entryId) body.entryId = entryId;
+  if (counterId) body.counterId = counterId;
   return apiRequest(`/api/admin/queues/${queueId}/skip`, {
     method: "POST",
     token,
-    body: entryId ? { entryId } : {},
+    body,
+  });
+}
+
+export function fetchAdminCatalog(token) {
+  return apiRequest("/api/admin/catalog", { token });
+}
+
+export function createVenue(token, { name }) {
+  return apiRequest("/api/admin/venues", { method: "POST", token, body: { name } });
+}
+
+export function updateVenue(token, venueId, { name }) {
+  return apiRequest(`/api/admin/venues/${venueId}`, { method: "PATCH", token, body: { name } });
+}
+
+export function createAdminQueue(token, payload) {
+  return apiRequest("/api/admin/queues", { method: "POST", token, body: payload });
+}
+
+export function updateAdminQueue(token, queueId, payload) {
+  return apiRequest(`/api/admin/queues/${queueId}`, { method: "PATCH", token, body: payload });
+}
+
+export function addQueueCounter(token, queueId, { name }) {
+  return apiRequest(`/api/admin/queues/${queueId}/counters`, {
+    method: "POST",
+    token,
+    body: { name },
+  });
+}
+
+export function renameQueueCounter(token, queueId, counterId, { name }) {
+  return apiRequest(`/api/admin/queues/${queueId}/counters/${counterId}`, {
+    method: "PATCH",
+    token,
+    body: { name },
+  });
+}
+
+export function removeQueueCounter(token, queueId, counterId) {
+  return apiRequest(`/api/admin/queues/${queueId}/counters/${counterId}`, {
+    method: "DELETE",
+    token,
   });
 }
 
@@ -211,7 +283,7 @@ export function extendAcceptingSession(token, queueId, payload) {
 
 /**
  * PUT /api/admin/queues/:queueId/service-windows
- * Replace daily service windows (campus IST HH:mm). Body: { serviceWindows: [{start,end}] }.
+ * Replace service windows (campus IST HH:mm). Body: { serviceWindows: [{start,end,days?}] }. Optional days scopes a window to weekdays (0=Sun…6=Sat); omit for every day.
  */
 export function updateServiceWindows(token, queueId, serviceWindows) {
   return apiRequest(`/api/admin/queues/${queueId}/service-windows`, {

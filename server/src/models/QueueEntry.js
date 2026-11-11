@@ -61,6 +61,17 @@ const queueEntrySchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    /** When this entry was called to the counter (status serving). */
+    calledAt: { type: Date, default: null },
+    /** Absolute deadline for a no-show skip. Null while pause is holding the timer. */
+    servingDeadlineAt: { type: Date, default: null },
+    /** Remaining ms when the queue was paused mid-call. */
+    servingPausedRemainingMs: { type: Number, default: null, min: 0 },
+    /** Counter this entry was called or served at (subdocument id on Queue.counters). */
+    servingCounterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
   },
   { timestamps: true }
 );

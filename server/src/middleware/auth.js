@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { Guest } from "../models/Guest.js";
+import { isConsoleUser } from "../services/staffAccess.js";
 
 /** Header carrying the device-bound Guest credential (implementer choice). */
 export const GUEST_CREDENTIAL_HEADER = "x-guest-credential";
@@ -22,6 +23,9 @@ export function signToken(user) {
       sub: user._id.toString(),
       role: user.role,
       email: user.email,
+      ...(user.role === "staff" && user.staffVenue
+        ? { venueId: user.staffVenue.toString() }
+        : {}),
     },
     getJwtSecret(),
     { expiresIn }
@@ -123,13 +127,15 @@ export function requireJoiner(req, res, next) {
 }
 
 /**
- * Require `req.user.role === "admin"`. Use after `requireAuth`.
+ * Require a console role (`admin` or `staff`). Use after `requireAuth`.
+ * Venue scoping is enforced on individual admin routes, not here.
+ * Students still receive 403 — this does not weaken the user-vs-admin gate.
  */
 export function requireAdmin(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ error: "Authentication required" });
   }
-  if (req.user.role !== "admin") {
+  if (!isConsoleUser(req.user)) {
     return res.status(403).json({ error: "Admin access required" });
   }
   return next();

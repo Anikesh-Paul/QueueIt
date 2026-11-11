@@ -12,6 +12,8 @@ import {
 } from "../services/queueStatus.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { ensureQueueSessionState } from "../services/queueSession.js";
+import { expireNoShowCalls } from "../services/servingDeadline.js";
+import { queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
 
@@ -25,17 +27,18 @@ router.get("/", async (_req, res, next) => {
   try {
     // Catalog lists open, paused, and closed (not accepting) queues honestly.
     // status is advancement-only (open|paused); acceptingTokens is orthogonal.
-    const queues = await Queue.find({ status: { $in: ["open", "paused"] } })
+    const queues = await Queue.find({ status: { $in: ["open", "paused"] }, archivedAt: null })
       .populate("venue")
       .sort({ name: 1 })
       .exec();
 
     for (const q of queues) {
       await ensureQueueSessionState(q);
+      await expireNoShowCalls({ queueId: q._id });
     }
 
     return res.status(200).json({
-      queues: queues.map((q) => q.toPublicJSON()),
+      queues: await queuesWithOccupancy(queues),
     });
   } catch (err) {
     return next(err);
@@ -132,6 +135,7 @@ router.get("/active", attachJoiner, requireJoiner, async (req, res, next) => {
       const queue = entry.queue;
       if (!queue) continue;
       await ensureQueueSessionState(queue);
+    await expireNoShowCalls({ queueId: queue._id });
       memberships.push(await buildStatusPayload(queue, entry));
     }
 
@@ -183,12 +187,13 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
     }
 
     const queue = await Queue.findById(queueId);
-    if (!queue) {
+    if (!queue || queue.archivedAt) {
       return res.status(404).json({ error: "Queue not found" });
     }
 
     // Lazy auto-close at bound session end before join gate.
     await ensureQueueSessionState(queue);
+    await expireNoShowCalls({ queueId: queue._id });
 
     // Closed: refuse new app tokens. Paused still allows join. Walk-in is admin-only.
     if (queue.acceptingTokens === false) {
@@ -196,6 +201,11 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
         error: "Queue is closed; not accepting tokens",
         reopenAt: queue.reopenAt ? new Date(queue.reopenAt).toISOString() : null,
       });
+    }
+
+    const full = await rejectIfQueueFull(queue);
+    if (full) {
+      return res.status(409).json(full);
     }
 
     let guest = null;
@@ -251,6 +261,11 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
         });
       }
       throw err;
+    }
+
+    const overflow = await releaseEntryIfOverCapacity(queue, entry);
+    if (overflow) {
+      return res.status(409).json(overflow);
     }
 
     // Reload queue for current nowServing / averageServiceTime after token bump.
@@ -340,6 +355,7 @@ router.get("/:queueId/status", attachJoiner, requireJoiner, async (req, res, nex
     }
 
     await ensureQueueSessionState(queue);
+    await expireNoShowCalls({ queueId: queue._id });
 
     const entry = await findJoinerActiveEntry(queue._id, req);
     if (!entry) {

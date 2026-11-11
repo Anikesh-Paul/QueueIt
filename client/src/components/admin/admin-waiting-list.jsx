@@ -1,0 +1,110 @@
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
+export function AdminWaitingList({
+  waitingList,
+  waitingLoading,
+  empty,
+  selectedEntryId,
+  setSelectedEntryId,
+}) {
+  return (
+            <section className="overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card">
+              <h2 className="text-label uppercase tracking-wide text-text-muted">
+                Waiting list
+              </h2>
+
+              {waitingLoading && (
+                <div className="mt-3 flex flex-col gap-2" aria-busy="true">
+                  <Skeleton className="h-12 rounded-lg" />
+                  <Skeleton className="h-12 rounded-lg" />
+                </div>
+              )}
+
+              {!waitingLoading && empty && (
+                <p className="mt-3 text-sm text-text-muted" data-testid="admin-waiting-empty">
+                  No one waiting.
+                </p>
+              )}
+
+              {!waitingLoading && !empty && (
+                <ul className="mt-3 flex flex-col gap-2" data-testid="admin-waiting-list">
+                  {waitingList.map((entry) => {
+                    const isSelected = entry.id === selectedEntryId;
+                    const isWalkIn = Boolean(entry.isWalkIn);
+                    const isGuest = Boolean(entry.isGuest) && !isWalkIn;
+                    const isCalled = entry.status === "serving";
+                    // Token-first rows: Guest badge only (no name/email); walk-in keeps name.
+                    const displayName = isGuest
+                      ? null
+                      : entry.user?.name || (isWalkIn ? "Walk-in" : "User");
+                    return (
+                      <li key={entry.id}>
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-lg border border-border bg-secondary px-3.5 py-2.5 text-left shadow-card outline-none transition-[border,background-color] hover:border-border-strong focus-visible:ring-3 focus-visible:ring-ring/50",
+                            isSelected && "border-primary bg-primary-muted/60",
+                            isCalled && "border-primary/40 bg-primary-muted/40"
+                          )}
+                          onClick={() =>
+                            setSelectedEntryId((prev) => (prev === entry.id ? null : entry.id))
+                          }
+                          aria-pressed={isSelected}
+                          data-testid="waiting-entry"
+                          data-token={entry.tokenNumber}
+                          data-walk-in={isWalkIn ? "true" : "false"}
+                          data-guest={isGuest ? "true" : "false"}
+                          data-status={entry.status || "waiting"}
+                        >
+                          <span className="w-10 shrink-0 font-metric text-base font-bold tabular-nums text-foreground">
+                            #{entry.tokenNumber}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
+                              {displayName ? <span className="truncate">{displayName}</span> : null}
+                              {isGuest ? (
+                                <span
+                                  className="badge--guest shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-text-secondary ring-1 ring-border"
+                                  data-testid="waiting-guest-badge"
+                                >
+                                  Guest
+                                </span>
+                              ) : null}
+                              {isWalkIn ? (
+                                <span className="ml-0.5 text-xs font-semibold text-text-muted">
+                                  · Walk-in
+                                </span>
+                              ) : null}
+                              {isCalled ? (
+                                <span
+                                  className="shrink-0 rounded-full bg-primary-muted px-2 py-0.5 text-xs font-semibold text-primary ring-1 ring-primary/30"
+                                  data-testid="waiting-called-badge"
+                                >
+                                  {entry.servingCounterName
+                                    ? `Called · ${entry.servingCounterName}`
+                                    : "Called"}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="block truncate text-xs text-text-muted">
+                              {isCalled
+                                ? entry.servingTimerFrozen
+                                  ? "Timer paused"
+                                  : entry.servingRemainingSeconds != null
+                                    ? `${Math.max(0, entry.servingRemainingSeconds)}s to arrive`
+                                    : "Called to the counter"
+                                : `Position ${entry.position}`}
+                              {!isGuest && entry.user?.email ? ` · ${entry.user.email}` : ""}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+  );
+}

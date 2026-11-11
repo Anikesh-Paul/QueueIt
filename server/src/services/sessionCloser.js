@@ -9,6 +9,7 @@
 import { Queue } from "../models/Queue.js";
 import { now as clockNow } from "./clock.js";
 import { ensureQueueSessionState } from "./queueSession.js";
+import { expireNoShowCalls } from "./servingDeadline.js";
 
 /** Default tick: close within 15s of session end when the process is running. */
 export const DEFAULT_SESSION_CLOSE_INTERVAL_MS = 15_000;
@@ -24,6 +25,7 @@ export async function closeExpiredSessions() {
   if (inFlight) return 0;
   inFlight = true;
   try {
+    await expireNoShowCalls();
     const instant = clockNow();
     const queues = await Queue.find({
       acceptingTokens: { $ne: false },

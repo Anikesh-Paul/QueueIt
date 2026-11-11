@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
-const ROLES = ["user", "admin"];
+const ROLES = ["user", "admin", "staff"];
 
 const userSchema = new mongoose.Schema(
   {
@@ -28,9 +28,24 @@ const userSchema = new mongoose.Schema(
       default: "user",
       required: true,
     },
+    /** Assigned venue for role=staff. Null for global admin and students. */
+    staffVenue: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Venue",
+      default: null,
+    },
   },
   { timestamps: true }
 );
+
+userSchema.pre("validate", function validateStaffVenue() {
+  if (this.role === "staff" && !this.staffVenue) {
+    this.invalidate("staffVenue", "Staff must be assigned to a venue");
+  }
+  if (this.role !== "staff") {
+    this.staffVenue = null;
+  }
+});
 
 userSchema.statics.hashPassword = async function hashPassword(plain) {
   return bcrypt.hash(plain, 10);
@@ -46,6 +61,7 @@ userSchema.methods.toPublicJSON = function toPublicJSON() {
     email: this.email,
     name: this.name,
     role: this.role,
+    staffVenueId: this.role === "staff" && this.staffVenue ? this.staffVenue.toString() : null,
   };
 };
 

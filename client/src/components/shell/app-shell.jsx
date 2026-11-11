@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { UserChip } from "@/components/shell/user-chip";
 import { useApp } from "@/context/app-context";
 import { cn } from "@/lib/utils";
+import { QueueNotifyProvider } from "@/hooks/use-queue-notifications";
 
 function ShellNavLink({ to, end = false, children, testId }) {
   return (
@@ -48,6 +49,11 @@ function ShellNavItems({ isAdmin, inQueue, openAdminQueueId }) {
           In line
         </ShellNavLink>
       )}
+      {isAdmin && (
+        <ShellNavLink to="/admin/catalog" testId="nav-catalog">
+          Catalog
+        </ShellNavLink>
+      )}
       {isAdmin && openAdminQueueId && (
         <>
           <ShellNavLink to={`/admin/queues/${openAdminQueueId}`} testId="nav-admin">
@@ -79,7 +85,7 @@ export function AppShell() {
 
   // JWT User/Admin wins; otherwise Guest chip on the student peer path.
   const identity = user
-    ? { name: user.name, role: user.role === "admin" ? "admin" : "user" }
+    ? { name: user.name, role: user.role === "admin" || user.role === "staff" ? user.role : "user" }
     : isGuest
       ? { name: "Guest", role: "guest" }
       : null;
@@ -101,6 +107,7 @@ export function AppShell() {
   );
 
   return (
+    <QueueNotifyProvider>
     <div className="flex min-h-dvh flex-col bg-background">
       <header
         data-testid="app-top-bar"
@@ -145,5 +152,6 @@ export function AppShell() {
         <Outlet />
       </main>
     </div>
+    </QueueNotifyProvider>
   );
 }

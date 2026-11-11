@@ -77,19 +77,22 @@ export function formatCampusClockTime(iso) {
 }
 
 /**
- * Length/pace line from existing ETA inputs only (position + averageServiceTime).
- * Position is 1 = next → people ahead = position − 1. No new ETA formula.
+ * Length/pace line from ETA inputs (position + the service pace used for ETA).
+ * Position is 1 = next → people ahead = position − 1.
+ * Pace is usually the configured average; when the API sends a recent
+ * inter-serve average, pass that so the “about” copy stays honest.
  *
  * @param {number | null | undefined} position
- * @param {number | null | undefined} averageServiceTime
+ * @param {number | null | undefined} servicePaceMinutes
  * @returns {string | null}
  */
-export function formatPaceLine(position, averageServiceTime) {
-  if (!Number.isFinite(position) || !Number.isFinite(averageServiceTime)) {
+export function formatPaceLine(position, servicePaceMinutes) {
+  if (!Number.isFinite(position) || !Number.isFinite(servicePaceMinutes)) {
     return null;
   }
   const ahead = Math.max(0, Math.trunc(position) - 1);
-  const mins = Math.trunc(averageServiceTime);
+  const rounded = Math.round(Number(servicePaceMinutes) * 10) / 10;
+  const mins = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
   return `${ahead} ahead · ~${mins} min each`;
 }
 
@@ -98,7 +101,7 @@ export function formatPaceLine(position, averageServiceTime) {
  * Caller supplies asOfMs: wall-clock “now” while live (remaining wait); a pinned
  * snapshot while Paused so the primary does not slide toward a false arrival.
  *
- * ETA minutes still come from the product rule: position × averageServiceTime (caller).
+ * ETA minutes still come from the product rule: position × service pace (caller).
  *
  * @param {{
  *   etaMinutes: number,

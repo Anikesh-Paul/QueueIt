@@ -100,6 +100,11 @@ export async function seedVenueAndQueues(env = process.env) {
       if (resetCatalog) {
         queue.serviceWindows = def.serviceWindows;
         queue.status = "open";
+        queue.archivedAt = null;
+        queue.maxWaiting = null;
+      }
+      if (!Array.isArray(queue.counters) || queue.counters.length === 0) {
+        queue.counters = [{ name: "Counter 1", nowServing: queue.nowServing ?? null }];
       }
       await queue.save();
     } else {
@@ -107,6 +112,7 @@ export async function seedVenueAndQueues(env = process.env) {
         ...def,
         venue: venue._id,
         status: "open",
+        counters: [{ name: "Counter 1", nowServing: null }],
       });
     }
     queues.push(queue);

@@ -257,7 +257,7 @@ export function StatusPage() {
             Offline — showing your last known place in line. Live updates resume when you’re back online.
           </p>
         ) : null}
-        <header className="mb-6">
+        <header className="mb-4">
           <h1
             data-testid="status-heading"
             className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground"
@@ -350,14 +350,11 @@ export function StatusPage() {
           </div>
         )}
 
-        <div className="mb-4">
-          <NotifyControls />
-        </div>
-
         {/*
           Signature composition:
           md+: token+metrics | pass+Leave
-          phone: hero → metrics → pass → Leave (single column order)
+          phone: hero → metrics → pass → Leave, then compact notifications.
+          Urgent banners (called / offline) stay above the token.
         */}
         <div
           data-testid="status-layout"
@@ -447,6 +444,10 @@ export function StatusPage() {
             />
             <LeaveControl leaveBusy={leaveBusy} onLeave={handleLeave} />
           </section>
+        </div>
+
+        <div className="mt-5" data-testid="status-notify-slot">
+          <NotifyControls called={isCalled} />
         </div>
 
         {(statusError || leaveError) && (

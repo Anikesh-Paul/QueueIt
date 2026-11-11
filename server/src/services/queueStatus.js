@@ -1,6 +1,7 @@
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "../models/QueueEntry.js";
 import { sessionFieldsForJson } from "./queueSession.js";
 import { signArrivalPass } from "./arrivalPass.js";
+import { resolveEtaServicePace } from "./recentServicePace.js";
 
 /**
  * Live position among active waiters (1 = front of waiting line).
@@ -16,10 +17,12 @@ export async function computePosition(queueId, tokenNumber) {
 }
 
 /**
- * Product ETA rule: position × averageServiceTime (minutes).
+ * Product ETA rule: position × service pace (minutes).
+ * Pace is the recent inter-serve average when the sample is thick enough,
+ * otherwise the queue's configured averageServiceTime.
  */
-export function computeEtaMinutes(position, averageServiceTime) {
-  return position * averageServiceTime;
+export function computeEtaMinutes(position, servicePaceMinutes) {
+  return position * servicePaceMinutes;
 }
 
 /**
@@ -28,7 +31,8 @@ export function computeEtaMinutes(position, averageServiceTime) {
 export async function buildStatusPayload(queue, entry) {
   const position = await computePosition(queue._id, entry.tokenNumber);
   const averageServiceTime = queue.averageServiceTime;
-  const etaMinutes = computeEtaMinutes(position, averageServiceTime);
+  const { pace: etaServiceTime, source: etaPaceSource } = await resolveEtaServicePace(queue);
+  const etaMinutes = computeEtaMinutes(position, etaServiceTime);
 
   return {
     tokenNumber: entry.tokenNumber,
@@ -36,6 +40,8 @@ export async function buildStatusPayload(queue, entry) {
     etaMinutes,
     nowServing: queue.nowServing ?? null,
     averageServiceTime,
+    etaServiceTime,
+    etaPaceSource,
     status: entry.status,
     arrivalPass: signArrivalPass(queue._id, entry.tokenNumber),
     queue: {

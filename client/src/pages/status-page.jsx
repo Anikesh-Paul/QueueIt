@@ -107,7 +107,7 @@ export function StatusPage() {
 
   const paceLine = formatPaceLine(
     liveStatus.position,
-    liveStatus.averageServiceTime
+    liveStatus.etaServiceTime ?? liveStatus.averageServiceTime
   );
   // Live: wall clock (remaining wait). Paused: first pinned snapshot for this pause.
   const etaAsOfMs = paused

@@ -110,7 +110,13 @@ export function AdminWaitingList({
                                   : entry.servingTimerFrozen
                                   ? "Timer paused"
                                   : entry.servingRemainingSeconds != null
-                                    ? `${Math.max(0, entry.servingRemainingSeconds)}s to arrive`
+                                    ? `${Math.max(0, entry.servingRemainingSeconds)}s to arrive${
+                                        entry.noShowWindowMinutes
+                                          ? ` · ${entry.noShowWindowMinutes} min window${
+                                              entry.noShowWindowMode === "dynamic" ? " (dynamic)" : ""
+                                            }`
+                                          : ""
+                                      }`
                                     : "Called to the counter"
                                 : `Position ${entry.position}`}
                               {!isGuest && entry.user?.email ? ` · ${entry.user.email}` : ""}

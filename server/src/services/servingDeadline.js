@@ -11,14 +11,9 @@ import {
   setCounterNowServing,
   completeCounterTurn,
 } from "./counters.js";
+import { resolveNoShowWindow } from "./noShowWindow.js";
 
-export const DEFAULT_NO_SHOW_MINUTES = 5;
-
-export function resolveNoShowMinutes(queue) {
-  const value = Number(queue?.noShowMinutes);
-  if (Number.isFinite(value) && value >= 1) return Math.min(30, Math.trunc(value));
-  return DEFAULT_NO_SHOW_MINUTES;
-}
+export { DEFAULT_NO_SHOW_MINUTES, resolveNoShowMinutes } from "./noShowWindow.js";
 
 function toIsoOrNull(value) {
   if (value == null) return null;
@@ -55,6 +50,8 @@ export function servingFieldsForJson(entry, { paused = false, at = clockNow(), q
       servingTimerFrozen: false,
       here: false,
       arrivedAt: null,
+      noShowWindowMinutes: null,
+      noShowWindowMode: null,
       ...counterFields,
     };
   }
@@ -66,6 +63,8 @@ export function servingFieldsForJson(entry, { paused = false, at = clockNow(), q
     servingTimerFrozen: Boolean(paused),
     here: Boolean(entry.arrivedAt),
     arrivedAt: toIsoOrNull(entry.arrivedAt),
+    noShowWindowMinutes: entry.noShowWindowMinutes ?? null,
+    noShowWindowMode: entry.noShowWindowMode ?? null,
     ...counterFields,
   };
 }
@@ -75,6 +74,8 @@ export function clearServingTimer() {
     servingDeadlineAt: null,
     servingPausedRemainingMs: null,
     arrivedAt: null,
+    noShowWindowMinutes: null,
+    noShowWindowMode: null,
   };
 }
 
@@ -120,8 +121,8 @@ export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
   }
 
   const now = clockNow();
-  const minutes = resolveNoShowMinutes(queue);
-  const deadline = new Date(now.getTime() + minutes * 60_000);
+  const window = await resolveNoShowWindow(queue);
+  const deadline = new Date(now.getTime() + window.minutes * 60_000);
 
   const entry = await QueueEntry.findOneAndUpdate(
     filter,
@@ -133,6 +134,8 @@ export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
         servingPausedRemainingMs: null,
         arrivedAt: null,
         servingCounterId: target.counter._id,
+        noShowWindowMinutes: window.minutes,
+        noShowWindowMode: window.mode,
       },
     },
     {

@@ -202,6 +202,8 @@ The API also applies Helmet security headers, a 16kb JSON body cap, and per-IP r
 
 Guest credentials are minted as high-entropy secrets and returned once to the device. Mongo stores only a SHA-256 hash; a presented header is hashed and compared (legacy plaintext rows are re-hashed on use or at boot). The browser keeps the raw Guest credential and JWT in `localStorage`, which is convenient on this device but means any XSS can steal the session. Prefer fixing XSS over treating `localStorage` as a vault; moving to httpOnly cookie sessions would be a separate migration.
 
+Runtime API packages are pinned past known advisories (`mongoose` 9.12.x, `express` 4.22.3, plus overrides for `body-parser`, `engine.io`, `qs`, `proxy-addr`, and `ip-address`). `npm audit --omit=dev` is clean. Remaining `npm audit` findings live in dev/CLI trees (`vercel`, `shadcn`, and their `zod` / `tar` / `undici` dependents), not the production server or client bundle. `vercel` and `shadcn` are devDependencies only.
+
 ## Deploy
 
 Suggested free-tier path:

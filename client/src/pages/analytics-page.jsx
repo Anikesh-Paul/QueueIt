@@ -34,7 +34,8 @@ function MetricCard({ label, value, testId, hero = false }) {
 
 /**
  * Admin ops analytics for one queue: served count, average wait, and simple
- * peaks (busiest hours). Numeric-first storytelling — no chart library, no
+ * peaks (busiest hours). Defaults to today's campus IST window; All time is
+ * one click away. Numeric-first storytelling — no chart library, no
  * BI claims; refresh is manual + on mount. No motif wallpaper on empty.
  * Ruthless chrome: **Analytics** / **Busiest hours** / **Campus time · IST**.
  */
@@ -42,7 +43,7 @@ export function AnalyticsPage() {
   const { queueId } = useParams();
   const navigate = useNavigate();
   const { token, analyticsData, analyticsLoading, analyticsError, loadAnalytics } = useApp();
-  const [analyticsWindow, setAnalyticsWindow] = useState("all");
+  const [analyticsWindow, setAnalyticsWindow] = useState("today");
 
   useEffect(() => {
     if (queueId && token) loadAnalytics(token, queueId, { window: analyticsWindow });

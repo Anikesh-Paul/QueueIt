@@ -65,6 +65,7 @@ describe("formatPaceLine (length / pace from ETA inputs)", () => {
     assert.equal(formatPaceLine(1, 3), "0 ahead · ~3 min each");
     // position 3 → 2 ahead; gym avg 5
     assert.equal(formatPaceLine(3, 5), "2 ahead · ~5 min each");
+    assert.equal(formatPaceLine(2, 2.4), "1 ahead · ~2.4 min each");
   });
 
   it("returns null when inputs are not usable", () => {

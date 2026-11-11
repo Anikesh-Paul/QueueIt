@@ -144,7 +144,7 @@ export function QueuesPage() {
       {!queuesLoading && !queuesError && queues.length === 0 && (
         <div
           data-testid="queues-empty"
-          className="rounded-xl border border-border bg-card px-5 py-10 text-center shadow-card"
+          className="rounded-md border border-border bg-card px-5 py-10 text-center shadow-card"
         >
           <MotifIllustration motif="waitingHall" variant="empty" className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
@@ -183,7 +183,7 @@ export function QueuesPage() {
                   data-queue-id={queue.id}
                   data-accepting-tokens={closed ? "false" : "true"}
                   className={cn(
-                    "queue-card flex w-full flex-col items-start gap-0.5 rounded-lg border bg-card px-4 py-3 text-left shadow-card transition-[border,background-color] outline-none hover:border-border-strong focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "queue-card flex w-full flex-col items-start gap-0.5 rounded-md border bg-card px-4 py-3 text-left shadow-card transition-[border,background-color] outline-none hover:border-border-strong focus-visible:ring-3 focus-visible:ring-ring/50",
                     isSelected && "border-primary bg-primary-muted/60"
                   )}
                   onClick={() => {

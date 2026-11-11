@@ -72,7 +72,7 @@ export function HistoryPage() {
       {!historyLoading && !historyError && historyEvents.length === 0 && (
         <div
           data-testid="history-empty"
-          className="rounded-xl border border-border bg-card px-5 py-12 text-center shadow-card"
+          className="rounded-md border border-border bg-card px-5 py-12 text-center shadow-card"
         >
           <MotifIllustration motif="foldedPass" variant="empty" className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
@@ -99,7 +99,7 @@ export function HistoryPage() {
               key={event.id}
               data-testid="history-item"
               data-outcome={event.outcome}
-              className="rounded-xl border border-border bg-card p-4 shadow-card"
+              className="rounded-md border border-border bg-card p-4 shadow-card"
             >
               <div className="flex items-center justify-between gap-3">
                 <span

@@ -98,7 +98,7 @@ export function JoinPage() {
       {!validId ? (
         <div
           data-testid="join-invalid"
-          className="rounded-xl border border-border bg-card px-5 py-10 text-center shadow-card"
+          className="rounded-md border border-border bg-card px-5 py-10 text-center shadow-card"
         >
           <MotifIllustration motif="serviceWindow" variant="error" dimmer className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
@@ -128,7 +128,7 @@ export function JoinPage() {
       {validId && !queuesLoading && !queuesError && !queue ? (
         <div
           data-testid="join-not-found"
-          className="rounded-xl border border-border bg-card px-5 py-10 text-center shadow-card"
+          className="rounded-md border border-border bg-card px-5 py-10 text-center shadow-card"
         >
           <MotifIllustration motif="waitingHall" variant="empty" className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
@@ -154,7 +154,7 @@ export function JoinPage() {
         <section
           data-testid="join-queue-card"
           data-queue-id={queue.id}
-          className="rounded-xl border border-border bg-card px-5 py-5 shadow-card"
+          className="rounded-md border border-border bg-card px-5 py-5 shadow-card"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">

@@ -25,6 +25,7 @@ export function ensureDefaultCounters(queue) {
       name: DEFAULT_COUNTER_NAME,
       nowServing: null,
       lastServed: queue.nowServing ?? null,
+      lastAssignedAt: null,
     },
   ];
   return true;
@@ -66,6 +67,12 @@ export function counterNameOf(queue, counterId) {
  * Pick a counter for call/serve.
  * @returns {{ ok: true, counter: object } | { ok: false, status: number, error: string }}
  */
+function assignedAtMs(counter) {
+  if (!counter?.lastAssignedAt) return 0;
+  const time = new Date(counter.lastAssignedAt).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
 export function resolveTargetCounter(queue, { counterId, busyIds } = {}) {
   ensureDefaultCounters(queue);
   const busy = busyIds instanceof Set ? busyIds : new Set(busyIds || []);
@@ -76,8 +83,11 @@ export function resolveTargetCounter(queue, { counterId, busyIds } = {}) {
     }
     return { ok: true, counter };
   }
-  const free = queue.counters.find((counter) => !busy.has(counter._id.toString()));
-  if (free) return { ok: true, counter: free };
+  const free = queue.counters.filter((counter) => !busy.has(counter._id.toString()));
+  if (free.length > 0) {
+    free.sort((a, b) => assignedAtMs(a) - assignedAtMs(b));
+    return { ok: true, counter: free[0] };
+  }
   const onlyOne = queue.counters.length <= 1;
   return {
     ok: false,
@@ -88,8 +98,11 @@ export function resolveTargetCounter(queue, { counterId, busyIds } = {}) {
   };
 }
 
-export function setCounterNowServing(queue, counter, tokenNumber) {
-  if (counter) counter.nowServing = tokenNumber ?? null;
+export function setCounterNowServing(queue, counter, tokenNumber, at = null) {
+  if (counter) {
+    counter.nowServing = tokenNumber ?? null;
+    if (at) counter.lastAssignedAt = at;
+  }
   if (tokenNumber != null) queue.nowServing = tokenNumber;
 }
 

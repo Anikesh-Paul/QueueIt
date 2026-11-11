@@ -17,6 +17,7 @@ import { findRecoverableEntry, isRecoverable, recoverMissedTurn, recoveryDeadlin
 import { requestPriority } from "../services/priorityLane.js";
 import { recordAdminAudit } from "../services/adminAudit.js";
 import { occupancyByQueueIds, queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
+import { attachEquivalentSuggestions } from "../services/equivalentQueues.js";
 import { toBoardJSON } from "../services/queueBoard.js";
 import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
@@ -65,7 +66,7 @@ router.get("/", async (_req, res, next) => {
     await reconcileCatalogServing(queues);
 
     return res.status(200).json({
-      queues: await queuesWithOccupancy(queues),
+      queues: attachEquivalentSuggestions(await queuesWithOccupancy(queues)),
     });
   } catch (err) {
     return next(err);

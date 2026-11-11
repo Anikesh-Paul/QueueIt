@@ -135,7 +135,7 @@ export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
   if (!claimed.ok) return claimed;
   const entry = claimed.entry;
 
-  setCounterNowServing(queue, target.counter, entry.tokenNumber);
+  setCounterNowServing(queue, target.counter, entry.tokenNumber, now);
   await autoPrepareIfClosedEmpty(queue);
   await queue.save();
   emitQueueChanged(queue._id, "call");

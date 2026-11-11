@@ -74,6 +74,7 @@ function toAdminQueueJSON(queue) {
     recoveryMinutes: queue.recoveryMinutes ?? 15,
     recoveryPlaces: queue.recoveryPlaces ?? 2,
     priorityEveryK: queue.priorityEveryK ?? 3,
+    equivalentGroup: queue.equivalentGroup || null,
     counters: countersForJson(queue),
     archived: Boolean(queue.archivedAt),
     ...sessionFieldsForJson(queue),
@@ -1111,6 +1112,7 @@ router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
       recoveryMinutes: req.body?.recoveryMinutes,
       recoveryPlaces: req.body?.recoveryPlaces,
       priorityEveryK: req.body?.priorityEveryK,
+      equivalentGroup: req.body?.equivalentGroup,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     return res.status(201).json({
@@ -1138,6 +1140,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       recoveryMinutes: req.body?.recoveryMinutes,
       recoveryPlaces: req.body?.recoveryPlaces,
       priorityEveryK: req.body?.priorityEveryK,
+      equivalentGroup: req.body?.equivalentGroup,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     await writeAudit(req, { action: "queue-update", queue: result.queue, meta: { maxWaiting: req.body?.maxWaiting ?? undefined } });

@@ -180,7 +180,7 @@ Artifacts (gitignored): `playwright-report/index.html`, failure traces under `te
 
 | File | Purpose |
 |------|---------|
-| `server/.env.example` | `PORT`, `HOST`, `MONGODB_URI`, `JWT_SECRET`, `CLIENT_ORIGIN`, `SEED_ON_BOOT`, `SEED_*` |
+| `server/.env.example` | `PORT`, `HOST`, `MONGODB_URI`, `JWT_SECRET`, `ARRIVAL_PASS_SECRET`, `CLIENT_ORIGIN`, `SEED_ON_BOOT`, `SEED_*` |
 | `client/.env.example` | `VITE_API_URL` for API base URL |
 
 Copy examples to `.env` locally. **Never commit `.env` or real secrets.**
@@ -191,6 +191,7 @@ Copy examples to `.env` locally. **Never commit `.env` or real secrets.**
 |----------|--------|---------|
 | `MONGODB_URI` | API host | Atlas connection string |
 | `JWT_SECRET` | API host | Strong random secret |
+| `ARRIVAL_PASS_SECRET` | API host | Optional. HMAC key for signed arrival passes; falls back to `JWT_SECRET` |
 | `CLIENT_ORIGIN` | API host | Exact frontend origin(s), comma-separated if needed |
 | `SEED_ON_BOOT` | API host | `true` once to upsert demo data |
 | `SEED_ADMIN_*` / `SEED_USER_*` | API host | Demo logins (host-only) |
@@ -203,6 +204,8 @@ The API also applies Helmet security headers, a 16kb JSON body cap, and per-IP r
 Guest credentials are minted as high-entropy secrets and returned once to the device. Mongo stores only a SHA-256 hash; a presented header is hashed and compared (legacy plaintext rows are re-hashed on use or at boot). The browser keeps the raw Guest credential and JWT in `localStorage`, which is convenient on this device but means any XSS can steal the session. Prefer fixing XSS over treating `localStorage` as a vault; moving to httpOnly cookie sessions would be a separate migration.
 
 Runtime API packages are pinned past known advisories (`mongoose` 9.12.x, `express` 4.22.3, plus overrides for `body-parser`, `engine.io`, `qs`, `proxy-addr`, and `ip-address`). `npm audit --omit=dev` is clean. Remaining `npm audit` findings live in dev/CLI trees (`vercel`, `shadcn`, and their `zod` / `tar` / `undici` dependents), not the production server or client bundle. `vercel` and `shadcn` are devDependencies only.
+
+The arrival-pass QR confirms that a token is waiting in a queue — it is a counter convenience, not proof of identity. Join and status issue a signed pass (`QIT:<queueId>:<tokenNumber>:<mac>`), HMAC-SHA256 with `ARRIVAL_PASS_SECRET` or, if that is unset, `JWT_SECRET`. Admin verify rejects a tampered MAC and still accepts a bare token (or a legacy unsigned pass) typed at the counter.
 
 ## Deploy
 

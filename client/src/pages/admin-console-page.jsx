@@ -922,6 +922,9 @@ export function AdminConsolePage() {
             <h2 className="text-label uppercase tracking-wide text-text-muted">
               Check arrival
             </h2>
+            <p className="mt-1 text-xs leading-5 text-text-secondary" data-testid="verify-disclaimer">
+              A scan confirms this token is waiting in the line, not identity. You can still type a bare token.
+            </p>
 
             {/* Scan pass primary; manual Pass or token + Verify always secondary. */}
             <div className="mt-3 flex flex-col gap-3">
@@ -1035,7 +1038,7 @@ export function AdminConsolePage() {
                 {verifyResult.verified ? (
                   <>
                     <p className="text-xs font-semibold uppercase tracking-wide text-success">
-                      Arrival confirmed
+                      Token is waiting
                     </p>
                     <p className="text-sm font-semibold text-foreground">
                       {verifyResult.entry?.isGuest

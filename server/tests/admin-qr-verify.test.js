@@ -4,6 +4,7 @@ import request from "supertest";
 import { setupTestDb, teardownTestDb, resetDb, testApp } from "./helpers.js";
 import { seedVenueAndQueues } from "../src/seed.js";
 import { Queue } from "../src/models/Queue.js";
+import { signArrivalPass } from "../src/services/arrivalPass.js";
 
 async function registerUser(app, email = "qr-user@example.com", name = "QR User") {
   const res = await request(app).post("/api/auth/register").send({
@@ -41,8 +42,8 @@ function arrivalPass(queueId, tokenNumber) {
  * Stretch: QR arrival check — a user shows a QR for their token; an admin
  * matches it at the counter for arrival confirmation.
  * POST /api/admin/queues/:queueId/verify-qr
- * Body: { value } — full QR payload (`QIT:<queueId>:<tokenNumber>`) or a bare
- * token number typed at the counter.
+ * Body: { value } — signed or legacy QR payload, or a bare token number typed
+ * at the counter. A match means the token is waiting, not proof of identity.
  */
 describe("Admin QR arrival check (HTTP API)", () => {
   before(async () => {
@@ -243,6 +244,58 @@ describe("Admin QR arrival check (HTTP API)", () => {
         ).status,
         400
       );
+    });
+
+    it("verifies a signed pass issued at join", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+      const { token: userToken } = await registerUser(app);
+      const { token: adminToken } = await createAdmin(app);
+
+      const join = await request(app)
+        .post(`/api/queues/${queueId}/join`)
+        .set("Authorization", `Bearer ${userToken}`);
+      assert.equal(join.status, 201);
+      assert.equal(join.body.arrivalPass, signArrivalPass(queueId, join.body.tokenNumber));
+
+      const verify = await request(app)
+        .post(`/api/admin/queues/${queueId}/verify-qr`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ value: join.body.arrivalPass });
+
+      assert.equal(verify.status, 200);
+      assert.equal(verify.body.verified, true);
+      assert.equal(verify.body.signed, true);
+      assert.equal(verify.body.entry.tokenNumber, join.body.tokenNumber);
+    });
+
+    it("rejects a tampered signed pass and still accepts a bare token", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+      const { token: userToken } = await registerUser(app);
+      const { token: adminToken } = await createAdmin(app);
+
+      const join = await request(app)
+        .post(`/api/queues/${queueId}/join`)
+        .set("Authorization", `Bearer ${userToken}`);
+      assert.equal(join.status, 201);
+      const tampered = join.body.arrivalPass.slice(0, -1) + (join.body.arrivalPass.endsWith("a") ? "b" : "a");
+
+      const bad = await request(app)
+        .post(`/api/admin/queues/${queueId}/verify-qr`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ value: tampered });
+      assert.equal(bad.status, 200);
+      assert.equal(bad.body.verified, false);
+      assert.match(bad.body.reason, /not valid/i);
+
+      const bare = await request(app)
+        .post(`/api/admin/queues/${queueId}/verify-qr`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ value: String(join.body.tokenNumber) });
+      assert.equal(bare.status, 200);
+      assert.equal(bare.body.verified, true);
+      assert.equal(bare.body.signed, false);
     });
   });
 });

@@ -24,7 +24,7 @@ import {
   formatPaceLine,
   presentLiveEta,
 } from "@/lib/campus-time";
-import { buildArrivalPass } from "@/lib/arrival-pass";
+import { resolveArrivalPass } from "@/lib/arrival-pass";
 
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
@@ -364,6 +364,7 @@ export function StatusPage() {
               queueName={queueTitle}
               queueId={statusQueueId}
               tokenNumber={liveStatus.tokenNumber}
+              arrivalPass={liveStatus.arrivalPass}
             />
             <LeaveControl leaveBusy={leaveBusy} onLeave={handleLeave} />
           </section>
@@ -442,10 +443,10 @@ function NearFrontBanner({ position }) {
 
 /**
  * Arrival pass — QR + token hierarchy; stub corner + terracotta edge (signature).
- * Payload contract unchanged: QIT:<queueId>:<token>.
+ * Prefers the signed payload from live status.
  */
-function ArrivalPass({ queueName, queueId, tokenNumber }) {
-  const payload = buildArrivalPass(queueId, tokenNumber);
+function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass }) {
+  const payload = resolveArrivalPass({ arrivalPass, queueId, tokenNumber });
   return (
     <section
       data-testid="arrival-pass"
@@ -497,6 +498,9 @@ function ArrivalPass({ queueName, queueId, tokenNumber }) {
               {tokenNumber}
             </span>
             <span className="text-text-muted"> · {queueName}</span>
+          </p>
+          <p className="mt-2 text-xs leading-5 text-text-secondary" data-testid="arrival-disclaimer">
+            Show this at the counter. A scan confirms this token is waiting — not who you are.
           </p>
         </div>
       </div>

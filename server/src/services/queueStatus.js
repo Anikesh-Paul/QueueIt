@@ -1,5 +1,6 @@
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "../models/QueueEntry.js";
 import { sessionFieldsForJson } from "./queueSession.js";
+import { signArrivalPass } from "./arrivalPass.js";
 
 /**
  * Live position among active waiters (1 = front of waiting line).
@@ -36,6 +37,7 @@ export async function buildStatusPayload(queue, entry) {
     nowServing: queue.nowServing ?? null,
     averageServiceTime,
     status: entry.status,
+    arrivalPass: signArrivalPass(queue._id, entry.tokenNumber),
     queue: {
       id: queue._id.toString(),
       name: queue.name,

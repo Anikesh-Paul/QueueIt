@@ -345,8 +345,9 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
 
 /**
  * POST /api/admin/queues/:queueId/verify-qr
- * Counter arrival check: match a user's QR pass (`QIT:<queueId>:<tokenNumber>`)
+ * Counter arrival check: match a user's QR pass (signed or legacy unsigned)
  * or a bare token number against this queue's waiting list.
+ * A match means the token is waiting — not a proof of identity.
  * A non-match is a valid counter outcome — 200 { verified: false, reason } —
  * not an HTTP error. Malformed input (no value) is a 400 client bug.
  */
@@ -365,6 +366,12 @@ router.post("/queues/:queueId/verify-qr", requireAuth, requireAdmin, async (req,
       return res.status(200).json({
         verified: false,
         reason: "That doesn't look like a valid pass or token number",
+      });
+    }
+    if (parsed.invalidSignature) {
+      return res.status(200).json({
+        verified: false,
+        reason: "This pass is not valid",
       });
     }
 
@@ -396,6 +403,7 @@ router.post("/queues/:queueId/verify-qr", requireAuth, requireAdmin, async (req,
 
     return res.status(200).json({
       verified: true,
+      signed: Boolean(parsed.signed),
       entry: toWaitingRow(entry, ahead + 1),
       queue: toAdminQueueJSON(queue),
     });

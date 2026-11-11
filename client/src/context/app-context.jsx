@@ -196,7 +196,7 @@ export function AppProvider({ children }) {
         guestCred: auth.guestCredential,
       });
     }
-    if (token && adminQueueId && user?.role === "admin") {
+    if (token && adminQueueId && (user?.role === "admin" || user?.role === "staff")) {
       loadWaitingList(token, adminQueueId, { silent: true });
     }
   }, [
@@ -217,7 +217,7 @@ export function AppProvider({ children }) {
     guestMode,
     isGuest,
     booting,
-    isAdmin: user?.role === "admin",
+    isAdmin: user?.role === "admin" || user?.role === "staff",
     persistSession,
     persistGuestCredential,
     enterGuestMode,

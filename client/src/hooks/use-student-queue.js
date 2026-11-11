@@ -256,7 +256,7 @@ export function useStudentQueue({
       if (!queueId) return false;
       // JWT User/Admin, existing Guest credential, or mint on first Guest join.
       const auth = joinerAuth();
-      if (user?.role === "admin") return false;
+      if (user?.role === "admin" || user?.role === "staff") return false;
       setJoinError("");
       setJoinBusy(true);
       try {

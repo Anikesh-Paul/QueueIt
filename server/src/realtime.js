@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import { getJwtSecret } from "./middleware/auth.js";
 import { Queue } from "./models/Queue.js";
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "./models/QueueEntry.js";
+import { User } from "./models/User.js";
+import { canAccessVenue, isConsoleUser } from "./services/staffAccess.js";
 import { attachRealtime, roomForQueue } from "./services/realtime.js";
 
 /**
@@ -17,7 +19,7 @@ import { attachRealtime, roomForQueue } from "./services/realtime.js";
  * Connection contract:
  * - `auth: { token }` carries the session JWT (rejected when missing/invalid)
  * - `subscribe { queueId }` joins the queue room; users must hold an active
- *   membership in that queue, admins may subscribe to any queue
+ *   membership in that queue, global admins may subscribe to any queue; staff only to their venue
  * - `unsubscribe { queueId }` leaves the room
  *
  * Mutations broadcast `queue:changed { queueId, change }` to the queue room
@@ -67,7 +69,14 @@ export function createRealtimeServer(httpServer, options = {}) {
         }
 
         const user = socket.data.user;
-        if (user.role !== "admin") {
+        if (isConsoleUser({ role: user.role })) {
+          if (user.role === "staff") {
+            const staff = await User.findById(user.sub);
+            if (!staff || !canAccessVenue(staff, queue.venue)) {
+              return ack?.({ ok: false, error: "You don't have access to this venue" });
+            }
+          }
+        } else {
           const entry = await QueueEntry.findOne({
             queue: queueId,
             user: user.sub,

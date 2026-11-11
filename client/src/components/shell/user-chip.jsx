@@ -7,13 +7,14 @@ import { cn } from "@/lib/utils";
 const ROLE_LABELS = {
   user: "User",
   admin: "Admin",
+  staff: "Staff",
   guest: "Guest",
 };
 
 /**
  * Identity chip for the shared shell.
  * Guest: opens soft-upgrade chip menu (locked copy). User/Admin: static chip.
- * Callers pass `{ name, role }` where role is `user` | `admin` | `guest`.
+ * Callers pass `{ name, role }` where role is `user` | `admin` | `staff` | `guest`.
  */
 export function UserChip({ user, className, softUpgrade = false }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -131,6 +132,7 @@ export function RoleBadge({ role, className }) {
 function normalizeRole(role) {
   const value = String(role || "user").toLowerCase();
   if (value === "admin") return "admin";
+  if (value === "staff") return "staff";
   if (value === "guest") return "guest";
   return "user";
 }
@@ -138,6 +140,9 @@ function normalizeRole(role) {
 function badgeClassFor(role) {
   if (role === "admin") {
     return "badge--admin border-transparent bg-[#FEF3C7] text-[#92400E]";
+  }
+  if (role === "staff") {
+    return "badge--staff border-transparent bg-[#DBEAFE] text-[#1E40AF]";
   }
   if (role === "guest") {
     return "badge--guest border-transparent bg-secondary text-text-secondary";

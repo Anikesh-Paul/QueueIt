@@ -85,7 +85,7 @@ export function AppShell() {
 
   // JWT User/Admin wins; otherwise Guest chip on the student peer path.
   const identity = user
-    ? { name: user.name, role: user.role === "admin" ? "admin" : "user" }
+    ? { name: user.name, role: user.role === "admin" || user.role === "staff" ? user.role : "user" }
     : isGuest
       ? { name: "Guest", role: "guest" }
       : null;

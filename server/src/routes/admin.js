@@ -7,6 +7,7 @@ import { QueueEntry, isDuplicateKeyError } from "../models/QueueEntry.js";
 import { parseArrivalValue } from "../services/arrivalPass.js";
 import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
 import { emitQueueChanged } from "../services/realtime.js";
+import { forbidUnlessVenueAccess, isGlobalAdmin } from "../services/staffAccess.js";
 import {
   applyExtend,
   applyServiceWindowsUpdate,
@@ -117,7 +118,7 @@ function toWaitingRow(entry, position, { paused = false, queue = null } = {}) {
   };
 }
 
-async function loadQueueOr404(queueId, res) {
+async function loadQueueOr404(queueId, res, user) {
   if (!mongoose.isValidObjectId(queueId)) {
     res.status(404).json({ error: "Queue not found" });
     return null;
@@ -125,6 +126,9 @@ async function loadQueueOr404(queueId, res) {
   const queue = await Queue.findById(queueId);
   if (!queue) {
     res.status(404).json({ error: "Queue not found" });
+    return null;
+  }
+  if (forbidUnlessVenueAccess(user, queue.venue, res)) {
     return null;
   }
   // Lazy auto-close when past bound session end; also skip expired no-shows.
@@ -166,7 +170,7 @@ async function advanceWaitingEntry(queue, options, terminalStatus) {
  */
 router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
 
     const paused = queue.status === "paused";
@@ -200,7 +204,7 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
  */
 router.post("/queues/:queueId/serve", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
     if (rejectIfPaused(queue, res)) return;
 
@@ -230,7 +234,7 @@ router.post("/queues/:queueId/serve", requireAuth, requireAdmin, async (req, res
  */
 router.post("/queues/:queueId/skip", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
     if (rejectIfPaused(queue, res)) return;
 
@@ -262,7 +266,7 @@ router.post("/queues/:queueId/skip", requireAuth, requireAdmin, async (req, res,
  */
 router.post("/queues/:queueId/call", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
     if (rejectIfPaused(queue, res)) return;
 
@@ -294,7 +298,7 @@ router.post("/queues/:queueId/call", requireAuth, requireAdmin, async (req, res,
  */
 router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
     if (queue.archivedAt) {
       return res.status(409).json({ error: "This queue is archived" });
@@ -407,7 +411,7 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
  */
 router.post("/queues/:queueId/verify-qr", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
 
     const value = typeof req.body?.value === "string" ? req.body.value : "";
@@ -476,7 +480,7 @@ router.post("/queues/:queueId/verify-qr", requireAuth, requireAdmin, async (req,
  */
 router.post("/queues/:queueId/reset", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
 
     // Reset the queue atomically first (same $set discipline as token issuance)
@@ -531,7 +535,7 @@ function roundWaitMinutes(value) {
  */
 router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
 
     const range = resolveAnalyticsRange(req.query || {});
@@ -624,7 +628,7 @@ router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, 
  */
 router.post("/queues/:queueId/pause", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
 
     queue.status = "paused";
@@ -647,7 +651,7 @@ router.post("/queues/:queueId/pause", requireAuth, requireAdmin, async (req, res
  */
 router.post("/queues/:queueId/resume", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
 
     queue.status = "open";
@@ -676,7 +680,7 @@ router.post(
   requireAdmin,
   async (req, res, next) => {
     try {
-      const queue = await loadQueueOr404(req.params.queueId, res);
+      const queue = await loadQueueOr404(req.params.queueId, res, req.user);
       if (!queue) return;
 
       const applied = applyStopAccepting(queue, req.body || {});
@@ -708,7 +712,7 @@ router.post(
   requireAdmin,
   async (req, res, next) => {
     try {
-      const queue = await loadQueueOr404(req.params.queueId, res);
+      const queue = await loadQueueOr404(req.params.queueId, res, req.user);
       if (!queue) return;
 
       applyStartAccepting(queue);
@@ -736,7 +740,7 @@ router.post(
   requireAdmin,
   async (req, res, next) => {
     try {
-      const queue = await loadQueueOr404(req.params.queueId, res);
+      const queue = await loadQueueOr404(req.params.queueId, res, req.user);
       if (!queue) return;
 
       const applied = applyExtend(queue, req.body || {});
@@ -769,7 +773,7 @@ router.put(
   requireAdmin,
   async (req, res, next) => {
     try {
-      const queue = await loadQueueOr404(req.params.queueId, res);
+      const queue = await loadQueueOr404(req.params.queueId, res, req.user);
       if (!queue) return;
 
       const applied = applyServiceWindowsUpdate(
@@ -793,7 +797,7 @@ router.put(
 );
 
 
-async function loadVenueOr404(venueId, res) {
+async function loadVenueOr404(venueId, res, user) {
   if (!mongoose.isValidObjectId(venueId)) {
     res.status(404).json({ error: "Venue not found" });
     return null;
@@ -803,15 +807,18 @@ async function loadVenueOr404(venueId, res) {
     res.status(404).json({ error: "Venue not found" });
     return null;
   }
+  if (forbidUnlessVenueAccess(user, venue._id, res)) {
+    return null;
+  }
   return venue;
 }
 
 /**
  * GET /api/admin/catalog — venues and their queues, including archived.
  */
-router.get("/catalog", requireAuth, requireAdmin, async (_req, res, next) => {
+router.get("/catalog", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const venues = await listAdminCatalog();
+    const venues = await listAdminCatalog(req.user);
     return res.status(200).json({ venues });
   } catch (err) {
     return next(err);
@@ -820,6 +827,9 @@ router.get("/catalog", requireAuth, requireAdmin, async (_req, res, next) => {
 
 router.post("/venues", requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    if (!isGlobalAdmin(req.user)) {
+      return res.status(403).json({ error: "You don't have access to this venue" });
+    }
     const result = await createVenue({ name: req.body?.name });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     return res.status(201).json({ venue: result.venue.toPublicJSON() });
@@ -830,7 +840,7 @@ router.post("/venues", requireAuth, requireAdmin, async (req, res, next) => {
 
 router.patch("/venues/:venueId", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const venue = await loadVenueOr404(req.params.venueId, res);
+    const venue = await loadVenueOr404(req.params.venueId, res, req.user);
     if (!venue) return;
     const result = await updateVenue(venue, { name: req.body?.name });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -842,6 +852,7 @@ router.patch("/venues/:venueId", requireAuth, requireAdmin, async (req, res, nex
 
 router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    if (forbidUnlessVenueAccess(req.user, req.body?.venueId, res)) return;
     const result = await createCatalogQueue({
       venueId: req.body?.venueId,
       name: req.body?.name,
@@ -861,7 +872,7 @@ router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
 
 router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
     const result = await updateCatalogQueue(queue, {
       name: req.body?.name,
@@ -882,7 +893,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
 
 router.post("/queues/:queueId/counters", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const queue = await loadQueueOr404(req.params.queueId, res);
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
     const result = await addCounter(queue, { name: req.body?.name });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -905,7 +916,7 @@ router.patch(
   requireAdmin,
   async (req, res, next) => {
     try {
-      const queue = await loadQueueOr404(req.params.queueId, res);
+      const queue = await loadQueueOr404(req.params.queueId, res, req.user);
       if (!queue) return;
       const result = await renameCounter(queue, req.params.counterId, { name: req.body?.name });
       if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -922,7 +933,7 @@ router.delete(
   requireAdmin,
   async (req, res, next) => {
     try {
-      const queue = await loadQueueOr404(req.params.queueId, res);
+      const queue = await loadQueueOr404(req.params.queueId, res, req.user);
       if (!queue) return;
       const result = await removeCounter(queue, req.params.counterId);
       if (!result.ok) return res.status(result.status).json({ error: result.error });

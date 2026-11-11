@@ -17,6 +17,7 @@ import { StatusPage } from "@/pages/status-page";
 import { HistoryPage } from "@/pages/history-page";
 import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
 import { ForgotPasswordPage, ResetPasswordPage } from "@/pages/password-reset-pages";
+import { KioskPage } from "@/pages/kiosk-page";
 
 const AdminConsolePage = lazy(() =>
   import("@/pages/admin-console-page").then((mod) => ({ default: mod.AdminConsolePage }))
@@ -58,6 +59,7 @@ const router = createBrowserRouter([
     // until RouterProvider mounts, and the boot screen painted before that.
     element: <BootGate />,
     children: [
+      { path: "/kiosk/:queueId", element: <KioskPage /> },
       {
         element: <RequireLoggedOut />,
         children: [

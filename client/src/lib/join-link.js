@@ -86,3 +86,16 @@ export function parseJoinTarget(raw) {
   const match = path.match(/\/join\/([a-fA-F0-9]{24})\/?$/);
   return match && isQueueId(match[1]) ? match[1] : null;
 }
+
+export function kioskPath(queueId) {
+  if (!isQueueId(queueId)) return null;
+  return `/kiosk/${queueId}`;
+}
+
+export function kioskUrl(origin, queueId) {
+  const path = kioskPath(queueId);
+  if (!path || typeof origin !== "string") return null;
+  const base = origin.trim().replace(/\/$/, "");
+  if (!/^https?:\/\//i.test(base)) return null;
+  return `${base}${path}`;
+}

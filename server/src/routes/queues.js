@@ -13,7 +13,8 @@ import {
 import { emitQueueChanged } from "../services/realtime.js";
 import { ensureQueueSessionState } from "../services/queueSession.js";
 import { expireNoShowCalls } from "../services/servingDeadline.js";
-import { queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
+import { occupancyByQueueIds, queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
+import { toBoardJSON } from "../services/queueBoard.js";
 import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
@@ -63,6 +64,32 @@ router.get("/", async (_req, res, next) => {
     return res.status(200).json({
       queues: await queuesWithOccupancy(queues),
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+/**
+ * GET /api/queues/:queueId/board — public now-serving board (token numbers only).
+ * No auth. Used by the kiosk / display-board route.
+ */
+router.get("/:queueId/board", async (req, res, next) => {
+  try {
+    const { queueId } = req.params;
+    if (!mongoose.isValidObjectId(queueId)) {
+      return res.status(404).json({ error: "Queue not found" });
+    }
+    const queue = await Queue.findOne({ _id: queueId, archivedAt: null }).populate("venue");
+    if (!queue) {
+      return res.status(404).json({ error: "Queue not found" });
+    }
+    await ensureQueueSessionState(queue);
+    await expireNoShowCalls({ queueId: queue._id });
+    await reconcileCatalogServing([queue]);
+    const occupancy = await occupancyByQueueIds([queue._id]);
+    const waitingCount = occupancy.get(String(queue._id)) || 0;
+    return res.status(200).json({ queue: toBoardJSON(queue, waitingCount) });
   } catch (err) {
     return next(err);
   }

@@ -185,6 +185,8 @@ export function AdminCatalogPage() {
       draft.recoveryPlaces !== undefined ? draft.recoveryPlaces : (queue.recoveryPlaces ?? "");
     const priorityKRaw =
       draft.priorityEveryK !== undefined ? draft.priorityEveryK : (queue.priorityEveryK ?? "");
+    const equivalentGroupRaw =
+      draft.equivalentGroup !== undefined ? draft.equivalentGroup : (queue.equivalentGroup ?? "");
     await run(() =>
       updateAdminQueue(token, queue.id, {
         name,
@@ -198,6 +200,7 @@ export function AdminCatalogPage() {
         recoveryPlaces:
           recoveryPlacesRaw === "" || recoveryPlacesRaw == null ? "" : Number(recoveryPlacesRaw),
         priorityEveryK: priorityKRaw === "" || priorityKRaw == null ? "" : Number(priorityKRaw),
+        equivalentGroup: equivalentGroupRaw == null ? "" : String(equivalentGroupRaw),
       })
     );
   }
@@ -477,6 +480,27 @@ export function AdminCatalogPage() {
                             }))
                           }
                           data-testid="catalog-queue-priority-k"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="w-full sm:w-40">
+                        <Label htmlFor={`queue-equiv-${queue.id}`}>Equivalent group</Label>
+                        <Input
+                          id={`queue-equiv-${queue.id}`}
+                          type="text"
+                          maxLength={40}
+                          placeholder="None"
+                          defaultValue={queue.equivalentGroup ?? ""}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                equivalentGroup: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-equivalent-group"
                           disabled={busy}
                         />
                       </div>

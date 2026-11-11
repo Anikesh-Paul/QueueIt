@@ -25,6 +25,8 @@ const counterSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true, maxlength: 40 },
     nowServing: { type: Number, default: null, min: 1 },
     lastServed: { type: Number, default: null, min: 1 },
+    /** When this counter was last auto/explicitly assigned a call. */
+    lastAssignedAt: { type: Date, default: null },
   },
   { _id: true }
 );
@@ -206,6 +208,13 @@ const queueSchema = new mongoose.Schema(
       min: 0,
       default: 2,
     },
+    /** Same-venue group key for equivalent-queue suggestions. Empty means none. */
+    equivalentGroup: {
+      type: String,
+      trim: true,
+      maxlength: 40,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -238,6 +247,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     recoveryMinutes: this.recoveryMinutes ?? 15,
     recoveryPlaces: this.recoveryPlaces ?? 2,
     priorityEveryK: this.priorityEveryK ?? 3,
+    equivalentGroup: this.equivalentGroup || null,
     status: this.status,
     acceptingTokens: this.acceptingTokens !== false,
     serviceWindows: normalizeServiceWindows(this.serviceWindows),

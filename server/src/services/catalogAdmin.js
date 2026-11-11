@@ -27,6 +27,7 @@ import {
   PRIORITY_EVERY_K_MIN,
   regularServesSincePriorityOf,
 } from "./priorityLane.js";
+import { EQUIVALENT_GROUP_MAX, normalizeEquivalentGroup } from "./equivalentQueues.js";
 import {
   COUNTER_NAME_MAX,
   DEFAULT_COUNTER_NAME,
@@ -76,6 +77,19 @@ export function cleanPriorityEveryK(raw) {
     };
   }
   return { value };
+}
+
+
+export function cleanEquivalentGroup(raw) {
+  if (raw === undefined) return { omitted: true };
+  if (raw === null || raw === "") return { value: null };
+  if (typeof raw !== "string") {
+    return { error: "Equivalent group must be a short name, or empty for none" };
+  }
+  if (raw.trim().length > EQUIVALENT_GROUP_MAX) {
+    return { error: `Equivalent group must be ${EQUIVALENT_GROUP_MAX} characters or fewer` };
+  }
+  return { value: normalizeEquivalentGroup(raw) };
 }
 
 
@@ -234,7 +248,7 @@ export async function updateVenue(venue, { name }) {
   return { ok: true, venue };
 }
 
-export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes, noShowMode, noShowMinMinutes, noShowMaxMinutes, recoveryMinutes, recoveryPlaces, priorityEveryK }) {
+export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes, noShowMode, noShowMinMinutes, noShowMaxMinutes, recoveryMinutes, recoveryPlaces, priorityEveryK, equivalentGroup }) {
   if (!venueId) return { ok: false, status: 400, error: "Venue is required" };
   const venue = await Venue.findById(venueId);
   if (!venue) return { ok: false, status: 404, error: "Venue not found" };
@@ -276,6 +290,8 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
     priorityEveryK === undefined ? DEFAULT_PRIORITY_EVERY_K : priorityEveryK
   );
   if (priorityK.error) return { ok: false, status: 400, error: priorityK.error };
+  const group = cleanEquivalentGroup(equivalentGroup === undefined ? null : equivalentGroup);
+  if (group.error) return { ok: false, status: 400, error: group.error };
 
   let windows = [];
   if (serviceWindows !== undefined) {
@@ -309,6 +325,7 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
     recoveryPlaces: recoveryN.value,
     priorityEveryK: priorityK.value,
     regularServesSincePriority: Math.max(0, priorityK.value - 1),
+    equivalentGroup: group.value,
     serviceWindows: windows,
     status: "open",
     acceptingTokens: true,
@@ -373,6 +390,11 @@ export async function updateQueue(queue, patch = {}) {
         regularServesSincePriorityOf(queue)
       );
     }
+  }
+  if (patch.equivalentGroup !== undefined) {
+    const group = cleanEquivalentGroup(patch.equivalentGroup);
+    if (group.error) return { ok: false, status: 400, error: group.error };
+    if (!group.omitted) queue.equivalentGroup = group.value;
   }
   if (patch.maxWaiting !== undefined) {
     const cap = normalizeMaxWaiting(patch.maxWaiting);

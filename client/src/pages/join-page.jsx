@@ -176,6 +176,17 @@ export function JoinPage() {
               <p className="mt-0.5 text-sm text-text-muted" data-testid="queue-now-serving">
                 {servingLine}
               </p>
+              {queue.shorterEquivalent ? (
+                <p className="mt-2 text-sm font-medium text-primary" data-testid="shorter-equivalent">
+                  <Link
+                    to={joinPath(queue.shorterEquivalent.id)}
+                    className="underline-offset-4 hover:underline"
+                    data-testid="shorter-equivalent-link"
+                  >
+                    {t("queues.shorterEquivalent", { name: queue.shorterEquivalent.name })}
+                  </Link>
+                </p>
+              ) : null}
             </div>
             <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
               <span

@@ -235,6 +235,14 @@ export function QueuesPage() {
                   <span className="text-sm text-text-muted" data-testid="queue-now-serving">
                     {servingLine}
                   </span>
+                  {queue.shorterEquivalent ? (
+                    <span
+                      className="mt-1 text-sm font-medium text-primary"
+                      data-testid="shorter-equivalent"
+                    >
+                      {t("queues.shorterEquivalent", { name: queue.shorterEquivalent.name })}
+                    </span>
+                  ) : null}
                   {activeMemberships.some((row) => row.queue?.id === queue.id) ? (
                     <span
                       data-testid="queue-in-line"

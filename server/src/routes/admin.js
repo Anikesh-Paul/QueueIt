@@ -860,6 +860,7 @@ router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
       serviceWindows: req.body?.serviceWindows,
       counters: req.body?.counters,
       maxWaiting: req.body?.maxWaiting,
+      noShowMinutes: req.body?.noShowMinutes,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     return res.status(201).json({
@@ -880,6 +881,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       serviceWindows: req.body?.serviceWindows,
       archived: req.body?.archived,
       maxWaiting: req.body?.maxWaiting,
+      noShowMinutes: req.body?.noShowMinutes,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     const venue = await Venue.findById(result.queue.venue);

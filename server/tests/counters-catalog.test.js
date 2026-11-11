@@ -280,4 +280,45 @@ describe("Multi-counter call/serve + admin catalog", () => {
     assert.equal(renamed.status, 200);
     assert.equal(renamed.body.venue.name, "Campus Hub North");
   });
+
+  it("saves no-show minutes next to service time and defaults empty to 5", async () => {
+    const cafeteria = await seedCafeteria();
+    const app = testApp();
+    const admin = await createAdmin(app);
+    const queueId = cafeteria._id.toString();
+
+    const saved = await request(app)
+      .patch(`/api/admin/queues/${queueId}`)
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ noShowMinutes: 12 });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.queue.noShowMinutes, 12);
+
+    const cleared = await request(app)
+      .patch(`/api/admin/queues/${queueId}`)
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ noShowMinutes: "" });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.body.queue.noShowMinutes, 5);
+
+    const invalid = await request(app)
+      .patch(`/api/admin/queues/${queueId}`)
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ noShowMinutes: 31 });
+    assert.equal(invalid.status, 400);
+    assert.match(invalid.body.error, /1 to 30/i);
+
+    const zero = await request(app)
+      .patch(`/api/admin/queues/${queueId}`)
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ noShowMinutes: 0 });
+    assert.equal(zero.status, 400);
+
+    const listed = await request(app)
+      .get("/api/admin/catalog")
+      .set("Authorization", `Bearer ${admin}`);
+    const venue = listed.body.venues[0];
+    const card = venue.queues.find((row) => row.id === queueId);
+    assert.equal(card.noShowMinutes, 5);
+  });
 });

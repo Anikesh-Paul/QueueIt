@@ -73,6 +73,46 @@ describe("Venue seed + list queues (HTTP API)", () => {
       assert.equal(venues.length, 1);
       assert.equal(queues.length, 2);
     });
+
+    it("preserves admin-edited windows and paused status on re-seed", async () => {
+      await seedVenueAndQueues();
+      const cafeteria = await Queue.findOne({ slug: "cafeteria" });
+      cafeteria.serviceWindows = [{ start: "08:00", end: "10:00" }];
+      cafeteria.status = "paused";
+      cafeteria.acceptingTokens = false;
+      cafeteria.nowServing = 4;
+      cafeteria.nextTokenNumber = 9;
+      await cafeteria.save();
+
+      await seedVenueAndQueues();
+
+      const again = await Queue.findOne({ slug: "cafeteria" });
+      assert.equal(again.status, "paused");
+      assert.equal(again.acceptingTokens, false);
+      assert.equal(again.nowServing, 4);
+      assert.equal(again.nextTokenNumber, 9);
+      assert.equal(again.serviceWindows.length, 1);
+      assert.equal(again.serviceWindows[0].start, "08:00");
+      assert.equal(again.serviceWindows[0].end, "10:00");
+    });
+
+    it("restores default windows and open status when SEED_RESET_CATALOG is set", async () => {
+      await seedVenueAndQueues();
+      const cafeteria = await Queue.findOne({ slug: "cafeteria" });
+      cafeteria.serviceWindows = [{ start: "08:00", end: "10:00" }];
+      cafeteria.status = "paused";
+      cafeteria.nextTokenNumber = 9;
+      await cafeteria.save();
+
+      await seedVenueAndQueues({ ...process.env, SEED_RESET_CATALOG: "true" });
+
+      const again = await Queue.findOne({ slug: "cafeteria" });
+      assert.equal(again.status, "open");
+      assert.ok(again.serviceWindows.length >= 1);
+      assert.equal(again.serviceWindows[0].start, "11:30");
+      // Counters are still left alone — Reset is a separate admin action.
+      assert.equal(again.nextTokenNumber, 9);
+    });
   });
 
   describe("GET /api/queues", () => {

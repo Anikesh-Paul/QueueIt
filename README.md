@@ -77,7 +77,7 @@ In `server/.env`:
 2. Set a strong `JWT_SECRET`.
 3. Set `SEED_*` emails and passwords for demo accounts. Do not commit them.
 
-Seed demo user + admin, one venue, and two queues (idempotent):
+Seed demo user + admin, one venue, and two queues (idempotent). Re-running seed updates demo account passwords and catalog names, but does **not** overwrite live service windows, pause/closed state, or token counters. Set `SEED_RESET_CATALOG=true` only if you intentionally want default windows and `open` status restored:
 
 ```bash
 npm run seed
@@ -148,7 +148,7 @@ Anyone can also register; new accounts are always `user`.
 ### Production demo accounts
 
 1. On the **API host**, set `SEED_ADMIN_*`, `SEED_USER_*`, `MONGODB_URI`, `JWT_SECRET`, and `CLIENT_ORIGIN` (the production frontend origin).
-2. Set `SEED_ON_BOOT=true` for the first deploy, or run `npm run seed` against production `MONGODB_URI` from a trusted machine. Seeding is idempotent (upsert by email/slug).
+2. Set `SEED_ON_BOOT=true` for the first deploy, or run `npm run seed` against production `MONGODB_URI` from a trusted machine. Seeding is idempotent (upsert by email/slug) and no longer overwrites admin-edited windows or a paused/closed queue. Use `SEED_RESET_CATALOG=true` only for an intentional demo reset of those fields.
 3. Share demo credentials privately — never in this repository.
 4. After the first successful seed, set `SEED_ON_BOOT=false` so restarts only serve traffic.
 

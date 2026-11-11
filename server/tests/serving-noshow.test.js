@@ -104,6 +104,30 @@ describe("Call / serving no-show timer", () => {
     assert.equal(list.body.waiting[1].position, 1);
   });
 
+  it("uses a saved no-show window for the called-person deadline", async () => {
+    setNow("2026-11-11T05:00:00.000Z");
+    await seedVenueAndQueues();
+    const cafeteria = await Queue.findOne({ slug: "cafeteria" });
+    const queueId = cafeteria._id.toString();
+    const app = testApp();
+    const admin = await createAdmin(app);
+
+    const patched = await request(app)
+      .patch(`/api/admin/queues/${queueId}`)
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ noShowMinutes: 10 });
+    assert.equal(patched.status, 200);
+    assert.equal(patched.body.queue.noShowMinutes, 10);
+
+    await joinAs(app, queueId, "noshow-window@example.com");
+    const call = await request(app)
+      .post(`/api/admin/queues/${queueId}/call`)
+      .set("Authorization", `Bearer ${admin}`);
+    assert.equal(call.status, 200);
+    const deadline = new Date(call.body.called.servingDeadlineAt).getTime();
+    assert.equal(deadline - Date.parse("2026-11-11T05:00:00.000Z"), 10 * 60 * 1000);
+  });
+
   it("rejects a second call while someone is already being called", async () => {
     const queueId = await seedQueue();
     const app = testApp();

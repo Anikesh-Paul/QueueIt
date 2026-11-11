@@ -4,6 +4,7 @@ import { QueueEntry } from "../models/QueueEntry.js";
 import { normalizeServiceWindows, validateServiceWindows } from "./serviceWindows.js";
 import { normalizeMaxWaiting, rejectIfCapBelowOccupancy } from "./capacity.js";
 import { isStaff, staffVenueId } from "./staffAccess.js";
+import { DEFAULT_NO_SHOW_MINUTES } from "./servingDeadline.js";
 import {
   COUNTER_NAME_MAX,
   DEFAULT_COUNTER_NAME,
@@ -15,6 +16,8 @@ import {
 export const NAME_MAX = 80;
 export const SERVICE_TIME_MIN = 1;
 export const SERVICE_TIME_MAX = 60;
+export const NO_SHOW_MIN = 1;
+export const NO_SHOW_MAX = 30;
 
 export function slugifyName(name) {
   const slug = String(name || "")
@@ -34,6 +37,22 @@ function cleanName(raw, label = "Name") {
   if (!name) return { error: `${label} is required` };
   if (name.length > NAME_MAX) return { error: `${label} must be ${NAME_MAX} characters or fewer` };
   return { name };
+}
+
+/**
+ * Parse no-show minutes. Omitted leaves the current value alone.
+ * Empty / null defaults to 5. Must be an integer from 1 to 30.
+ */
+export function cleanNoShowMinutes(raw) {
+  if (raw === undefined) return { omitted: true };
+  if (raw === null || raw === "") return { value: DEFAULT_NO_SHOW_MINUTES };
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < NO_SHOW_MIN || value > NO_SHOW_MAX) {
+    return {
+      error: `No-show minutes must be an integer from ${NO_SHOW_MIN} to ${NO_SHOW_MAX}, or empty for the default (${DEFAULT_NO_SHOW_MINUTES})`,
+    };
+  }
+  return { value };
 }
 
 function cleanServiceTime(raw) {
@@ -120,7 +139,7 @@ export async function updateVenue(venue, { name }) {
   return { ok: true, venue };
 }
 
-export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting }) {
+export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes }) {
   if (!venueId) return { ok: false, status: 400, error: "Venue is required" };
   const venue = await Venue.findById(venueId);
   if (!venue) return { ok: false, status: 404, error: "Venue not found" };
@@ -132,6 +151,9 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
 
   const cap = normalizeMaxWaiting(maxWaiting === undefined ? null : maxWaiting);
   if (cap.error) return { ok: false, status: 400, error: cap.error };
+
+  const noShow = cleanNoShowMinutes(noShowMinutes === undefined ? DEFAULT_NO_SHOW_MINUTES : noShowMinutes);
+  if (noShow.error) return { ok: false, status: 400, error: noShow.error };
 
   let windows = [];
   if (serviceWindows !== undefined) {
@@ -157,6 +179,7 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
     slug,
     venue: venue._id,
     averageServiceTime: pace.value,
+    noShowMinutes: noShow.value,
     serviceWindows: windows,
     status: "open",
     acceptingTokens: true,
@@ -176,6 +199,11 @@ export async function updateQueue(queue, patch = {}) {
     const pace = cleanServiceTime(patch.averageServiceTime);
     if (pace.error) return { ok: false, status: 400, error: pace.error };
     queue.averageServiceTime = pace.value;
+  }
+  if (patch.noShowMinutes !== undefined) {
+    const noShow = cleanNoShowMinutes(patch.noShowMinutes);
+    if (noShow.error) return { ok: false, status: 400, error: noShow.error };
+    if (!noShow.omitted) queue.noShowMinutes = noShow.value;
   }
   if (patch.maxWaiting !== undefined) {
     const cap = normalizeMaxWaiting(patch.maxWaiting);

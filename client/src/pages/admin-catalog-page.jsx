@@ -103,11 +103,13 @@ export function AdminCatalogPage() {
     const name = (draft.name ?? queue.name).trim();
     const pace = Number(draft.averageServiceTime ?? queue.averageServiceTime);
     const capRaw = draft.maxWaiting !== undefined ? draft.maxWaiting : (queue.maxWaiting ?? "");
+    const noShowRaw = draft.noShowMinutes !== undefined ? draft.noShowMinutes : (queue.noShowMinutes ?? "");
     await run(() =>
       updateAdminQueue(token, queue.id, {
         name,
         averageServiceTime: pace,
         maxWaiting: capRaw === "" || capRaw == null ? null : Number(capRaw),
+        noShowMinutes: noShowRaw === "" || noShowRaw == null ? "" : Number(noShowRaw),
       })
     );
   }
@@ -206,7 +208,7 @@ export function AdminCatalogPage() {
                         />
                       </div>
                       <div className="w-full sm:w-28">
-                        <Label htmlFor={`queue-pace-${queue.id}`}>Minutes</Label>
+                        <Label htmlFor={`queue-pace-${queue.id}`}>Service min</Label>
                         <Input
                           id={`queue-pace-${queue.id}`}
                           type="number"
@@ -223,6 +225,28 @@ export function AdminCatalogPage() {
                             }))
                           }
                           data-testid="catalog-queue-pace"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="w-full sm:w-28">
+                        <Label htmlFor={`queue-noshow-${queue.id}`}>No-show min</Label>
+                        <Input
+                          id={`queue-noshow-${queue.id}`}
+                          type="number"
+                          min="1"
+                          max="30"
+                          placeholder="5"
+                          defaultValue={queue.noShowMinutes ?? 5}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                noShowMinutes: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-noshow"
                           disabled={busy}
                         />
                       </div>
@@ -343,7 +367,7 @@ export function AdminCatalogPage() {
                 </select>
               </div>
               <div className="w-full sm:w-24">
-                <Label htmlFor="new-queue-pace">Minutes</Label>
+                <Label htmlFor="new-queue-pace">Service min</Label>
                 <Input
                   id="new-queue-pace"
                   type="number"

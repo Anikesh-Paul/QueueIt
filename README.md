@@ -23,7 +23,7 @@ Virtual queues for campus services. People join a line from their phone, watch t
 ### For staff
 
 - Waiting list with serve, skip, pause, and resume — **call/serve can target a counter** when a queue has more than one
-- **Catalog** — add, rename, or archive venues and queues without re-seeding; optional **max waiting** cap (catalog shows Full; join and walk-in return 409 at capacity)
+- **Catalog** — add, rename, or archive venues and queues without re-seeding; optional **max waiting** cap (catalog shows Full; join and walk-in return 409 at capacity); **no-show window** of 1–30 minutes (default 5) for the called-person timer
 - **Venue-scoped staff** — a staff account only manages its assigned venue; the seeded demo admin stays global
 - **Walk-in** tokens for people who arrive without the app
 - **Start / stop accepting tokens**, **extend** a session, and **reset** the line

@@ -264,7 +264,7 @@ export function useStudentQueue({
   }, [token, guestCredential, statusQueueId, liveStatus, refreshStatus, joinerAuth, tabHidden, realtimeConnected]);
 
   const join = useCallback(
-    async (queueId) => {
+    async (queueId, options = {}) => {
       if (!queueId) return false;
       // JWT User/Admin, existing Guest credential, or mint on first Guest join.
       const auth = joinerAuth();
@@ -272,7 +272,7 @@ export function useStudentQueue({
       setJoinError("");
       setJoinBusy(true);
       try {
-        const data = await joinQueue(auth.token, queueId, auth.guestCredential);
+        const data = await joinQueue(auth.token, queueId, auth.guestCredential, options.source);
         if (data.guestCredential) {
           persistGuestCredential(data.guestCredential);
         }

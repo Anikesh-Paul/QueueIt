@@ -48,8 +48,21 @@ function buildLimiter(kind, defaults, override) {
  *   joinRateLimit?: { windowMs?: number, max?: number },
  * }} [options]
  */
+/**
+ * Whether to trust one proxy hop for req.ip. Vercel (VERCEL=1) terminates TLS
+ * in front of the function and sets X-Forwarded-For itself, so the rate limits
+ * and guest-pass caps need it to see the real client. TRUST_PROXY=0/1 overrides.
+ */
+export function trustProxySetting(env = process.env) {
+  const raw = String(env.TRUST_PROXY ?? "").trim().toLowerCase();
+  if (raw === "0" || raw === "false") return false;
+  if (raw === "1" || raw === "true") return 1;
+  return env.VERCEL ? 1 : false;
+}
+
 export function createApp(options = {}) {
   const app = express();
+  app.set("trust proxy", options.trustProxy ?? trustProxySetting());
   const clientOrigin =
     options.clientOrigin !== undefined
       ? options.clientOrigin

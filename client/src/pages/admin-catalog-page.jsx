@@ -187,6 +187,7 @@ export function AdminCatalogPage() {
       draft.priorityEveryK !== undefined ? draft.priorityEveryK : (queue.priorityEveryK ?? "");
     const equivalentGroupRaw =
       draft.equivalentGroup !== undefined ? draft.equivalentGroup : (queue.equivalentGroup ?? "");
+    const guestJoin = draft.guestJoin !== undefined ? draft.guestJoin : queue.guestJoin !== false;
     await run(() =>
       updateAdminQueue(token, queue.id, {
         name,
@@ -201,6 +202,7 @@ export function AdminCatalogPage() {
           recoveryPlacesRaw === "" || recoveryPlacesRaw == null ? "" : Number(recoveryPlacesRaw),
         priorityEveryK: priorityKRaw === "" || priorityKRaw == null ? "" : Number(priorityKRaw),
         equivalentGroup: equivalentGroupRaw == null ? "" : String(equivalentGroupRaw),
+        guestJoin,
       })
     );
   }
@@ -526,6 +528,32 @@ export function AdminCatalogPage() {
                           disabled={busy}
                         />
                       </div>
+                      <label
+                        htmlFor={`queue-guest-${queue.id}`}
+                        className="flex w-full items-start gap-2 rounded-md border border-border px-3 py-2 text-sm sm:w-auto"
+                      >
+                        <input
+                          id={`queue-guest-${queue.id}`}
+                          type="checkbox"
+                          className="mt-0.5 size-4 accent-[var(--primary)]"
+                          defaultChecked={queue.guestJoin !== false}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                guestJoin: event.target.checked,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-guest-join"
+                          disabled={busy}
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">Allow scan-to-join without login</span>
+                          <span className="block text-xs text-text-muted">Guests from the poster QR. Off means sign-in only.</span>
+                        </span>
+                      </label>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button

@@ -106,11 +106,12 @@ export function fetchQueues(token, guestCredential) {
 }
 
 /** POST /api/queues/:queueId/join — take a place; Guest mints credential on first join. */
-export function joinQueue(token, queueId, guestCredential) {
+export function joinQueue(token, queueId, guestCredential, source) {
   return apiRequest(`/api/queues/${queueId}/join`, {
     method: "POST",
     token,
     guestCredential,
+    ...(source === "qr" ? { body: { source: "qr" } } : {}),
   });
 }
 

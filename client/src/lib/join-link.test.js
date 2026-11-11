@@ -91,3 +91,23 @@ describe("isSafeAppPath", () => {
     assert.equal(isSafeAppPath("queues"), false);
   });
 });
+
+describe("QR scan-to-join links", async () => {
+  const { qrJoinUrl, isQrScan, posterPath } = await import("./join-link.js");
+  it("tags poster QR links with src=qr and still parses them", () => {
+    const url = qrJoinUrl("https://queueit.example/", ID);
+    assert.equal(url, `https://queueit.example/join/${ID}?src=qr`);
+    assert.equal(parseJoinTarget(url), ID);
+    assert.equal(qrJoinUrl("javascript:alert(1)", ID), null);
+    assert.equal(qrJoinUrl("https://x.example", "nope"), null);
+  });
+  it("detects a QR scan from the location search", () => {
+    assert.equal(isQrScan("?src=qr"), true);
+    assert.equal(isQrScan("?src=link"), false);
+    assert.equal(isQrScan(""), false);
+  });
+  it("builds the printable poster path for valid ids only", () => {
+    assert.equal(posterPath(ID), `/admin/queues/${ID}/poster`);
+    assert.equal(posterPath("../x"), null);
+  });
+});

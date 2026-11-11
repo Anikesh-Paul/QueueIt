@@ -29,6 +29,9 @@ const AnalyticsPage = lazy(() =>
 const AdminCatalogPage = lazy(() =>
   import("@/pages/admin-catalog-page").then((mod) => ({ default: mod.AdminCatalogPage }))
 );
+const PosterPage = lazy(() =>
+  import("@/pages/poster-page").then((mod) => ({ default: mod.PosterPage }))
+);
 const CampusAnalyticsPage = lazy(() =>
   import("@/pages/campus-analytics-page").then((mod) => ({ default: mod.CampusAnalyticsPage }))
 );
@@ -80,6 +83,22 @@ const router = createBrowserRouter([
           {
             element: <AppShell />,
             children: [{ path: "join/:queueId", element: <JoinPage /> }],
+          },
+        ],
+      },
+      {
+        // Printable poster: no app shell so it prints as a clean A4 sheet.
+        element: <RequireShellAccess />,
+        children: [
+          {
+            path: "admin/queues/:queueId/poster",
+            element: <RequireAdmin />,
+            children: [
+              {
+                element: <AdminRouteOutlet />,
+                children: [{ index: true, element: <PosterPage /> }],
+              },
+            ],
           },
         ],
       },

@@ -1177,9 +1177,14 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       recoveryPlaces: req.body?.recoveryPlaces,
       priorityEveryK: req.body?.priorityEveryK,
       equivalentGroup: req.body?.equivalentGroup,
+      guestJoin: req.body?.guestJoin,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
-    await writeAudit(req, { action: "queue-update", queue: result.queue, meta: { maxWaiting: req.body?.maxWaiting ?? undefined } });
+    await writeAudit(req, {
+      action: "queue-update",
+      queue: result.queue,
+      meta: { maxWaiting: req.body?.maxWaiting ?? undefined, guestJoin: req.body?.guestJoin ?? undefined },
+    });
     const venue = await Venue.findById(result.queue.venue);
     return res.status(200).json({
       queue: toAdminCatalogQueueJSON(result.queue, venue),

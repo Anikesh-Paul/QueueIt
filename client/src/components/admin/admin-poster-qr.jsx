@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
-import { joinUrl, kioskUrl } from "@/lib/join-link";
+import { Link } from "react-router-dom";
+import { kioskUrl, posterPath, qrJoinUrl } from "@/lib/join-link";
 
 /**
  * Printable / shareable poster QR — opens `/join/:queueId`.
@@ -10,7 +11,8 @@ import { joinUrl, kioskUrl } from "@/lib/join-link";
 export function AdminPosterQr({ queueId, queueName }) {
   const [copied, setCopied] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const url = useMemo(() => joinUrl(origin, queueId), [origin, queueId]);
+  const url = useMemo(() => qrJoinUrl(origin, queueId), [origin, queueId]);
+  const printPath = posterPath(queueId);
   const boardUrl = useMemo(() => kioskUrl(origin, queueId), [origin, queueId]);
 
   async function copyLink() {
@@ -78,6 +80,13 @@ export function AdminPosterQr({ queueId, queueName }) {
             >
               {copied ? "Copied" : "Copy link"}
             </Button>
+            {printPath ? (
+              <Button variant="default" size="sm" asChild>
+                <Link to={printPath} data-testid="poster-print-link">
+                  Printable poster
+                </Link>
+              </Button>
+            ) : null}
             {boardUrl ? (
               <Button
                 variant="outline"

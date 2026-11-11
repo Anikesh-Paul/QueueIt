@@ -21,6 +21,7 @@ import { attachEquivalentSuggestions } from "../services/equivalentQueues.js";
 import { attachQuietHints } from "../services/bestTime.js";
 import { toBoardJSON } from "../services/queueBoard.js";
 import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
+import { checkExistingGuest, checkGuestMint, GUEST_JOIN_DISABLED, networkHashOf } from "../services/guestLimits.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
 
@@ -260,6 +261,7 @@ async function resolveGuestForJoin(req) {
   const guest = await Guest.create({
     credential: Guest.hashCredential(rawCredential),
     hashed: true,
+    networkHash: networkHashOf(req.ip),
   });
   return { guest, minted: true, rawCredential };
 }
@@ -302,6 +304,21 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
 
     let mintedRawCredential = null;
     if (!req.user) {
+      // Someone already in line (or able to recover a missed turn) gets the
+      // usual 409 below; limits apply only to taking a brand-new place.
+      const alreadyHere = req.guest
+        ? (await findJoinerActiveEntry(queue._id, req)) || (await findRecoverableEntry(queue, joinerIdentity(req)))
+        : null;
+      if (!alreadyHere) {
+        if (queue.guestJoin === false) {
+          return res.status(403).json({ error: GUEST_JOIN_DISABLED, code: "guest-join-disabled" });
+        }
+        // Existing pass: per-pass limits. New pass: per-network mint cap.
+        const limited = req.guest
+          ? await checkExistingGuest(req.guest)
+          : await checkGuestMint(networkHashOf(req.ip));
+        if (limited) return res.status(limited.status).json(limited.body);
+      }
       const resolved = await resolveGuestForJoin(req);
       guest = resolved.guest;
       guestMinted = resolved.minted;
@@ -342,6 +359,7 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
       tokenNumber,
       status: "waiting",
       isWalkIn: false,
+      joinSource: req.body?.source === "qr" ? "qr" : "app",
     };
     if (req.user) {
       entryFields.user = req.user._id;

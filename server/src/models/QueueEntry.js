@@ -106,6 +106,8 @@ const queueEntrySchema = new mongoose.Schema(
     priorityRequestedAt: { type: Date, default: null },
     /** When this entry was served. */
     servedAt: { type: Date, default: null },
+    /** How an app join arrived: "qr" from a printed poster / kiosk QR, otherwise "app". */
+    joinSource: { type: String, enum: ["app", "qr"], default: "app" },
   },
   { timestamps: true }
 );

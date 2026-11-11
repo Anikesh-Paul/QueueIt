@@ -11,6 +11,7 @@ import {
   createAdminQueue,
   createVenue,
   fetchAdminCatalog,
+  inviteStaff,
   updateAdminQueue,
   updateVenue,
 } from "@/api";
@@ -31,6 +32,11 @@ export function AdminCatalogPage() {
   const [queueName, setQueueName] = useState("");
   const [queuePace, setQueuePace] = useState("3");
   const [queueCap, setQueueCap] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffVenueId, setStaffVenueId] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
+  const [staffInvite, setStaffInvite] = useState(null);
   const [drafts, setDrafts] = useState({});
 
   const load = useCallback(async () => {
@@ -42,6 +48,7 @@ export function AdminCatalogPage() {
       const list = Array.isArray(data.venues) ? data.venues : [];
       setVenues(list);
       setQueueVenueId((prev) => prev || list[0]?.id || "");
+      setStaffVenueId((prev) => prev || list[0]?.id || "");
     } catch (err) {
       setError(err.message || "Could not load catalog");
     } finally {
@@ -95,6 +102,29 @@ export function AdminCatalogPage() {
       setQueueName("");
       setQueuePace("3");
       setQueueCap("");
+    }
+  }
+
+  async function handleInviteStaff(event) {
+    event.preventDefault();
+    if (user?.role !== "admin") return;
+    const name = staffName.trim();
+    const email = staffEmail.trim();
+    if (!name || !email || !staffVenueId) return;
+    setStaffInvite(null);
+    const ok = await run(async () => {
+      const result = await inviteStaff(token, {
+        name,
+        email,
+        venueId: staffVenueId,
+        temporaryPassword: staffPassword.trim() || undefined,
+      });
+      setStaffInvite(result);
+    });
+    if (ok) {
+      setStaffName("");
+      setStaffEmail("");
+      setStaffPassword("");
     }
   }
 
@@ -402,6 +432,89 @@ export function AdminCatalogPage() {
               </Button>
             </form>
           </section>
+
+          {user?.role === "admin" ? (
+            <section
+              className="rounded-xl border border-border bg-card p-5 shadow-card"
+              data-testid="catalog-invite-staff"
+            >
+              <h2 className="font-display text-headline font-semibold tracking-[-0.01em] text-foreground">
+                Invite staff
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                Staff can only manage the venue you assign. Leave the temporary password empty to generate one and send a reset link (logged in development when no mail provider is configured).
+              </p>
+              <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end" onSubmit={handleInviteStaff}>
+                <div className="min-w-0 flex-1 sm:min-w-[10rem]">
+                  <Label htmlFor="staff-name">Name</Label>
+                  <Input
+                    id="staff-name"
+                    value={staffName}
+                    onChange={(event) => setStaffName(event.target.value)}
+                    placeholder="Cafe staff"
+                    disabled={busy}
+                    data-testid="catalog-staff-name"
+                  />
+                </div>
+                <div className="min-w-0 flex-1 sm:min-w-[12rem]">
+                  <Label htmlFor="staff-email">Email</Label>
+                  <Input
+                    id="staff-email"
+                    type="email"
+                    value={staffEmail}
+                    onChange={(event) => setStaffEmail(event.target.value)}
+                    placeholder="staff@campus.edu"
+                    disabled={busy}
+                    data-testid="catalog-staff-email"
+                  />
+                </div>
+                <div className="w-full sm:w-44">
+                  <Label htmlFor="staff-venue">Venue</Label>
+                  <select
+                    id="staff-venue"
+                    value={staffVenueId}
+                    onChange={(event) => setStaffVenueId(event.target.value)}
+                    disabled={busy || venues.length === 0}
+                    data-testid="catalog-staff-venue"
+                    className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    {venues.map((venue) => (
+                      <option key={venue.id} value={venue.id}>
+                        {venue.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-full sm:w-44">
+                  <Label htmlFor="staff-password">Temporary password</Label>
+                  <Input
+                    id="staff-password"
+                    type="text"
+                    autoComplete="off"
+                    value={staffPassword}
+                    onChange={(event) => setStaffPassword(event.target.value)}
+                    placeholder="Optional"
+                    disabled={busy}
+                    data-testid="catalog-staff-password"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={busy || !staffName.trim() || !staffEmail.trim() || !staffVenueId}
+                  data-testid="catalog-invite-staff-submit"
+                >
+                  Invite staff
+                </Button>
+              </form>
+              {staffInvite?.staff ? (
+                <p className="mt-3 text-sm text-foreground" data-testid="catalog-staff-invited">
+                  Invited {staffInvite.staff.name} ({staffInvite.staff.email}). Temporary password:{" "}
+                  <span className="font-medium">{staffInvite.temporaryPassword}</span>
+                  {staffInvite.resetSent ? ". A reset link was also sent." : "."} Copy it now — it won’t be shown again.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
         </div>
       )}
     </ShellContent>

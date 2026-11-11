@@ -9,6 +9,7 @@ import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
+import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
 
@@ -168,6 +169,7 @@ export function QueuesPage() {
             // Closed, Full, and Paused are orthogonal — Closed/Full affect join; Paused can still show beside them.
             const primaryLabel = closed ? "Closed" : full ? "Full" : paused ? "Paused" : "Open";
             const occupancyLine = formatWaitingOccupancy(queue);
+            const servingLine = formatCatalogServing(queue);
             const primaryTestId = closed
               ? "queue-state-closed"
               : full
@@ -219,7 +221,11 @@ export function QueuesPage() {
                   </span>
                   <span className="text-sm text-text-muted">
                     {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
-                    {occupancyLine ? ` · ${occupancyLine}` : ""}
+                    {" · "}
+                    <span data-testid="queue-occupancy">{occupancyLine}</span>
+                  </span>
+                  <span className="text-sm text-text-muted" data-testid="queue-now-serving">
+                    {servingLine}
                   </span>
                   {activeMemberships.some((row) => row.queue?.id === queue.id) ? (
                     <span

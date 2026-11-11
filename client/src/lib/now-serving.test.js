@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { presentCounterServing, presentServingBoard } from "./now-serving.js";
+import { formatCatalogServing, presentCounterServing, presentServingBoard } from "./now-serving.js";
 
 describe("presentCounterServing", () => {
   it("shows the live token as Now serving", () => {
@@ -54,5 +54,40 @@ describe("presentServingBoard", () => {
     assert.equal(board.label, "Last served");
     assert.equal(board.value, "6");
     assert.equal(board.rows[0].live, false);
+  });
+});
+
+describe("formatCatalogServing", () => {
+  it("shows a single counter as Now serving or Last served plus the token", () => {
+    assert.equal(
+      formatCatalogServing({ counters: [{ nowServing: 9, lastServed: 8 }] }),
+      "Now serving 9"
+    );
+    assert.equal(
+      formatCatalogServing({ counters: [{ nowServing: null, lastServed: 8 }] }),
+      "Last served 8"
+    );
+    assert.equal(formatCatalogServing({ counters: [{}] }), "Now serving —");
+  });
+
+  it("names each counter when a queue has more than one", () => {
+    assert.equal(
+      formatCatalogServing({
+        counters: [
+          { id: "a", name: "Counter 1", nowServing: null, lastServed: 8 },
+          { id: "b", name: "Counter 2", nowServing: null, lastServed: 4 },
+        ],
+      }),
+      "Last served Counter 1 8, Counter 2 4"
+    );
+    assert.equal(
+      formatCatalogServing({
+        counters: [
+          { id: "a", name: "Counter 1", nowServing: 9, lastServed: 8 },
+          { id: "b", name: "Counter 2", nowServing: null, lastServed: 4 },
+        ],
+      }),
+      "Now serving Counter 1 9, Counter 2 last served 4"
+    );
   });
 });

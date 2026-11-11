@@ -165,6 +165,32 @@ describe("Venue seed + list queues (HTTP API)", () => {
       }
     });
 
+    it("includes waitingCount and honest per-counter serving on each card", async () => {
+      await seedVenueAndQueues();
+      const cafeteria = await Queue.findOne({ name: "Cafeteria" });
+      assert.ok(cafeteria);
+      cafeteria.counters[0].nowServing = 8;
+      cafeteria.counters[0].lastServed = 4;
+      await cafeteria.save();
+
+      const app = testApp();
+      const join = await request(app).post(`/api/queues/${cafeteria._id}/join`);
+      assert.equal(join.status, 201);
+
+      const res = await request(app).get("/api/queues");
+      assert.equal(res.status, 200);
+      const card = res.body.queues.find((q) => q.name === "Cafeteria");
+      assert.ok(card);
+      assert.equal(card.waitingCount, 1);
+      assert.equal(card.full, false);
+      assert.equal(card.maxWaiting, null);
+      assert.ok(Array.isArray(card.counters));
+      assert.ok(card.counters.length >= 1);
+      assert.equal(card.counters[0].nowServing, null);
+      assert.equal(card.counters[0].lastServed, 4);
+      assert.equal(typeof card.counters[0].name, "string");
+    });
+
     it("returns the same catalog for a seeded admin session", async () => {
       setSeedEnv();
       await seedDemoAccounts();

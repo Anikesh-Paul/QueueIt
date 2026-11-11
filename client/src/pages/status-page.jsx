@@ -26,22 +26,12 @@ import {
 } from "@/lib/campus-time";
 import { resolveArrivalPass } from "@/lib/arrival-pass";
 import { nearFrontBannerCopy, NEAR_FRONT_POSITION_LIMIT } from "@/lib/queue-notifications";
+import { statusConnectionPresentation } from "@/lib/status-connection";
 import { NotifyControls } from "@/components/status/notify-controls";
 
 function formatNowServing(value) {
   if (value === null || value === undefined) return "—";
   return String(value);
-}
-
-/** Quiet relative age for polling honesty (no absolute campus clocks here). */
-function formatStatusAge(updatedAt, nowMs) {
-  if (updatedAt == null) return null;
-  const sec = Math.max(0, Math.floor((nowMs - updatedAt) / 1000));
-  if (sec < 5) return "just now";
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  return `${Math.floor(min / 60)}h ago`;
 }
 
 /**
@@ -117,7 +107,14 @@ export function StatusPage() {
   if (!inQueue || !liveStatus) return null;
 
   const closed = liveStatus.queue?.acceptingTokens === false;
-  const ageLabel = formatStatusAge(statusLastUpdatedAt, nowMs);
+  const offline = Boolean(statusOffline || browserOffline);
+  const connection = statusConnectionPresentation({
+    offline,
+    realtimeConnected,
+    statusLastUpdatedAt,
+    nowMs,
+  });
+  const ageLabel = connection.ageLabel;
   const queueTitle = liveStatus.queue?.name || statusQueueName;
   // Banner suppressed while paused: position is near the front but the line is
   // frozen, so "approach the counter" would be dishonest. Closed drain may still approach.
@@ -157,10 +154,10 @@ export function StatusPage() {
         title={<span data-testid="status-queue-name">{queueTitle}</span>}
         meta={
           <>
-            <span className="shrink-0">
-              {realtimeConnected ? "Instant updates" : "Updates every few seconds"}
+            <span className="shrink-0" data-testid="status-connection-label">
+              {connection.metaLabel}
             </span>
-            <RealtimeIndicator connected={realtimeConnected} testId="realtime-status" />
+            <RealtimeIndicator mode={connection.indicator} testId="realtime-status" />
             {ageLabel ? (
               <span
                 data-testid="status-age"
@@ -197,7 +194,15 @@ export function StatusPage() {
                 <span className="size-1.5 rounded-full bg-[#D97706]" />
                 Paused
               </span>
-            ) : !closed ? (
+            ) : offline ? (
+              <span
+                data-testid="queue-offline-badge"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary"
+              >
+                <span className="size-1.5 rounded-full bg-text-muted" />
+                Offline
+              </span>
+            ) : !closed && connection.showLiveBadge ? (
               <span
                 data-testid="queue-live"
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary"
@@ -246,7 +251,7 @@ export function StatusPage() {
       />
 
       <ShellContent tier="student">
-        {statusOffline || browserOffline ? (
+        {offline ? (
           <p
             data-testid="status-offline"
             className="mb-4 rounded-lg border border-border bg-secondary px-3.5 py-2.5 text-sm text-text-secondary"

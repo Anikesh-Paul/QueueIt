@@ -25,7 +25,7 @@ import {
   presentLiveEta,
 } from "@/lib/campus-time";
 import { resolveArrivalPass } from "@/lib/arrival-pass";
-import { NEAR_FRONT_POSITION_LIMIT } from "@/lib/queue-notifications";
+import { nearFrontBannerCopy, NEAR_FRONT_POSITION_LIMIT } from "@/lib/queue-notifications";
 import { NotifyControls } from "@/components/status/notify-controls";
 
 function formatNowServing(value) {
@@ -529,25 +529,22 @@ function CalledBanner({ remainingSeconds, frozen, counterName }) {
 }
 
 function NearFrontBanner({ position }) {
-  const peopleAhead = position - 1;
-  const isNext = position === 1;
+  const { title, body, kind } = nearFrontBannerCopy({ position });
   return (
     <div
       role="status"
       aria-live="polite"
       data-testid="near-front-banner"
-      data-near-front={isNext ? "next" : "near"}
+      data-near-front={kind}
       className="flex items-start gap-2.5 rounded-lg border border-[#FCD34D] bg-[#FEF3C7] px-4 py-3"
     >
       <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#D97706]" aria-hidden="true" />
       <div>
         <p className="font-heading text-sm font-semibold text-[#92400E]">
-          {isNext ? "You're next" : "Near the front"}
+          {title}
         </p>
         <p className="mt-0.5 text-xs leading-5 text-[#78350F]">
-          {isNext
-            ? "Approach the counter."
-            : `${peopleAhead} ahead — approach soon.`}
+          {body}
         </p>
       </div>
     </div>

@@ -7,7 +7,7 @@ export const NOTIFY_VIBRATE_KEY = "queueit_notify_vibrate";
 
 /**
  * Classify a live-status snapshot into a one-shot alert kind, or null.
- * Paused queues never nudge “approach the counter.”
+ * Paused queues never nudge people toward the counter.
  * @param {{ paused?: boolean, position?: unknown, tokenNumber?: unknown, nowServing?: unknown }} input
  * @returns {"serving"|"next"|"near"|null}
  */
@@ -68,7 +68,30 @@ export function decideNotification({
 }
 
 /**
- * Notification title/body. Matches the in-page near-front banner copy.
+ * In-page near-front banner (waiting only). Never tells the student to
+ * approach the counter — that copy belongs on the called / serving banner.
+ * @param {{ position?: number }} input
+ * @returns {{ title: string, body: string, kind: "next"|"near" }}
+ */
+export function nearFrontBannerCopy({ position } = {}) {
+  if (position === 1) {
+    return {
+      kind: "next",
+      title: "You're next",
+      body: "Stay nearby — you'll be called shortly.",
+    };
+  }
+  const ahead = Number.isInteger(position) ? Math.max(0, position - 1) : 0;
+  return {
+    kind: "near",
+    title: "Near the front",
+    body: ahead === 1 ? "1 person ahead." : `${ahead} people ahead.`,
+  };
+}
+
+/**
+ * Notification title/body. Matches the in-page banners.
+ * "Approach / come to the counter" is only used when kind is serving.
  * @param {{ kind: "serving"|"next"|"near", position?: number, queueName?: string }} input
  */
 export function notificationCopy({ kind, position, queueName } = {}) {
@@ -79,16 +102,12 @@ export function notificationCopy({ kind, position, queueName } = {}) {
       body: "Please come to the counter.",
     };
   }
-  if (kind === "next") {
-    return {
-      title: `You're next · ${queue}`,
-      body: "Approach the counter.",
-    };
-  }
-  const ahead = Number.isInteger(position) ? Math.max(0, position - 1) : 0;
+  const banner = nearFrontBannerCopy({
+    position: kind === "next" ? 1 : position,
+  });
   return {
-    title: `Near the front · ${queue}`,
-    body: `${ahead} ahead — approach soon.`,
+    title: `${banner.title} · ${queue}`,
+    body: banner.body,
   };
 }
 

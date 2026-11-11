@@ -40,6 +40,20 @@ function rowFromWindow(window) {
   };
 }
 
+
+function isOvernightRow(row) {
+  const start = String(row.start || "").trim();
+  const end = String(row.end || "").trim();
+  const parse = (value) => {
+    const m = /^([01]?\d|2[0-3]):([0-5]\d)/.exec(value);
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2]);
+  };
+  const startMin = parse(start);
+  const endMin = parse(end);
+  return startMin != null && endMin != null && endMin < startMin;
+}
+
 export function AdminServiceWindows({
   queueId,
   adminQueueMeta,
@@ -111,7 +125,7 @@ export function AdminServiceWindows({
         Service windows
       </h2>
       <p className="mt-1 text-xs text-text-muted">
-        Times are campus IST. Leave days as Every day, or scope a window to weekdays, weekends, or specific days.
+        Times are campus IST. A window may end after midnight on the next campus morning (for example 22:00–02:00). Leave days as Every day, or scope a window to weekdays, weekends, or specific days.
       </p>
       <form
         className="mt-3 flex flex-col gap-3"
@@ -194,6 +208,11 @@ export function AdminServiceWindows({
                       Remove
                     </Button>
                   </div>
+                  {isOvernightRow(row) ? (
+                    <p className="text-xs text-text-muted" data-testid={`admin-service-window-overnight-${index}`}>
+                      Ends the next campus morning.
+                    </p>
+                  ) : null}
                   {preset === "custom" ? (
                     <div className="flex flex-wrap gap-1.5" data-testid={`admin-service-window-custom-days-${index}`}>
                       {DAY_CHIPS.map((day) => {

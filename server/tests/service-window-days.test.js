@@ -125,3 +125,96 @@ describe("target bind and reopen use the next matching day", () => {
     );
   });
 });
+
+
+describe("overnight windows that cross campus midnight", () => {
+  const overnight = [{ start: "22:00", end: "02:00" }];
+  /** Monday 10 Aug 2026. */
+  const during = new Date("2026-08-10T23:00:00+05:30");
+  const followingMorning = new Date("2026-08-11T01:00:00+05:30");
+  const after = new Date("2026-08-11T03:00:00+05:30");
+
+  it("accepts end before start and keeps the window when normalizing", () => {
+    const result = validateServiceWindows(overnight);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.windows, [{ start: "22:00", end: "02:00" }]);
+    assert.deepEqual(normalizeServiceWindows(overnight), [{ start: "22:00", end: "02:00" }]);
+  });
+
+  it("still rejects a zero-length window", () => {
+    const result = validateServiceWindows([{ start: "22:00", end: "22:00" }]);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /same time/i);
+  });
+
+  it("rejects a morning window that overlaps the overnight wrap", () => {
+    const result = validateServiceWindows([
+      { start: "22:00", end: "02:00" },
+      { start: "01:00", end: "03:00" },
+    ]);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /overlap/i);
+  });
+
+  it("rejects an evening window that overlaps the overnight start", () => {
+    const result = validateServiceWindows([
+      { start: "20:00", end: "23:00" },
+      { start: "22:00", end: "02:00" },
+    ]);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /overlap/i);
+  });
+
+  it("rejects a weekend morning window that overlaps a Friday overnight wrap", () => {
+    const result = validateServiceWindows([
+      { start: "22:00", end: "02:00", days: [5] },
+      { start: "00:00", end: "03:00", days: "weekend" },
+    ]);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /overlap/i);
+  });
+
+  it("allows weekday overnight and weekend daytime windows that do not wrap into each other", () => {
+    const result = validateServiceWindows([
+      { start: "22:00", end: "02:00", days: [1, 2, 3, 4] },
+      { start: "10:00", end: "13:00", days: "weekend" },
+    ]);
+    assert.equal(result.ok, true);
+  });
+
+  it("during 23:00 binds session end to 02:00 the following morning", () => {
+    const target = resolveTargetWindow(overnight, during);
+    assert.ok(target);
+    assert.equal(target.window.start, "22:00");
+    assert.equal(target.sessionEndsAt.toISOString(), new Date("2026-08-11T02:00:00+05:30").toISOString());
+  });
+
+  it("at 01:00 still binds the overnight window ending that morning", () => {
+    const target = resolveTargetWindow(overnight, followingMorning);
+    assert.ok(target);
+    assert.equal(target.window.start, "22:00");
+    assert.equal(target.sessionEndsAt.toISOString(), new Date("2026-08-11T02:00:00+05:30").toISOString());
+  });
+
+  it("after 03:00 binds the next 22:00–02:00 window", () => {
+    const target = resolveTargetWindow(overnight, after);
+    assert.ok(target);
+    assert.equal(target.window.start, "22:00");
+    assert.equal(target.sessionEndsAt.toISOString(), new Date("2026-08-12T02:00:00+05:30").toISOString());
+  });
+
+  it("nextWindowStartAfter skips the in-progress overnight start", () => {
+    assert.equal(
+      nextWindowStartAfter(overnight, during).toISOString(),
+      new Date("2026-08-11T22:00:00+05:30").toISOString()
+    );
+    assert.equal(
+      nextWindowStartAfter(overnight, followingMorning).toISOString(),
+      new Date("2026-08-11T22:00:00+05:30").toISOString()
+    );
+    assert.equal(
+      nextWindowStartAfter(overnight, after).toISOString(),
+      new Date("2026-08-11T22:00:00+05:30").toISOString()
+    );
+  });
+});

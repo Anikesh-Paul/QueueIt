@@ -101,7 +101,7 @@ describe("Admin edit service windows (HTTP API)", () => {
       assert.deepEqual(gym.serviceWindows, [{ start: "17:00", end: "21:00" }]);
     });
 
-    it("rejects end-before-start and overlapping windows with clear errors", async () => {
+    it("rejects equal start/end and overlapping windows with clear errors", async () => {
       const { cafeteriaId } = await seedQueues();
       const app = testApp();
       const { token: adminToken } = await createAdmin(app);
@@ -109,9 +109,9 @@ describe("Admin edit service windows (HTTP API)", () => {
       const badEnd = await request(app)
         .put(`/api/admin/queues/${cafeteriaId}/service-windows`)
         .set("Authorization", `Bearer ${adminToken}`)
-        .send({ serviceWindows: [{ start: "14:00", end: "12:00" }] });
+        .send({ serviceWindows: [{ start: "14:00", end: "14:00" }] });
       assert.equal(badEnd.status, 400);
-      assert.match(badEnd.body.error || "", /end|start|before|after|invalid/i);
+      assert.match(badEnd.body.error || "", /same time|end|start|invalid/i);
 
       const overlap = await request(app)
         .put(`/api/admin/queues/${cafeteriaId}/service-windows`)
@@ -132,6 +132,58 @@ describe("Admin edit service windows (HTTP API)", () => {
         { start: "11:30", end: "14:30" },
         { start: "19:00", end: "21:00" },
       ]);
+    });
+
+    it("accepts an overnight 22:00–02:00 window and binds session end the next morning", async () => {
+      const { gymId } = await seedQueues();
+      const app = testApp();
+      const { token: adminToken } = await createAdmin(app);
+
+      const put = await request(app)
+        .put(`/api/admin/queues/${gymId}/service-windows`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ serviceWindows: [{ start: "22:00", end: "02:00" }] });
+      assert.equal(put.status, 200);
+      assert.deepEqual(put.body.queue.serviceWindows, [{ start: "22:00", end: "02:00" }]);
+
+      setNow("2026-08-10T23:00:00+05:30");
+      await request(app)
+        .post(`/api/admin/queues/${gymId}/stop-accepting`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      const during = await request(app)
+        .post(`/api/admin/queues/${gymId}/start-accepting`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(during.status, 200);
+      assert.equal(
+        new Date(during.body.queue.sessionEndsAt).toISOString(),
+        new Date("2026-08-11T02:00:00+05:30").toISOString()
+      );
+
+      setNow("2026-08-11T01:00:00+05:30");
+      await request(app)
+        .post(`/api/admin/queues/${gymId}/stop-accepting`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      const morning = await request(app)
+        .post(`/api/admin/queues/${gymId}/start-accepting`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(morning.status, 200);
+      assert.equal(
+        new Date(morning.body.queue.sessionEndsAt).toISOString(),
+        new Date("2026-08-11T02:00:00+05:30").toISOString()
+      );
+
+      setNow("2026-08-11T03:00:00+05:30");
+      await request(app)
+        .post(`/api/admin/queues/${gymId}/stop-accepting`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      const after = await request(app)
+        .post(`/api/admin/queues/${gymId}/start-accepting`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(after.status, 200);
+      assert.equal(
+        new Date(after.body.queue.sessionEndsAt).toISOString(),
+        new Date("2026-08-12T02:00:00+05:30").toISOString()
+      );
     });
 
     it("rejects non-admin callers", async () => {

@@ -112,10 +112,10 @@ body {
   --color-info: var(--info);
 
   --radius-sm: 6px;
-  --radius-md: 10px;
+  --radius-md: 10px; /* list / catalog / history rows */
   --radius-lg: 14px;
-  --radius-xl: 14px;
-  --radius-2xl: 18px;
+  --radius-xl: 14px; /* token hero, auth card */
+  --radius-2xl: 18px; /* reserved for large featured surfaces */
   --radius-3xl: 20px;
   --radius-4xl: 24px;
 }

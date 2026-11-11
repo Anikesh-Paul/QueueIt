@@ -625,10 +625,10 @@ function StatusMetric({ label, value, hero = false, testId }) {
   return (
     <div
       className={cn(
-        "flex h-full flex-col gap-1 rounded-lg border border-border bg-secondary px-4 py-3",
+        "flex h-full flex-col gap-1 rounded-md border border-border bg-secondary px-4 py-3",
         hero &&
-          /* Soft 4px forest left edge + primary-mist wash */
-          "min-h-[6.5rem] justify-center gap-1.5 border-l-4 border-l-primary border-border bg-primary-muted px-6 py-5 sm:min-h-[7rem]"
+          /* Token hero keeps the 14px radius; list metrics use radius-md. */
+          "rounded-xl min-h-[6.5rem] justify-center gap-1.5 border-l-4 border-l-primary border-border bg-primary-muted px-6 py-5 sm:min-h-[7rem]"
       )}
     >
       <span

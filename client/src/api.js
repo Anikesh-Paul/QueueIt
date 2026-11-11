@@ -206,6 +206,16 @@ export async function downloadCampusAnalyticsCsv(token, options = {}) {
   URL.revokeObjectURL(url);
 }
 
+export function fetchAdminAudit(token, options = {}) {
+  const params = new URLSearchParams();
+  if (options.queueId) params.set("queueId", options.queueId);
+  if (options.venueId) params.set("venueId", options.venueId);
+  if (options.cursor) params.set("cursor", options.cursor);
+  if (options.limit) params.set("limit", String(options.limit));
+  const qs = params.toString();
+  return apiRequest(`/api/admin/audit${qs ? `?${qs}` : ""}`, { token });
+}
+
 export function fetchAnalytics(token, queueId, options = {}) {
   const params = new URLSearchParams();
   if (options.window) params.set("window", options.window);

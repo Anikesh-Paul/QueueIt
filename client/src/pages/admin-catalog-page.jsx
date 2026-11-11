@@ -174,6 +174,11 @@ export function AdminCatalogPage() {
     const pace = Number(draft.averageServiceTime ?? queue.averageServiceTime);
     const capRaw = draft.maxWaiting !== undefined ? draft.maxWaiting : (queue.maxWaiting ?? "");
     const noShowRaw = draft.noShowMinutes !== undefined ? draft.noShowMinutes : (queue.noShowMinutes ?? "");
+    const noShowMode = draft.noShowMode !== undefined ? draft.noShowMode : (queue.noShowMode ?? "fixed");
+    const noShowMinRaw =
+      draft.noShowMinMinutes !== undefined ? draft.noShowMinMinutes : (queue.noShowMinMinutes ?? "");
+    const noShowMaxRaw =
+      draft.noShowMaxMinutes !== undefined ? draft.noShowMaxMinutes : (queue.noShowMaxMinutes ?? "");
     const recoveryMinsRaw =
       draft.recoveryMinutes !== undefined ? draft.recoveryMinutes : (queue.recoveryMinutes ?? "");
     const recoveryPlacesRaw =
@@ -184,6 +189,9 @@ export function AdminCatalogPage() {
         averageServiceTime: pace,
         maxWaiting: capRaw === "" || capRaw == null ? null : Number(capRaw),
         noShowMinutes: noShowRaw === "" || noShowRaw == null ? "" : Number(noShowRaw),
+        noShowMode,
+        noShowMinMinutes: noShowMinRaw === "" || noShowMinRaw == null ? "" : Number(noShowMinRaw),
+        noShowMaxMinutes: noShowMaxRaw === "" || noShowMaxRaw == null ? "" : Number(noShowMaxRaw),
         recoveryMinutes: recoveryMinsRaw === "" || recoveryMinsRaw == null ? "" : Number(recoveryMinsRaw),
         recoveryPlaces:
           recoveryPlacesRaw === "" || recoveryPlacesRaw == null ? "" : Number(recoveryPlacesRaw),
@@ -315,8 +323,30 @@ export function AdminCatalogPage() {
                           disabled={busy}
                         />
                       </div>
+                      <div className="w-full sm:w-36">
+                        <Label htmlFor={`queue-noshow-mode-${queue.id}`}>No-show mode</Label>
+                        <select
+                          id={`queue-noshow-mode-${queue.id}`}
+                          defaultValue={queue.noShowMode === "dynamic" ? "dynamic" : "fixed"}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                noShowMode: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-noshow-mode"
+                          disabled={busy}
+                          className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          <option value="fixed">Fixed</option>
+                          <option value="dynamic">Dynamic</option>
+                        </select>
+                      </div>
                       <div className="w-full sm:w-28">
-                        <Label htmlFor={`queue-noshow-${queue.id}`}>No-show min</Label>
+                        <Label htmlFor={`queue-noshow-${queue.id}`}>Fixed / fallback (min)</Label>
                         <Input
                           id={`queue-noshow-${queue.id}`}
                           type="number"
@@ -334,6 +364,50 @@ export function AdminCatalogPage() {
                             }))
                           }
                           data-testid="catalog-queue-noshow"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="w-full sm:w-28">
+                        <Label htmlFor={`queue-noshow-min-${queue.id}`}>Dynamic min</Label>
+                        <Input
+                          id={`queue-noshow-min-${queue.id}`}
+                          type="number"
+                          min="1"
+                          max="30"
+                          placeholder="2"
+                          defaultValue={queue.noShowMinMinutes ?? 2}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                noShowMinMinutes: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-noshow-min"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="w-full sm:w-28">
+                        <Label htmlFor={`queue-noshow-max-${queue.id}`}>Dynamic max</Label>
+                        <Input
+                          id={`queue-noshow-max-${queue.id}`}
+                          type="number"
+                          min="1"
+                          max="30"
+                          placeholder="15"
+                          defaultValue={queue.noShowMaxMinutes ?? 15}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                noShowMaxMinutes: event.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-noshow-max"
                           disabled={busy}
                         />
                       </div>

@@ -69,6 +69,10 @@ const queueEntrySchema = new mongoose.Schema(
     servingPausedRemainingMs: { type: Number, default: null, min: 0 },
     /** When the called student tapped "I'm here". Clears the no-show deadline. */
     arrivedAt: { type: Date, default: null },
+    /** Grace window (minutes) applied when this entry was called. */
+    noShowWindowMinutes: { type: Number, default: null, min: 1, max: 30 },
+    /** Whether that window came from fixed or dynamic resolution. */
+    noShowWindowMode: { type: String, enum: ["fixed", "dynamic"], default: null },
     /** Counter this entry was called or served at (subdocument id on Queue.counters). */
     servingCounterId: {
       type: mongoose.Schema.Types.ObjectId,

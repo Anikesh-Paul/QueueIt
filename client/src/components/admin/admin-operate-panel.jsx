@@ -53,6 +53,10 @@ export function AdminOperatePanel({
   );
   const freeCounters = counters.filter((counter) => counter.id && !busyIds.has(counter.id));
   const waiterCount = waitingList.filter((entry) => entry.status !== "serving").length;
+  const noShowWindowMinutes =
+    adminQueueMeta?.noShowWindow?.minutes ?? adminQueueMeta?.noShowMinutes ?? null;
+  const noShowWindowMode =
+    adminQueueMeta?.noShowWindow?.mode ?? adminQueueMeta?.noShowMode ?? "fixed";
   const canCall =
     !adminActionBusy &&
     !paused &&
@@ -117,6 +121,15 @@ export function AdminOperatePanel({
                   </span>
                 </div>
               </div>
+              {noShowWindowMinutes != null ? (
+                <p
+                  className="px-5 pb-3 text-xs text-text-muted"
+                  data-testid="admin-noshow-window"
+                >
+                  No-show window: {noShowWindowMinutes} min
+                  {noShowWindowMode === "dynamic" ? " (dynamic)" : " (fixed)"}
+                </p>
+              ) : null}
 
               <div className="border-t border-border px-5 py-4">
                 {multi ? (

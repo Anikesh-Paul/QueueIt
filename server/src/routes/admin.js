@@ -10,6 +10,7 @@ import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/ca
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessQueueAccess, forbidUnlessVenueAccess, isGlobalAdmin, staffQueueIds } from "../services/staffAccess.js";
 import { compareWaiters } from "../services/missedTurn.js";
+import { noShowConfigForJson, resolveNoShowWindow } from "../services/noShowWindow.js";
 import { listAdminAudit, recordAdminAudit } from "../services/adminAudit.js";
 import { inviteStaff, listStaffAccounts, updateStaffQueues } from "../services/staffInvite.js";
 import {
@@ -64,7 +65,7 @@ function toAdminQueueJSON(queue) {
     acceptingTokens: queue.acceptingTokens !== false,
     nowServing: queue.nowServing ?? null,
     averageServiceTime: queue.averageServiceTime,
-    noShowMinutes: queue.noShowMinutes ?? 5,
+    ...noShowConfigForJson(queue),
     recoveryMinutes: queue.recoveryMinutes ?? 15,
     recoveryPlaces: queue.recoveryPlaces ?? 2,
     counters: countersForJson(queue),
@@ -206,8 +207,11 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
       return toWaitingRow(entry, position, { paused, queue });
     });
 
+    const noShowWindow = await resolveNoShowWindow(queue, {
+      waitingCount: waiting.filter((entry) => entry.status !== "serving").length,
+    });
     return res.status(200).json({
-      queue: toAdminQueueJSON(queue),
+      queue: { ...toAdminQueueJSON(queue), noShowWindow },
       waiting,
     });
   } catch (err) {
@@ -306,6 +310,7 @@ router.post("/queues/:queueId/call", requireAuth, requireAdmin, async (req, res,
         tokenNumber: entry.tokenNumber,
         status: entry.status,
         servingDeadlineAt: entry.servingDeadlineAt,
+        ...servingFieldsForJson(entry, { paused: false, queue: result.queue }),
       },
       queue: toAdminQueueJSON(result.queue),
     });
@@ -1017,6 +1022,9 @@ router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
       counters: req.body?.counters,
       maxWaiting: req.body?.maxWaiting,
       noShowMinutes: req.body?.noShowMinutes,
+      noShowMode: req.body?.noShowMode,
+      noShowMinMinutes: req.body?.noShowMinMinutes,
+      noShowMaxMinutes: req.body?.noShowMaxMinutes,
       recoveryMinutes: req.body?.recoveryMinutes,
       recoveryPlaces: req.body?.recoveryPlaces,
     });
@@ -1040,6 +1048,9 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       archived: req.body?.archived,
       maxWaiting: req.body?.maxWaiting,
       noShowMinutes: req.body?.noShowMinutes,
+      noShowMode: req.body?.noShowMode,
+      noShowMinMinutes: req.body?.noShowMinMinutes,
+      noShowMaxMinutes: req.body?.noShowMaxMinutes,
       recoveryMinutes: req.body?.recoveryMinutes,
       recoveryPlaces: req.body?.recoveryPlaces,
     });

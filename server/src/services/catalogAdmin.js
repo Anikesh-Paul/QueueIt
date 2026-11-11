@@ -6,6 +6,14 @@ import { normalizeMaxWaiting, rejectIfCapBelowOccupancy } from "./capacity.js";
 import { isStaff, staffQueueIds, staffVenueId } from "./staffAccess.js";
 import { DEFAULT_NO_SHOW_MINUTES } from "./servingDeadline.js";
 import {
+  DEFAULT_NO_SHOW_MODE,
+  DEFAULT_NO_SHOW_MIN_MINUTES,
+  DEFAULT_NO_SHOW_MAX_MINUTES,
+  NO_SHOW_MODES,
+  NO_SHOW_BOUND_MIN,
+  NO_SHOW_BOUND_MAX,
+} from "./noShowWindow.js";
+import {
   DEFAULT_RECOVERY_MINUTES,
   DEFAULT_RECOVERY_PLACES,
   RECOVERY_MINUTES_MAX,
@@ -86,6 +94,39 @@ export function cleanNoShowMinutes(raw) {
     };
   }
   return { value };
+}
+
+export function cleanNoShowMode(raw) {
+  if (raw === undefined) return { omitted: true };
+  if (raw === null || raw === "") return { value: DEFAULT_NO_SHOW_MODE };
+  const value = String(raw).trim().toLowerCase();
+  if (!NO_SHOW_MODES.includes(value)) {
+    return { error: "No-show mode must be fixed or dynamic" };
+  }
+  return { value };
+}
+
+export function cleanNoShowBound(raw, { label, fallback }) {
+  if (raw === undefined) return { omitted: true };
+  if (raw === null || raw === "") return { value: fallback };
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < NO_SHOW_BOUND_MIN || value > NO_SHOW_BOUND_MAX) {
+    return {
+      error: `${label} must be an integer from ${NO_SHOW_BOUND_MIN} to ${NO_SHOW_BOUND_MAX}`,
+    };
+  }
+  return { value };
+}
+
+function applyNoShowBounds(queue, minResult, maxResult) {
+  const min = minResult?.omitted ? (queue.noShowMinMinutes ?? DEFAULT_NO_SHOW_MIN_MINUTES) : minResult.value;
+  const max = maxResult?.omitted ? (queue.noShowMaxMinutes ?? DEFAULT_NO_SHOW_MAX_MINUTES) : maxResult.value;
+  if (min > max) {
+    return { error: "No-show minimum cannot be greater than the maximum" };
+  }
+  if (!minResult?.omitted) queue.noShowMinMinutes = minResult.value;
+  if (!maxResult?.omitted) queue.noShowMaxMinutes = maxResult.value;
+  return { ok: true };
 }
 
 function cleanServiceTime(raw) {
@@ -174,7 +215,7 @@ export async function updateVenue(venue, { name }) {
   return { ok: true, venue };
 }
 
-export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes, recoveryMinutes, recoveryPlaces }) {
+export async function createQueue({ venueId, name, averageServiceTime, serviceWindows, counters, maxWaiting, noShowMinutes, noShowMode, noShowMinMinutes, noShowMaxMinutes, recoveryMinutes, recoveryPlaces }) {
   if (!venueId) return { ok: false, status: 400, error: "Venue is required" };
   const venue = await Venue.findById(venueId);
   if (!venue) return { ok: false, status: 404, error: "Venue not found" };
@@ -189,6 +230,21 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
 
   const noShow = cleanNoShowMinutes(noShowMinutes === undefined ? DEFAULT_NO_SHOW_MINUTES : noShowMinutes);
   if (noShow.error) return { ok: false, status: 400, error: noShow.error };
+  const mode = cleanNoShowMode(noShowMode === undefined ? DEFAULT_NO_SHOW_MODE : noShowMode);
+  if (mode.error) return { ok: false, status: 400, error: mode.error };
+  const minBound = cleanNoShowBound(
+    noShowMinMinutes === undefined ? DEFAULT_NO_SHOW_MIN_MINUTES : noShowMinMinutes,
+    { label: "No-show minimum", fallback: DEFAULT_NO_SHOW_MIN_MINUTES }
+  );
+  if (minBound.error) return { ok: false, status: 400, error: minBound.error };
+  const maxBound = cleanNoShowBound(
+    noShowMaxMinutes === undefined ? DEFAULT_NO_SHOW_MAX_MINUTES : noShowMaxMinutes,
+    { label: "No-show maximum", fallback: DEFAULT_NO_SHOW_MAX_MINUTES }
+  );
+  if (maxBound.error) return { ok: false, status: 400, error: maxBound.error };
+  if (minBound.value > maxBound.value) {
+    return { ok: false, status: 400, error: "No-show minimum cannot be greater than the maximum" };
+  }
   const recoveryMins = cleanRecoveryMinutes(
     recoveryMinutes === undefined ? DEFAULT_RECOVERY_MINUTES : recoveryMinutes
   );
@@ -223,6 +279,9 @@ export async function createQueue({ venueId, name, averageServiceTime, serviceWi
     venue: venue._id,
     averageServiceTime: pace.value,
     noShowMinutes: noShow.value,
+    noShowMode: mode.value,
+    noShowMinMinutes: minBound.value,
+    noShowMaxMinutes: maxBound.value,
     recoveryMinutes: recoveryMins.value,
     recoveryPlaces: recoveryN.value,
     serviceWindows: windows,
@@ -249,6 +308,25 @@ export async function updateQueue(queue, patch = {}) {
     const noShow = cleanNoShowMinutes(patch.noShowMinutes);
     if (noShow.error) return { ok: false, status: 400, error: noShow.error };
     if (!noShow.omitted) queue.noShowMinutes = noShow.value;
+  }
+  if (patch.noShowMode !== undefined) {
+    const mode = cleanNoShowMode(patch.noShowMode);
+    if (mode.error) return { ok: false, status: 400, error: mode.error };
+    if (!mode.omitted) queue.noShowMode = mode.value;
+  }
+  if (patch.noShowMinMinutes !== undefined || patch.noShowMaxMinutes !== undefined) {
+    const minBound = cleanNoShowBound(patch.noShowMinMinutes, {
+      label: "No-show minimum",
+      fallback: DEFAULT_NO_SHOW_MIN_MINUTES,
+    });
+    if (minBound.error) return { ok: false, status: 400, error: minBound.error };
+    const maxBound = cleanNoShowBound(patch.noShowMaxMinutes, {
+      label: "No-show maximum",
+      fallback: DEFAULT_NO_SHOW_MAX_MINUTES,
+    });
+    if (maxBound.error) return { ok: false, status: 400, error: maxBound.error };
+    const bounds = applyNoShowBounds(queue, minBound, maxBound);
+    if (bounds.error) return { ok: false, status: 400, error: bounds.error };
   }
   if (patch.recoveryMinutes !== undefined) {
     const recovery = cleanRecoveryMinutes(patch.recoveryMinutes);

@@ -152,12 +152,32 @@ const queueSchema = new mongoose.Schema(
       max: 500,
       default: null,
     },
-    /** Minutes a called (serving) entry has to arrive before an auto-skip. */
+    /** Minutes a called (serving) entry has to arrive before an auto-skip (fixed mode, or dynamic fallback). */
     noShowMinutes: {
       type: Number,
       min: 1,
       max: 30,
       default: 5,
+    },
+    /** fixed = use noShowMinutes; dynamic = scale with arrivals, length, and pace, clamped to min/max. */
+    noShowMode: {
+      type: String,
+      enum: ["fixed", "dynamic"],
+      default: "fixed",
+    },
+    /** Lower clamp for a dynamic no-show window. */
+    noShowMinMinutes: {
+      type: Number,
+      min: 1,
+      max: 30,
+      default: 2,
+    },
+    /** Upper clamp for a dynamic no-show window. */
+    noShowMaxMinutes: {
+      type: Number,
+      min: 1,
+      max: 30,
+      default: 15,
     },
     /** Minutes after a skip during which the student may rejoin once. */
     recoveryMinutes: {
@@ -199,6 +219,9 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     name: this.name,
     averageServiceTime: this.averageServiceTime,
     noShowMinutes: this.noShowMinutes ?? 5,
+    noShowMode: this.noShowMode === "dynamic" ? "dynamic" : "fixed",
+    noShowMinMinutes: this.noShowMinMinutes ?? 2,
+    noShowMaxMinutes: this.noShowMaxMinutes ?? 15,
     recoveryMinutes: this.recoveryMinutes ?? 15,
     recoveryPlaces: this.recoveryPlaces ?? 2,
     status: this.status,

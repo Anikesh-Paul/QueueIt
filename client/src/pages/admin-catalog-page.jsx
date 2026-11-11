@@ -238,7 +238,7 @@ export function AdminCatalogPage() {
                         />
                       </div>
                       <div className="w-full sm:w-28">
-                        <Label htmlFor={`queue-pace-${queue.id}`}>Service min</Label>
+                        <Label htmlFor={`queue-pace-${queue.id}`}>Avg. service (min)</Label>
                         <Input
                           id={`queue-pace-${queue.id}`}
                           type="number"
@@ -357,7 +357,7 @@ export function AdminCatalogPage() {
                   id="new-venue-name"
                   value={venueName}
                   onChange={(event) => setVenueName(event.target.value)}
-                  placeholder="Library Annex"
+                  placeholder="Venue name"
                   disabled={busy}
                   data-testid="catalog-new-venue-name"
                 />
@@ -374,7 +374,7 @@ export function AdminCatalogPage() {
                   id="new-queue-name"
                   value={queueName}
                   onChange={(event) => setQueueName(event.target.value)}
-                  placeholder="Holds desk"
+                  placeholder="Queue name"
                   disabled={busy}
                   data-testid="catalog-new-queue-name"
                 />
@@ -397,7 +397,7 @@ export function AdminCatalogPage() {
                 </select>
               </div>
               <div className="w-full sm:w-24">
-                <Label htmlFor="new-queue-pace">Service min</Label>
+                <Label htmlFor="new-queue-pace">Avg. service (min)</Label>
                 <Input
                   id="new-queue-pace"
                   type="number"
@@ -442,7 +442,7 @@ export function AdminCatalogPage() {
                 Invite staff
               </h2>
               <p className="mt-1 text-sm text-text-secondary">
-                Staff can only manage the venue you assign. Leave the temporary password empty to generate one and send a reset link (logged in development when no mail provider is configured).
+                Staff can only manage the venue you assign. Leave the temporary password empty to generate one. If mail is configured, we also send a reset link.
               </p>
               <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end" onSubmit={handleInviteStaff}>
                 <div className="min-w-0 flex-1 sm:min-w-[10rem]">

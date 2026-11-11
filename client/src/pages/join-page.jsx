@@ -214,18 +214,16 @@ export function JoinPage() {
             </p>
           ) : null}
 
-          {closed && queue.reopenAt ? (
-            <p data-testid="queue-reopen" className="mt-3 text-sm text-text-secondary">
-              Reopens {formatCampusDateTime(queue.reopenAt)}
-            </p>
-          ) : null}
-
           {closed && !membership && !isAdmin ? (
             <p data-testid="join-closed-reason" className="mt-3 text-sm text-text-secondary">
               This queue isn’t accepting tokens right now.
               {queue.reopenAt
                 ? ` It reopens ${formatCampusDateTime(queue.reopenAt)}.`
                 : " Try again later, or browse other queues."}
+            </p>
+          ) : closed && queue.reopenAt ? (
+            <p data-testid="queue-reopen" className="mt-3 text-sm text-text-secondary">
+              Reopens {formatCampusDateTime(queue.reopenAt)}
             </p>
           ) : null}
 

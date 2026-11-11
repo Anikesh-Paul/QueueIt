@@ -2,6 +2,11 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Badge as BadgePrimitive } from "@/components/ui/badge";
 import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { cn } from "@/lib/utils";
+import {
+  identityChipLabel,
+  normalizeIdentityRole,
+  shouldShowRoleBadge,
+} from "@/lib/identity-chip";
 
 /** Display labels for identity chips — title case per DESIGN.md. */
 const ROLE_LABELS = {
@@ -40,8 +45,9 @@ export function UserChip({ user, className, softUpgrade = false }) {
   }, [menuOpen]);
 
   if (!user) return null;
-  const role = normalizeRole(user.role);
-  const label = user.name?.trim() || (role === "guest" ? "Guest" : "Account");
+  const role = normalizeIdentityRole(user.role);
+  const label = identityChipLabel(user);
+  const showRoleBadge = shouldShowRoleBadge(role, label);
   const initials = initialsFrom(label);
   const isGuestChip = role === "guest" && softUpgrade;
 
@@ -50,10 +56,13 @@ export function UserChip({ user, className, softUpgrade = false }) {
       <span className="grid size-6 place-items-center rounded-full bg-primary-muted text-[0.6875rem] font-semibold text-primary">
         {initials}
       </span>
-      <span className="hidden max-w-32 truncate text-sm font-medium text-foreground sm:block">
+      <span
+        data-testid="identity-name"
+        className="max-w-[7rem] truncate text-sm font-medium text-foreground sm:max-w-32"
+      >
         {label}
       </span>
-      <RoleBadge role={role} />
+      {showRoleBadge ? <RoleBadge role={role} /> : null}
     </>
   );
 
@@ -113,7 +122,7 @@ export function UserChip({ user, className, softUpgrade = false }) {
  * Title case labels: User / Admin / Guest. Class hooks stay for e2e (`.badge--user` etc.).
  */
 export function RoleBadge({ role, className }) {
-  const normalized = normalizeRole(role);
+  const normalized = normalizeIdentityRole(role);
   const label = ROLE_LABELS[normalized] || ROLE_LABELS.user;
 
   return (
@@ -127,14 +136,6 @@ export function RoleBadge({ role, className }) {
       {label}
     </BadgePrimitive>
   );
-}
-
-function normalizeRole(role) {
-  const value = String(role || "user").toLowerCase();
-  if (value === "admin") return "admin";
-  if (value === "staff") return "staff";
-  if (value === "guest") return "guest";
-  return "user";
 }
 
 function badgeClassFor(role) {

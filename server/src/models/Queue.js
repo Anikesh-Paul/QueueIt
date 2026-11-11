@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 // Ensure Venue is registered whenever Queue is loaded (needed for populate).
 import "./Venue.js";
 import { normalizeServiceWindows } from "../services/serviceWindows.js";
+import { countersForJson } from "../services/counters.js";
 
 const QUEUE_STATUSES = ["open", "paused"];
 
@@ -12,6 +13,14 @@ const serviceWindowSchema = new mongoose.Schema(
     end: { type: String, required: true, trim: true },
   },
   { _id: false }
+);
+
+const counterSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 40 },
+    nowServing: { type: Number, default: null, min: 1 },
+  },
+  { _id: true }
 );
 
 const queueSchema = new mongoose.Schema(
@@ -96,6 +105,19 @@ const queueSchema = new mongoose.Schema(
       default: null,
       min: 1,
     },
+    /**
+     * Counters at this queue (at least one after ensureDefaultCounters).
+     * Each has its own nowServing; queue.nowServing is the most recent token.
+     */
+    counters: {
+      type: [counterSchema],
+      default: undefined,
+    },
+    /** When set, the queue is hidden from the student catalog and new joins are refused. */
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
     /** Minutes a called (serving) entry has to arrive before an auto-skip. */
     noShowMinutes: {
       type: Number,
@@ -135,6 +157,8 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     sessionEndsAt: toIsoOrNull(this.sessionEndsAt),
     reopenAt: toIsoOrNull(this.reopenAt),
     venue,
+    counters: countersForJson(this),
+    archived: Boolean(this.archivedAt),
   };
 };
 

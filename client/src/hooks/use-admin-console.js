@@ -12,6 +12,9 @@ import {
   stopAcceptingTokens,
   updateServiceWindows,
   walkInQueue,
+  addQueueCounter,
+  renameQueueCounter,
+  removeQueueCounter,
 } from "@/api";
 import { resolveStatusPollMs } from "@/lib/poll-interval";
 
@@ -143,9 +146,9 @@ export function useAdminConsoleState({
   );
 
   const adminCall = useCallback(
-    (entryId) =>
+    (entryId, counterId) =>
       runAdminAction(
-        () => callQueue(token, adminQueueId, entryId || undefined),
+        () => callQueue(token, adminQueueId, entryId || undefined, counterId || undefined),
         "Call failed",
         { clearSelection: true }
       ),
@@ -153,10 +156,9 @@ export function useAdminConsoleState({
   );
 
   const adminServe = useCallback(
-
-    (entryId) =>
+    (entryId, counterId) =>
       runAdminAction(
-        () => serveQueue(token, adminQueueId, entryId || undefined),
+        () => serveQueue(token, adminQueueId, entryId || undefined, counterId || undefined),
         "Serve failed",
         { clearSelection: true }
       ),
@@ -164,9 +166,9 @@ export function useAdminConsoleState({
   );
 
   const adminSkip = useCallback(
-    (entryId) =>
+    (entryId, counterId) =>
       runAdminAction(
-        () => skipQueue(token, adminQueueId, entryId || undefined),
+        () => skipQueue(token, adminQueueId, entryId || undefined, counterId || undefined),
         "Skip failed",
         { clearSelection: true }
       ),
@@ -262,6 +264,33 @@ export function useAdminConsoleState({
     [token, adminQueueId, loadWaitingList]
   );
 
+  const adminAddCounter = useCallback(
+    (name) =>
+      runAdminAction(
+        () => addQueueCounter(token, adminQueueId, { name }),
+        "Could not add counter"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
+  const adminRenameCounter = useCallback(
+    (counterId, name) =>
+      runAdminAction(
+        () => renameQueueCounter(token, adminQueueId, counterId, { name }),
+        "Could not rename counter"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
+  const adminRemoveCounter = useCallback(
+    (counterId) =>
+      runAdminAction(
+        () => removeQueueCounter(token, adminQueueId, counterId),
+        "Could not remove counter"
+      ),
+    [token, adminQueueId, runAdminAction]
+  );
+
   return {
     adminQueueId,
     adminQueueMeta,
@@ -286,6 +315,9 @@ export function useAdminConsoleState({
     adminUpdateServiceWindows,
     adminReset,
     adminWalkIn,
+    adminAddCounter,
+    adminRenameCounter,
+    adminRemoveCounter,
     adminQueueIdRef,
   };
 }

@@ -9,6 +9,7 @@ import { AdminWalkIn } from "@/components/admin/admin-walk-in";
 import { AdminWaitingList } from "@/components/admin/admin-waiting-list";
 import { AdminCheckArrival } from "@/components/admin/admin-check-arrival";
 import { AdminPosterQr } from "@/components/admin/admin-poster-qr";
+import { AdminCounters } from "@/components/admin/admin-counters";
 
 /**
  * Admin console — medium-density waiting list + operate | Check arrival (lg+).
@@ -40,6 +41,9 @@ export function AdminConsolePage() {
     adminUpdateServiceWindows,
     adminReset,
     adminWalkIn,
+    adminAddCounter,
+    adminRenameCounter,
+    adminRemoveCounter,
     realtimeConnected,
   } = useAdminConsole();
 
@@ -124,6 +128,13 @@ export function AdminConsolePage() {
               adminUpdateServiceWindows={adminUpdateServiceWindows}
             />
             <AdminWalkIn adminActionBusy={adminActionBusy} adminWalkIn={adminWalkIn} />
+            <AdminCounters
+              counters={adminQueueMeta?.counters}
+              adminActionBusy={adminActionBusy}
+              adminAddCounter={adminAddCounter}
+              adminRenameCounter={adminRenameCounter}
+              adminRemoveCounter={adminRemoveCounter}
+            />
             <AdminPosterQr queueId={queueId} queueName={queueName} />
             <AdminWaitingList
               waitingList={waitingList}

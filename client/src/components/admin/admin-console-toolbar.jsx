@@ -109,6 +109,14 @@ export function AdminConsoleToolbar({
             <Button
               variant="outline"
               size="sm"
+              onClick={() => navigate("/admin/catalog")}
+              data-testid="open-catalog"
+            >
+              Catalog
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => navigate(`/admin/queues/${queueId}/analytics`)}
               data-testid="open-analytics"
             >

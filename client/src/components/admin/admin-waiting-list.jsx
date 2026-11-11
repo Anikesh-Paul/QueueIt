@@ -81,7 +81,9 @@ export function AdminWaitingList({
                                   className="shrink-0 rounded-full bg-primary-muted px-2 py-0.5 text-xs font-semibold text-primary ring-1 ring-primary/30"
                                   data-testid="waiting-called-badge"
                                 >
-                                  Called
+                                  {entry.servingCounterName
+                                    ? `Called · ${entry.servingCounterName}`
+                                    : "Called"}
                                 </span>
                               ) : null}
                             </span>

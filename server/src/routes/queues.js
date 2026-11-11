@@ -26,7 +26,7 @@ router.get("/", async (_req, res, next) => {
   try {
     // Catalog lists open, paused, and closed (not accepting) queues honestly.
     // status is advancement-only (open|paused); acceptingTokens is orthogonal.
-    const queues = await Queue.find({ status: { $in: ["open", "paused"] } })
+    const queues = await Queue.find({ status: { $in: ["open", "paused"] }, archivedAt: null })
       .populate("venue")
       .sort({ name: 1 })
       .exec();
@@ -186,7 +186,7 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
     }
 
     const queue = await Queue.findById(queueId);
-    if (!queue) {
+    if (!queue || queue.archivedAt) {
       return res.status(404).json({ error: "Queue not found" });
     }
 

@@ -12,6 +12,7 @@ import {
   validateServiceWindows,
 } from "./serviceWindows.js";
 import { emitQueueChanged } from "./realtime.js";
+import { clearAllCounterNowServing } from "./counters.js";
 
 /**
  * @param {import("mongoose").Document} queue
@@ -35,6 +36,7 @@ export async function autoPrepareIfClosedEmpty(queue) {
   if (!empty) return false;
   queue.nextTokenNumber = 1;
   queue.nowServing = null;
+  clearAllCounterNowServing(queue);
   return true;
 }
 

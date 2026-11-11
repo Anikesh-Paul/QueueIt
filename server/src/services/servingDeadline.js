@@ -4,6 +4,12 @@ import { QueueEntry } from "../models/QueueEntry.js";
 import { now as clockNow } from "./clock.js";
 import { autoPrepareIfClosedEmpty } from "./queueSession.js";
 import { emitQueueChanged } from "./realtime.js";
+import {
+  counterNameOf,
+  ensureDefaultCounters,
+  resolveTargetCounter,
+  setCounterNowServing,
+} from "./counters.js";
 
 export const DEFAULT_NO_SHOW_MINUTES = 5;
 
@@ -33,13 +39,20 @@ export function remainingServingMs(entry, { paused = false, at = clockNow() } = 
   return Math.max(0, new Date(entry.servingDeadlineAt).getTime() - at.getTime());
 }
 
-export function servingFieldsForJson(entry, { paused = false, at = clockNow() } = {}) {
+export function servingFieldsForJson(entry, { paused = false, at = clockNow(), queue = null } = {}) {
+  const counterId = entry?.servingCounterId?.toString?.() ?? null;
+  const counterName = counterId ? counterNameOf(queue, counterId) : null;
+  const counterFields = {
+    servingCounterId: counterId,
+    servingCounterName: counterName,
+  };
   if (!entry || entry.status !== "serving") {
     return {
       calledAt: null,
       servingDeadlineAt: null,
       servingRemainingSeconds: null,
       servingTimerFrozen: false,
+      ...counterFields,
     };
   }
   const remaining = remainingServingMs(entry, { paused, at });
@@ -48,6 +61,7 @@ export function servingFieldsForJson(entry, { paused = false, at = clockNow() } 
     servingDeadlineAt: toIsoOrNull(entry.servingDeadlineAt),
     servingRemainingSeconds: remaining == null ? null : Math.ceil(remaining / 1000),
     servingTimerFrozen: Boolean(paused),
+    ...counterFields,
   };
 }
 
@@ -58,17 +72,36 @@ function clearServingTimer() {
   };
 }
 
+async function busyCounterIds(queue) {
+  const rows = await QueueEntry.find({ queue: queue._id, status: "serving" }).select(
+    "servingCounterId"
+  );
+  const ids = new Set();
+  const fallback = queue.counters?.[0]?._id?.toString?.();
+  for (const row of rows) {
+    if (row.servingCounterId) ids.add(row.servingCounterId.toString());
+    else if (fallback) ids.add(fallback);
+  }
+  return ids;
+}
+
 /**
- * Call the head (or selected) waiting entry to the counter.
- * Only one serving entry is allowed at a time.
+ * Call the head (or selected) waiting entry to a counter.
+ * One serving entry is allowed per counter (one total when the queue has a single counter).
  */
-export async function callWaitingEntry(queue, { entryId } = {}) {
-  const already = await QueueEntry.findOne({ queue: queue._id, status: "serving" });
-  if (already) {
+export async function callWaitingEntry(queue, { entryId, counterId } = {}) {
+  ensureDefaultCounters(queue);
+  const busy = await busyCounterIds(queue);
+  const target = resolveTargetCounter(queue, { counterId, busyIds: busy });
+  if (!target.ok) return target;
+  if (busy.has(target.counter._id.toString())) {
     return {
       ok: false,
       status: 409,
-      error: "Someone is already being called. Serve or skip them first.",
+      error:
+        queue.counters.length <= 1
+          ? "Someone is already being called. Serve or skip them first."
+          : "That counter is already calling someone. Serve or skip them first.",
     };
   }
 
@@ -92,6 +125,7 @@ export async function callWaitingEntry(queue, { entryId } = {}) {
         calledAt: now,
         servingDeadlineAt: deadline,
         servingPausedRemainingMs: null,
+        servingCounterId: target.counter._id,
       },
     },
     {
@@ -107,18 +141,19 @@ export async function callWaitingEntry(queue, { entryId } = {}) {
     };
   }
 
-  queue.nowServing = entry.tokenNumber;
+  setCounterNowServing(queue, target.counter, entry.tokenNumber);
   await autoPrepareIfClosedEmpty(queue);
   await queue.save();
   emitQueueChanged(queue._id, "call");
-  return { ok: true, entry, queue };
+  return { ok: true, entry, queue, counter: target.counter };
 }
 
 /**
  * Serve or skip the called entry if one exists, otherwise the next (or selected)
  * waiting entry. Immediate serve of a waiting person still skips the call step.
  */
-export async function advanceLineEntry(queue, { entryId } = {}, terminalStatus) {
+export async function advanceLineEntry(queue, { entryId, counterId } = {}, terminalStatus) {
+  ensureDefaultCounters(queue);
   const now = clockNow();
   const clear = {
     $set: {
@@ -128,17 +163,22 @@ export async function advanceLineEntry(queue, { entryId } = {}, terminalStatus) 
   };
 
   if (!entryId) {
-    const serving = await QueueEntry.findOneAndUpdate(
-      { queue: queue._id, status: "serving" },
-      clear,
-      { returnDocument: "after" }
-    );
+    const servingFilter = { queue: queue._id, status: "serving" };
+    if (counterId && mongoose.isValidObjectId(counterId)) {
+      servingFilter.servingCounterId = counterId;
+    }
+    const serving = await QueueEntry.findOneAndUpdate(servingFilter, clear, {
+      returnDocument: "after",
+    });
     if (serving) {
-      queue.nowServing = serving.tokenNumber;
+      const counter =
+        findCounterForEntry(queue, serving) ||
+        (counterId ? null : queue.counters[0]);
+      setCounterNowServing(queue, counter, serving.tokenNumber);
       await autoPrepareIfClosedEmpty(queue);
       await queue.save();
       emitQueueChanged(queue._id, terminalStatus);
-      return { ok: true, entry: serving, queue };
+      return { ok: true, entry: serving, queue, counter };
     }
   }
 
@@ -166,11 +206,29 @@ export async function advanceLineEntry(queue, { entryId } = {}, terminalStatus) 
     };
   }
 
-  queue.nowServing = entry.tokenNumber;
+  let counter = findCounterForEntry(queue, entry);
+  if (!counter) {
+    const busy = await busyCounterIds(queue);
+    // The entry we just completed may still be in busy if we didn't clear serving yet;
+    // it is already terminal, so exclude it.
+    if (entry.servingCounterId) busy.delete(entry.servingCounterId.toString());
+    const target = resolveTargetCounter(queue, { counterId, busyIds: busy });
+    if (target.ok) counter = target.counter;
+  }
+  if (counter && !entry.servingCounterId) {
+    entry.servingCounterId = counter._id;
+    await entry.save();
+  }
+  setCounterNowServing(queue, counter, entry.tokenNumber);
   await autoPrepareIfClosedEmpty(queue);
   await queue.save();
   emitQueueChanged(queue._id, terminalStatus);
-  return { ok: true, entry, queue };
+  return { ok: true, entry, queue, counter };
+}
+
+function findCounterForEntry(queue, entry) {
+  if (!entry?.servingCounterId) return null;
+  return queue.counters.find((row) => row._id.toString() === entry.servingCounterId.toString()) || null;
 }
 
 /**

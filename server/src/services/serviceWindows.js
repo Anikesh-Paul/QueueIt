@@ -131,13 +131,6 @@ export function windowAppliesOnDay(window, weekday) {
   return days.includes(weekday);
 }
 
-function daysOverlap(a, b) {
-  const left = a == null ? null : a;
-  const right = b == null ? null : b;
-  if (left == null || right == null) return true;
-  return left.some((day) => right.includes(day));
-}
-
 function withDays(start, end, days) {
   const row = { start, end };
   if (days && days.length) row.days = days;
@@ -175,7 +168,8 @@ export function normalizeServiceWindows(windows) {
     const end = typeof plain.end === "string" ? plain.end.trim() : "";
     const startMin = parseHhmmToMinutes(start);
     const endMin = parseHhmmToMinutes(end);
-    if (startMin == null || endMin == null || endMin <= startMin) continue;
+    // endMin < startMin is an overnight window (ends the next campus morning).
+    if (startMin == null || endMin == null || endMin === startMin) continue;
     out.push(withDays(formatMinutesAsHhmm(startMin), formatMinutesAsHhmm(endMin), normalizeDays(plain.days)));
   }
   out.sort((a, b) => {
@@ -191,7 +185,8 @@ export function normalizeServiceWindows(windows) {
 /**
  * Strict validate for Admin edit: reject invalid times and overlaps.
  * Adjacent windows (end === next start) are allowed. Overlaps are not.
- * Empty list is allowed (no schedule → no auto-close on start).
+ * A window with end before start is overnight and ends the next campus morning.
+ * Equal start and end is invalid. Empty list is allowed (no schedule → no auto-close on start).
  *
  * @param {unknown} windows
  * @returns {{ ok: true, windows: ServiceWindow[] } | { ok: false, error: string }}
@@ -224,10 +219,10 @@ export function validateServiceWindows(windows) {
         error: `Invalid time format at index ${i}; use HH:mm`,
       };
     }
-    if (endMin <= startMin) {
+    if (endMin === startMin) {
       return {
         ok: false,
-        error: `Window end must be after start (index ${i})`,
+        error: `Window cannot start and end at the same time (index ${i})`,
       };
     }
     out.push(
@@ -242,11 +237,10 @@ export function validateServiceWindows(windows) {
   out.sort((a, b) => parseHhmmToMinutes(a.start) - parseHhmmToMinutes(b.start));
 
   for (let i = 0; i < out.length; i += 1) {
+    const left = occupancyIntervals(out[i]);
     for (let j = i + 1; j < out.length; j += 1) {
-      if (!daysOverlap(out[i].days, out[j].days)) continue;
-      const prevEnd = /** @type {number} */ (parseHhmmToMinutes(out[i].end));
-      const curStart = /** @type {number} */ (parseHhmmToMinutes(out[j].start));
-      if (curStart < prevEnd) {
+      const right = occupancyIntervals(out[j]);
+      if (left.some((a) => right.some((b) => occupanciesOverlap(a, b)))) {
         return {
           ok: false,
           error: "Service windows must not overlap on the same day",
@@ -256,6 +250,81 @@ export function validateServiceWindows(windows) {
   }
 
   return { ok: true, windows: out };
+}
+
+
+/**
+ * @param {number} startMin
+ * @param {number} endMin
+ */
+function isOvernightMinutes(startMin, endMin) {
+  return endMin < startMin;
+}
+
+/**
+ * Weekday 0–6 for a campus calendar day (noon IST).
+ * @param {{ year: number, month: number, day: number }} day
+ */
+function weekdayOfCampusDay(day) {
+  return getCampusWeekday(campusLocalToUtc(day.year, day.month, day.day, 12, 0));
+}
+
+/**
+ * Instant the window that starts on `startDay` ends (next morning if overnight).
+ * @param {ParsedWindow} window
+ * @param {{ year: number, month: number, day: number }} startDay
+ */
+function sessionEndsAtForStartDay(window, startDay) {
+  const endDay = isOvernightMinutes(window.startMinutes, window.endMinutes)
+    ? addCampusDays(startDay, 1)
+    : startDay;
+  return campusLocalToUtc(
+    endDay.year,
+    endDay.month,
+    endDay.day,
+    Math.floor(window.endMinutes / 60),
+    window.endMinutes % 60
+  );
+}
+
+/**
+ * @param {number[] | null | undefined} days
+ * @returns {number[]}
+ */
+function dayListOrAll(days) {
+  return !days || days.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : days;
+}
+
+/**
+ * Occupied [startMin, endMin) slices per weekday, including the next-morning
+ * slice of an overnight window.
+ * @param {ServiceWindow} window
+ * @returns {{ weekday: number, startMin: number, endMin: number }[]}
+ */
+function occupancyIntervals(window) {
+  const startMin = /** @type {number} */ (parseHhmmToMinutes(window.start));
+  const endMin = /** @type {number} */ (parseHhmmToMinutes(window.end));
+  /** @type {{ weekday: number, startMin: number, endMin: number }[]} */
+  const intervals = [];
+  for (const day of dayListOrAll(window.days)) {
+    if (isOvernightMinutes(startMin, endMin)) {
+      intervals.push({ weekday: day, startMin, endMin: 24 * 60 });
+      intervals.push({ weekday: (day + 1) % 7, startMin: 0, endMin });
+    } else {
+      intervals.push({ weekday: day, startMin, endMin });
+    }
+  }
+  return intervals;
+}
+
+/**
+ * @param {{ weekday: number, startMin: number, endMin: number }} a
+ * @param {{ weekday: number, startMin: number, endMin: number }} b
+ */
+function occupanciesOverlap(a, b) {
+  if (a.weekday !== b.weekday) return false;
+  // Adjacent end === start is allowed; strict interior overlap is not.
+  return a.startMin < b.endMin && b.startMin < a.endMin;
 }
 
 /**
@@ -332,7 +401,9 @@ function addCampusDays(parts, days) {
 
 /**
  * Resolve the target window for Start accepting tokens.
- * Next upcoming window that has not ended (same day), else first window next day.
+ * If we are inside a window (including an overnight holdover past midnight),
+ * bind that window's end; otherwise bind the next upcoming window's end.
+ * Overnight windows end the following campus morning.
  *
  * @param {ServiceWindow[]} windows
  * @param {Date} [at]
@@ -344,27 +415,65 @@ export function resolveTargetWindow(windows, at = clockNow()) {
 
   const parts = getCampusParts(at);
   const nowMinutes = parts.hour * 60 + parts.minute;
+  const todayWeekday = weekdayOfCampusDay(parts);
+  const yesterday = addCampusDays(parts, -1);
+  const yesterdayWeekday = weekdayOfCampusDay(yesterday);
+
+  for (const w of parsed) {
+    const overnight = isOvernightMinutes(w.startMinutes, w.endMinutes);
+    if (
+      overnight &&
+      windowAppliesOnDay(w, yesterdayWeekday) &&
+      nowMinutes < w.endMinutes
+    ) {
+      return {
+        window: withDays(w.start, w.end, w.days),
+        sessionEndsAt: sessionEndsAtForStartDay(w, yesterday),
+      };
+    }
+    if (!windowAppliesOnDay(w, todayWeekday)) continue;
+    if (overnight && nowMinutes >= w.startMinutes) {
+      return {
+        window: withDays(w.start, w.end, w.days),
+        sessionEndsAt: sessionEndsAtForStartDay(w, parts),
+      };
+    }
+    if (
+      !overnight &&
+      nowMinutes >= w.startMinutes &&
+      nowMinutes < w.endMinutes
+    ) {
+      return {
+        window: withDays(w.start, w.end, w.days),
+        sessionEndsAt: sessionEndsAtForStartDay(w, parts),
+      };
+    }
+  }
 
   for (let offset = 0; offset < 8; offset += 1) {
     const day = offset === 0 ? parts : addCampusDays(parts, offset);
-    const weekday = getCampusWeekday(
-      campusLocalToUtc(day.year, day.month, day.day, 12, 0)
-    );
-    const minutes = offset === 0 ? nowMinutes : -1;
+    const weekday = weekdayOfCampusDay(day);
+    let best = null;
     for (const w of parsed) {
       if (!windowAppliesOnDay(w, weekday)) continue;
-      if (minutes >= w.endMinutes) continue;
-      const sessionEndsAt = campusLocalToUtc(
+      const startAt = campusLocalToUtc(
         day.year,
         day.month,
         day.day,
-        Math.floor(w.endMinutes / 60),
-        w.endMinutes % 60
+        Math.floor(w.startMinutes / 60),
+        w.startMinutes % 60
       );
-      return {
-        window: withDays(w.start, w.end, w.days),
-        sessionEndsAt,
-      };
+      if (at.getTime() >= startAt.getTime()) continue;
+      if (!best || startAt.getTime() < best.startAt.getTime()) {
+        best = {
+          window: withDays(w.start, w.end, w.days),
+          sessionEndsAt: sessionEndsAtForStartDay(w, day),
+          startAt,
+        };
+      }
+    }
+    if (best) {
+      return { window: best.window, sessionEndsAt: best.sessionEndsAt };
     }
   }
   return null;

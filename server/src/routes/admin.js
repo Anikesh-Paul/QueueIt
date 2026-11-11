@@ -25,6 +25,7 @@ import {
   servingFieldsForJson,
 } from "../services/servingDeadline.js";
 import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing } from "../services/counters.js";
+import { rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 import {
   addCounter,
   createQueue as createCatalogQueue,
@@ -299,6 +300,11 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
       return res.status(409).json({ error: "This queue is archived" });
     }
 
+    const full = await rejectIfQueueFull(queue);
+    if (full) {
+      return res.status(409).json(full);
+    }
+
     const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
     if (!name) {
       return res.status(400).json({ error: "Walk-in name is required" });
@@ -359,6 +365,11 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
         return res.status(409).json({ error: "Token already in use in this queue" });
       }
       throw err;
+    }
+
+    const overflow = await releaseEntryIfOverCapacity(queue, entry);
+    if (overflow) {
+      return res.status(409).json(overflow);
     }
 
     emitQueueChanged(queue._id, "walk-in");
@@ -837,6 +848,7 @@ router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
       averageServiceTime: req.body?.averageServiceTime,
       serviceWindows: req.body?.serviceWindows,
       counters: req.body?.counters,
+      maxWaiting: req.body?.maxWaiting,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     return res.status(201).json({
@@ -856,6 +868,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       averageServiceTime: req.body?.averageServiceTime,
       serviceWindows: req.body?.serviceWindows,
       archived: req.body?.archived,
+      maxWaiting: req.body?.maxWaiting,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     const venue = await Venue.findById(result.queue.venue);

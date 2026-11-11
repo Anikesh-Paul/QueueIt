@@ -13,6 +13,7 @@ import {
 import { emitQueueChanged } from "../services/realtime.js";
 import { ensureQueueSessionState } from "../services/queueSession.js";
 import { expireNoShowCalls } from "../services/servingDeadline.js";
+import { queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
 
@@ -37,7 +38,7 @@ router.get("/", async (_req, res, next) => {
     }
 
     return res.status(200).json({
-      queues: queues.map((q) => q.toPublicJSON()),
+      queues: await queuesWithOccupancy(queues),
     });
   } catch (err) {
     return next(err);
@@ -202,6 +203,11 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
       });
     }
 
+    const full = await rejectIfQueueFull(queue);
+    if (full) {
+      return res.status(409).json(full);
+    }
+
     let guest = null;
     let guestMinted = false;
 
@@ -255,6 +261,11 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
         });
       }
       throw err;
+    }
+
+    const overflow = await releaseEntryIfOverCapacity(queue, entry);
+    if (overflow) {
+      return res.status(409).json(overflow);
     }
 
     // Reload queue for current nowServing / averageServiceTime after token bump.

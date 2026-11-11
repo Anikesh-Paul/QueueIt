@@ -155,13 +155,16 @@ export function QueuesPage() {
             const isSelected = queue.id === selectedQueueId;
             const closed = queue.acceptingTokens === false;
             const paused = queue.status === "paused";
-            // Closed and Paused are orthogonal — show both when both apply.
-            const primaryLabel = closed ? "Closed" : paused ? "Paused" : "Open";
+            const full = queue.full === true;
+            // Closed, Full, and Paused are orthogonal — Closed/Full affect join; Paused can still show beside them.
+            const primaryLabel = closed ? "Closed" : full ? "Full" : paused ? "Paused" : "Open";
             const primaryTestId = closed
               ? "queue-state-closed"
-              : paused
-                ? "queue-state-paused"
-                : "queue-state-open";
+              : full
+                ? "queue-state-full"
+                : paused
+                  ? "queue-state-paused"
+                  : "queue-state-open";
             return (
               <li key={queue.id}>
                 <button
@@ -187,13 +190,14 @@ export function QueuesPage() {
                         className={cn(
                           "rounded-full px-2 py-0.5 text-xs font-semibold",
                           closed && "bg-secondary text-text-secondary",
-                          !closed && paused && "bg-[#FEF3C7] text-[#92400E]",
-                          !closed && !paused && "bg-primary-muted text-primary"
+                          !closed && full && "bg-[#FEE2E2] text-[#991B1B]",
+                          !closed && !full && paused && "bg-[#FEF3C7] text-[#92400E]",
+                          !closed && !full && !paused && "bg-primary-muted text-primary"
                         )}
                       >
                         {primaryLabel}
                       </span>
-                      {closed && paused ? (
+                      {(closed || full) && paused ? (
                         <span
                           data-testid="queue-state-paused"
                           className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-semibold text-[#92400E]"
@@ -205,6 +209,9 @@ export function QueuesPage() {
                   </span>
                   <span className="text-sm text-text-muted">
                     {queue.venue?.name || "Venue"} · ~{queue.averageServiceTime} min
+                    {queue.maxWaiting
+                      ? ` · ${queue.waitingCount ?? 0}/${queue.maxWaiting} waiting`
+                      : ""}
                   </span>
                   {activeMemberships.some((row) => row.queue?.id === queue.id) ? (
                     <span
@@ -267,7 +274,7 @@ export function QueuesPage() {
             <Button
               size="lg"
               onClick={handleJoin}
-              disabled={joinBusy || selected.acceptingTokens === false}
+              disabled={joinBusy || selected.acceptingTokens === false || selected.full === true}
               data-testid="join-queue"
               className="w-full sm:w-auto"
             >
@@ -277,7 +284,9 @@ export function QueuesPage() {
                   ? selected.reopenAt
                     ? `${selected.name} closed · reopens ${formatCampusDateTime(selected.reopenAt)}`
                     : `${selected.name} is closed`
-                  : `Join ${selected.name}`}
+                  : selected.full === true
+                    ? `${selected.name} is full`
+                    : `Join ${selected.name}`}
             </Button>
           )}
         </div>

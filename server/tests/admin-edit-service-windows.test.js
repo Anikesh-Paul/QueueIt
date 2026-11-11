@@ -186,6 +186,45 @@ describe("Admin edit service windows (HTTP API)", () => {
       );
     });
 
+    it("saves a closed holiday and binds start-accepting to the next open day", async () => {
+      const { cafeteriaId } = await seedQueues();
+      const app = testApp();
+      const { token: adminToken } = await createAdmin(app);
+
+      setNow("2026-08-10T12:00:00+05:30");
+      const put = await request(app)
+        .put(`/api/admin/queues/${cafeteriaId}/service-windows`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          serviceWindows: [
+            { start: "11:30", end: "14:30" },
+            { start: "19:00", end: "21:00" },
+          ],
+          serviceExceptions: [{ date: "2026-08-10", closed: true }],
+        });
+      assert.equal(put.status, 200);
+      assert.deepEqual(put.body.queue.serviceExceptions, [
+        { date: "2026-08-10", closed: true },
+      ]);
+
+      const catalog = await request(app).get("/api/queues");
+      const cafeteria = catalog.body.queues.find((q) => q.id === cafeteriaId);
+      assert.deepEqual(cafeteria.serviceExceptions, [{ date: "2026-08-10", closed: true }]);
+
+      await request(app)
+        .post(`/api/admin/queues/${cafeteriaId}/stop-accepting`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      const start = await request(app)
+        .post(`/api/admin/queues/${cafeteriaId}/start-accepting`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(start.status, 200);
+      assert.equal(
+        new Date(start.body.queue.sessionEndsAt).toISOString(),
+        new Date("2026-08-11T14:30:00+05:30").toISOString()
+      );
+      assert.equal(start.body.queue.reopenAt, null);
+    });
+
     it("rejects non-admin callers", async () => {
       const { cafeteriaId } = await seedQueues();
       const app = testApp();

@@ -7,6 +7,7 @@ import { useApp } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { formatCampusDateTime } from "@/lib/campus-time";
+import { describeTodayException } from "@/lib/service-exceptions";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
@@ -211,6 +212,12 @@ export function JoinPage() {
             <p data-testid="queue-in-line" className="mt-3 text-sm font-medium text-primary">
               You’re in this line
               {membership.tokenNumber ? ` · token ${membership.tokenNumber}` : ""}
+            </p>
+          ) : null}
+
+          {describeTodayException(queue.serviceExceptions) ? (
+            <p data-testid="queue-holiday-hours" className="mt-3 text-sm text-text-secondary">
+              {describeTodayException(queue.serviceExceptions)}
             </p>
           ) : null}
 

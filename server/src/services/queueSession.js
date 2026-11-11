@@ -8,11 +8,17 @@ import { now as clockNow } from "./clock.js";
 import {
   nextWindowStartAfter,
   normalizeServiceWindows,
+  normalizeServiceExceptions,
   resolveTargetWindow,
   validateServiceWindows,
+  validateServiceExceptions,
 } from "./serviceWindows.js";
 import { emitQueueChanged } from "./realtime.js";
 import { clearAllCounterNowServing } from "./counters.js";
+
+function scheduleExceptions(queue) {
+  return normalizeServiceExceptions(queue?.serviceExceptions);
+}
 
 /**
  * @param {import("mongoose").Document} queue
@@ -68,7 +74,7 @@ export async function ensureQueueSessionState(queue, opts = {}) {
   queue.acceptingTokens = false;
   queue.sessionEndsAt = null;
   const windows = normalizeServiceWindows(queue.serviceWindows);
-  queue.reopenAt = nextWindowStartAfter(windows, instant);
+  queue.reopenAt = nextWindowStartAfter(windows, instant, scheduleExceptions(queue));
 
   await autoPrepareIfClosedEmpty(queue);
   await queue.save();
@@ -86,7 +92,7 @@ export async function ensureQueueSessionState(queue, opts = {}) {
  */
 export function applyStartAccepting(queue) {
   const windows = normalizeServiceWindows(queue.serviceWindows);
-  const bound = resolveTargetWindow(windows, clockNow());
+  const bound = resolveTargetWindow(windows, clockNow(), scheduleExceptions(queue));
 
   queue.acceptingTokens = true;
   queue.reopenAt = null;
@@ -118,7 +124,7 @@ export function applyStopAccepting(queue, body = {}) {
     queue.reopenAt = override;
   } else {
     const windows = normalizeServiceWindows(queue.serviceWindows);
-    queue.reopenAt = nextWindowStartAfter(windows, clockNow());
+    queue.reopenAt = nextWindowStartAfter(windows, clockNow(), scheduleExceptions(queue));
   }
 
   return { ok: true };
@@ -196,7 +202,7 @@ export function applyExtend(queue, body = {}) {
  * @param {unknown} serviceWindows
  * @returns {{ ok: true } | { ok: false, error: string, status: number }}
  */
-export function applyServiceWindowsUpdate(queue, serviceWindows) {
+export function applyServiceWindowsUpdate(queue, serviceWindows, serviceExceptions) {
   const validated = validateServiceWindows(serviceWindows);
   if (!validated.ok) {
     return { ok: false, error: validated.error, status: 400 };
@@ -204,10 +210,22 @@ export function applyServiceWindowsUpdate(queue, serviceWindows) {
 
   queue.serviceWindows = validated.windows;
 
+  if (serviceExceptions !== undefined) {
+    const exceptions = validateServiceExceptions(serviceExceptions);
+    if (!exceptions.ok) {
+      return { ok: false, error: exceptions.error, status: 400 };
+    }
+    queue.serviceExceptions = exceptions.exceptions;
+  }
+
   // Closed: student-facing reopen follows the new schedule (default next window).
   // Active accepting session keeps its bound sessionEndsAt until stop/extend/auto-close.
   if (queue.acceptingTokens === false) {
-    queue.reopenAt = nextWindowStartAfter(validated.windows, clockNow());
+    queue.reopenAt = nextWindowStartAfter(
+      validated.windows,
+      clockNow(),
+      scheduleExceptions(queue)
+    );
   }
 
   return { ok: true };
@@ -231,6 +249,7 @@ export function toIsoOrNull(value) {
 export function sessionFieldsForJson(queue) {
   return {
     serviceWindows: normalizeServiceWindows(queue.serviceWindows),
+    serviceExceptions: normalizeServiceExceptions(queue.serviceExceptions),
     sessionEndsAt: toIsoOrNull(queue.sessionEndsAt),
     reopenAt: toIsoOrNull(queue.reopenAt),
   };

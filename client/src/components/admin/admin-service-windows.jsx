@@ -32,6 +32,18 @@ function daysFromPreset(preset, current) {
   return current && current.length ? current : [1];
 }
 
+
+function rowFromException(exception) {
+  const first = Array.isArray(exception.windows) ? exception.windows[0] : null;
+  const closed = exception.closed === true || !first;
+  return {
+    date: exception.date || "",
+    closed,
+    start: first?.start || "",
+    end: first?.end || "",
+  };
+}
+
 function rowFromWindow(window) {
   return {
     start: window.start || "",
@@ -61,6 +73,7 @@ export function AdminServiceWindows({
   adminUpdateServiceWindows,
 }) {
   const [windowDraft, setWindowDraft] = useState([]);
+  const [exceptionDraft, setExceptionDraft] = useState([]);
   const [windowsDirty, setWindowsDirty] = useState(false);
 
   useEffect(() => {
@@ -69,7 +82,11 @@ export function AdminServiceWindows({
       ? adminQueueMeta.serviceWindows.map(rowFromWindow)
       : [];
     setWindowDraft(rows);
-  }, [adminQueueMeta?.serviceWindows, windowsDirty]);
+    const exceptions = Array.isArray(adminQueueMeta?.serviceExceptions)
+      ? adminQueueMeta.serviceExceptions.map(rowFromException)
+      : [];
+    setExceptionDraft(exceptions);
+  }, [adminQueueMeta?.serviceWindows, adminQueueMeta?.serviceExceptions, windowsDirty]);
 
   useEffect(() => {
     setWindowsDirty(false);
@@ -97,6 +114,21 @@ export function AdminServiceWindows({
     return `${m[1].padStart(2, "0")}:${m[2]}`;
   }
 
+  function updateExceptionRow(index, patch) {
+    setWindowsDirty(true);
+    setExceptionDraft((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function addExceptionRow() {
+    setWindowsDirty(true);
+    setExceptionDraft((rows) => [...rows, { date: "", closed: true, start: "", end: "" }]);
+  }
+
+  function removeExceptionRow(index) {
+    setWindowsDirty(true);
+    setExceptionDraft((rows) => rows.filter((_, i) => i !== index));
+  }
+
   function toggleCustomDay(index, day) {
     const row = windowDraft[index];
     const current = row.days && row.days.length ? row.days : [];
@@ -112,7 +144,23 @@ export function AdminServiceWindows({
       end: normalizeTimeInput(row.end),
       ...(row.days && row.days.length ? { days: row.days } : {}),
     }));
-    const ok = await adminUpdateServiceWindows(payload);
+    const exceptions = exceptionDraft
+      .filter((row) => String(row.date || "").trim())
+      .map((row) =>
+        row.closed
+          ? { date: row.date, closed: true }
+          : {
+              date: row.date,
+              closed: false,
+              windows: [
+                {
+                  start: normalizeTimeInput(row.start),
+                  end: normalizeTimeInput(row.end),
+                },
+              ],
+            }
+      );
+    const ok = await adminUpdateServiceWindows(payload, exceptions);
     if (ok) setWindowsDirty(false);
   }
 
@@ -242,6 +290,122 @@ export function AdminServiceWindows({
             })
           )}
         </ul>
+        <div className="border-t border-border pt-3" data-testid="admin-service-exceptions">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Exception dates
+          </h3>
+          <p className="mt-1 text-xs text-text-muted">
+            Override the weekly plan on a campus day (IST): closed all day, or different hours. Alternate hours replace that day’s usual windows.
+          </p>
+          <ul className="mt-3 flex flex-col gap-3">
+            {exceptionDraft.length === 0 ? (
+              <li className="text-sm text-text-muted" data-testid="admin-service-exceptions-empty">
+                No exception dates yet.
+              </li>
+            ) : (
+              exceptionDraft.map((row, index) => (
+                <li
+                  key={`exception-${index}`}
+                  className="flex flex-col gap-2 rounded-lg border border-border bg-secondary px-3 py-3"
+                  data-testid={`admin-service-exception-row-${index}`}
+                >
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex min-w-[9rem] flex-col gap-1">
+                      <Label htmlFor={`ex-date-${index}`} className="text-xs text-text-muted">
+                        Date
+                      </Label>
+                      <Input
+                        id={`ex-date-${index}`}
+                        type="date"
+                        lang="en-GB"
+                        value={row.date}
+                        onChange={(event) => updateExceptionRow(index, { date: event.target.value })}
+                        disabled={adminActionBusy}
+                        data-testid={`admin-service-exception-date-${index}`}
+                        className="h-10"
+                        required
+                      />
+                    </div>
+                    <div className="flex min-w-[9rem] flex-col gap-1">
+                      <Label htmlFor={`ex-kind-${index}`} className="text-xs text-text-muted">
+                        Hours
+                      </Label>
+                      <select
+                        id={`ex-kind-${index}`}
+                        value={row.closed ? "closed" : "hours"}
+                        onChange={(event) =>
+                          updateExceptionRow(index, { closed: event.target.value === "closed" })
+                        }
+                        disabled={adminActionBusy}
+                        data-testid={`admin-service-exception-kind-${index}`}
+                        className="h-10 rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        <option value="closed">Closed all day</option>
+                        <option value="hours">Alternate hours</option>
+                      </select>
+                    </div>
+                    {!row.closed ? (
+                      <>
+                        <div className="flex min-w-[6.5rem] flex-col gap-1">
+                          <Label htmlFor={`ex-start-${index}`} className="text-xs text-text-muted">
+                            Starts
+                          </Label>
+                          <Input
+                            id={`ex-start-${index}`}
+                            type="time"
+                            value={row.start}
+                            onChange={(event) => updateExceptionRow(index, { start: event.target.value })}
+                            disabled={adminActionBusy}
+                            data-testid={`admin-service-exception-start-${index}`}
+                            className="h-10"
+                            required
+                          />
+                        </div>
+                        <div className="flex min-w-[6.5rem] flex-col gap-1">
+                          <Label htmlFor={`ex-end-${index}`} className="text-xs text-text-muted">
+                            Ends
+                          </Label>
+                          <Input
+                            id={`ex-end-${index}`}
+                            type="time"
+                            value={row.end}
+                            onChange={(event) => updateExceptionRow(index, { end: event.target.value })}
+                            disabled={adminActionBusy}
+                            data-testid={`admin-service-exception-end-${index}`}
+                            className="h-10"
+                            required
+                          />
+                        </div>
+                      </>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={adminActionBusy}
+                      onClick={() => removeExceptionRow(index)}
+                      data-testid={`admin-service-exception-remove-${index}`}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+          <div className="mt-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={adminActionBusy}
+              onClick={addExceptionRow}
+              data-testid="admin-service-exception-add"
+            >
+              Add exception date
+            </Button>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"

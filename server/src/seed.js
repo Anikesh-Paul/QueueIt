@@ -103,6 +103,7 @@ export async function seedVenueAndQueues(env = process.env) {
         queue.averageServiceTime = def.averageServiceTime;
         queue.noShowMinutes = 5;
         queue.serviceWindows = def.serviceWindows;
+        queue.serviceExceptions = [];
         queue.status = "open";
         queue.archivedAt = null;
         queue.maxWaiting = null;

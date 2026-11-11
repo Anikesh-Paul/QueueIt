@@ -302,13 +302,17 @@ export function extendAcceptingSession(token, queueId, payload) {
 
 /**
  * PUT /api/admin/queues/:queueId/service-windows
- * Replace service windows (campus IST HH:mm). Body: { serviceWindows: [{start,end,days?}] }. Optional days scopes a window to weekdays (0=Sun…6=Sat); omit for every day.
+ * Replace service windows (campus IST HH:mm). Body: { serviceWindows, serviceExceptions? }.
+ * Optional days scopes a window to weekdays (0=Sun…6=Sat); omit for every day.
+ * Optional serviceExceptions override a calendar day (closed, or alternate hours).
  */
-export function updateServiceWindows(token, queueId, serviceWindows) {
+export function updateServiceWindows(token, queueId, serviceWindows, serviceExceptions) {
+  const body = { serviceWindows };
+  if (serviceExceptions !== undefined) body.serviceExceptions = serviceExceptions;
   return apiRequest(`/api/admin/queues/${queueId}/service-windows`, {
     method: "PUT",
     token,
-    body: { serviceWindows },
+    body,
   });
 }
 

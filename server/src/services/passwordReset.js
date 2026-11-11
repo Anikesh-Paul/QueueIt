@@ -5,7 +5,7 @@ import { sendPasswordReset } from "./mailer.js";
 import { publicClientOrigin } from "../corsOrigin.js";
 import { passwordError } from "./authValidation.js";
 
-export const RESET_NOTICE = "If that email is registered, we sent a reset link.";
+export const RESET_NOTICE = "If an account exists for that email, we sent a reset link.";
 export const RESET_INVALID = "This reset link is invalid or has expired.";
 export const DEFAULT_RESET_EXPIRES_MINUTES = 60;
 

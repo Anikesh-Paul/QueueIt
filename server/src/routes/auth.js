@@ -30,7 +30,7 @@ async function softUpgradeFromRequest(req, user) {
   const credential = raw.trim();
   if (!credential) return null;
 
-  const guest = await Guest.findOne({ credential, retiredAt: null });
+  const guest = await Guest.findActiveByPresentedCredential(credential);
   if (!guest) return null;
 
   return claimGuestOntoUser(guest, user);

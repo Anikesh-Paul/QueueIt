@@ -72,7 +72,7 @@ async function attachGuestFromHeader(req) {
   const credential = raw.trim();
   if (!credential) return;
 
-  const guest = await Guest.findOne({ credential, retiredAt: null });
+  const guest = await Guest.findActiveByPresentedCredential(credential);
   if (guest) {
     req.guest = guest;
   }

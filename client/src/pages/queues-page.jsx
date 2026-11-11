@@ -243,6 +243,11 @@ export function QueuesPage() {
                       {t("queues.shorterEquivalent", { name: queue.shorterEquivalent.name })}
                     </span>
                   ) : null}
+                  {queue.quietHint?.label ? (
+                    <span className="mt-1 text-sm text-text-secondary" data-testid="quiet-hint">
+                      {t("queues.quietHint", { time: queue.quietHint.label })}
+                    </span>
+                  ) : null}
                   {activeMemberships.some((row) => row.queue?.id === queue.id) ? (
                     <span
                       data-testid="queue-in-line"

@@ -6,6 +6,7 @@ import { Venue } from "../models/Venue.js";
 import { QueueEntry, isDuplicateKeyError } from "../models/QueueEntry.js";
 import { arrivalVerifyDecision, parseArrivalValue } from "../services/arrivalPass.js";
 import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRange.js";
+import { collectQueueBusyness } from "../services/bestTime.js";
 import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import { forbidUnlessQueueAccess, forbidUnlessVenueAccess, isGlobalAdmin, staffQueueIds } from "../services/staffAccess.js";
@@ -726,6 +727,7 @@ router.get("/queues/:queueId/analytics", requireAuth, requireAdmin, async (req, 
         label: hour._id,
         served: hour.served,
       })),
+      busyness: await collectQueueBusyness(queue._id),
     });
   } catch (err) {
     return next(err);

@@ -230,6 +230,51 @@ A small production service worker (`client/public/sw.js`, registered only in the
 
 True push-when-the-app-is-closed needs [Web Push](https://developer.mozilla.org/en-US/docs/Web/API/Push_API) (VAPID keys, a service worker `push` handler, and a server that holds subscription endpoints). That is a follow-up: the operator would generate a VAPID key pair, set something like `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` on a **long-running** API host (Vercel serverless is a poor fit for push fan-out), expose the public key to the client, and never commit the private key. Do not put real VAPID secrets in the repo.
 
+
+## How to run the API as a long-running process for Instant updates
+
+The live production API at `queueit-api.vercel.app` is a Vercel **serverless** function (`server/api/index.js`). That path is fine for HTTP (join, status, admin, polling). It cannot hold WebSocket connections, so the production app stays on “Updates every few seconds,” and the 15-second session closer in `server/src/index.js` does not run there (lazy close still happens on the next request).
+
+Instant updates (`Socket.IO`) and punctual auto-close need a **long-running Node process** that starts `server/src/index.js` (`npm start` in `server/`, or `npm run dev:server` locally). This is already how local development works.
+
+This section is a plan, not a production cutover. Do not move DNS, buy a paid plan, or copy production secrets in a drive-by change. The serverless entry should stay deployed and working with polling until an operator chooses to switch `VITE_API_URL` or DNS.
+
+### What will not work on Vercel serverless
+
+- **Socket.IO** (“Instant updates”). Guests also cannot use sockets today even on a long-running host: the handshake is JWT-only (`auth.token`). Guest-credential socket auth is a follow-up and is not implemented here.
+- The 15-second `SESSION_CLOSE_INTERVAL_MS` closer (override; minimum 1000). Without it, sessions still close lazily on the next HTTP request.
+- Web Push fan-out (see Notifications) is also a poor fit for serverless.
+
+Polling (3 seconds when the tab is visible and no socket is connected, 15 seconds when Socket.IO is connected, paused when the tab is hidden) remains the fallback everywhere and is enough for the product to work.
+
+### Recommended hosts
+
+Any host that can run a persistent Node process and reach MongoDB Atlas is enough, for example:
+
+- A VPS (a campus VM, Hostinger, or similar)
+- [Render](https://render.com) Web Service (not a serverless function)
+- [Fly.io](https://fly.io)
+
+Point the process at `npm start` with the working directory `server/`. Put a TLS reverse proxy in front if the host does not terminate HTTPS for you.
+
+### Environment
+
+Set the same API variables as production, on the long-running host only (**never commit them**):
+
+- `MONGODB_URI` — Atlas (or other Mongo) connection string
+- `JWT_SECRET` — existing production secret; do not rotate casually
+- `CLIENT_ORIGIN` — exact frontend origin (`https://queueit-seven.vercel.app`, or a new origin), comma-separated if you need more than one during a cutover
+- `ARRIVAL_PASS_SECRET` — optional; falls back to `JWT_SECRET`
+- `SEED_*` / `SEED_ON_BOOT` — only if you intend to upsert demo accounts
+- `PORT` / `HOST` — as required by the host (`HOST=0.0.0.0` is typical behind a proxy)
+- Optional: `SESSION_CLOSE_INTERVAL_MS`, `JWT_EXPIRES_IN`
+
+The frontend needs `VITE_API_URL` at **build** time pointing at the long-running API origin (no trailing slash). After a cutover, set API `CLIENT_ORIGIN` to the frontend origin and rebuild the client.
+
+### Operator cutover (not done in this repo change)
+
+When you are ready: provision the host, set env vars on that host, confirm `GET /api/health`, confirm a logged-in user sees Instant updates, then change `VITE_API_URL` (and DNS if you use a custom API domain) and redeploy the client. Leave the Vercel API up until that is verified. Paid plans, DNS, and production secrets stay with the operator.
+
 ## Deploy
 
 Suggested free-tier path:
@@ -255,7 +300,7 @@ Set on the project:
 
 Confirm: `GET https://<api-host>/api/health` → `{"status":"ok","service":"queueit-server"}`.
 
-Socket.IO needs a long-running Node process (local, or a persistent host). It does not work on the Vercel serverless API.
+Socket.IO needs a long-running Node process (local, or a persistent host). It does not work on the Vercel serverless API. See [How to run the API as a long-running process for Instant updates](#how-to-run-the-api-as-a-long-running-process-for-instant-updates) for the hosting plan (this is not a production cutover).
 
 On that same long-running process, a 15-second session closer closes queues whose `sessionEndsAt` has passed even when no one is calling the API. HTTP paths still run the lazy close on the next request (so a join cannot sneak in after the window). The Vercel serverless API does not run this interval — punctual close there would need an external cron; until then, close still happens on the next request. You can override the interval with `SESSION_CLOSE_INTERVAL_MS` (minimum 1000).
 

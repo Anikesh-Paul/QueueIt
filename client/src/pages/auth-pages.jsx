@@ -35,7 +35,7 @@ export function NotFoundPage() {
       <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
         Page not found
       </p>
-      <p className="mt-1 text-sm text-text-secondary">Not a QueueIt page.</p>
+      <p className="mt-1 text-sm text-text-secondary">This page doesn’t exist.</p>
       <Link
         to="/queues"
         className="mt-4 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"

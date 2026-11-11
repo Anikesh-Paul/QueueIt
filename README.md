@@ -58,6 +58,8 @@ Demo logins are created from **host environment variables** (`SEED_*`). Password
 └── package.json     # npm workspaces root
 ```
 
+Visual tokens (palette, type, radius, elevation) are documented in [DESIGN.md](./DESIGN.md).
+
 ## Prerequisites
 
 - Node.js 20+

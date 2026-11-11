@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { attachJoiner, requireJoiner } from "../middleware/auth.js";
 import { Guest } from "../models/Guest.js";
 import { Queue } from "../models/Queue.js";
-import { QueueEntry } from "../models/QueueEntry.js";
+import { QueueEntry, ACTIVE_ENTRY_STATUSES, isDuplicateKeyError } from "../models/QueueEntry.js";
 import {
   buildStatusPayload,
   findActiveEntry,
@@ -160,7 +160,17 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
       entryFields.guest = guest._id;
     }
 
-    const entry = await QueueEntry.create(entryFields);
+    let entry;
+    try {
+      entry = await QueueEntry.create(entryFields);
+    } catch (err) {
+      if (isDuplicateKeyError(err)) {
+        return res.status(409).json({
+          error: "Already in this queue",
+        });
+      }
+      throw err;
+    }
 
     // Reload queue for current nowServing / averageServiceTime after token bump.
     const freshQueue = await Queue.findById(queue._id);
@@ -197,13 +207,22 @@ router.post("/:queueId/leave", attachJoiner, requireJoiner, async (req, res, nex
       return res.status(404).json({ error: "Not in this queue" });
     }
 
-    const entry = await findJoinerActiveEntry(queue._id, req);
+    const identityFilter = req.user
+      ? { user: req.user._id }
+      : { guest: req.guest._id };
+    // Atomic: a concurrent serve/skip cannot also claim this membership.
+    const entry = await QueueEntry.findOneAndUpdate(
+      {
+        queue: queue._id,
+        status: { $in: ACTIVE_ENTRY_STATUSES },
+        ...identityFilter,
+      },
+      { $set: { status: "left" } },
+      { returnDocument: "after" }
+    );
     if (!entry) {
       return res.status(404).json({ error: "Not in this queue" });
     }
-
-    entry.status = "left";
-    await entry.save();
 
     emitQueueChanged(queue._id, "leave");
 

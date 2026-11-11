@@ -125,6 +125,34 @@ describe("Join queue + live status (HTTP API)", () => {
       assert.ok(typeof again.body.error === "string");
     });
 
+    it("rejects a concurrent second join by the same user (unique active membership)", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+      const token = await registerUser(app);
+
+      const [first, second] = await Promise.all([
+        request(app)
+          .post(`/api/queues/${queueId}/join`)
+          .set("Authorization", `Bearer ${token}`),
+        request(app)
+          .post(`/api/queues/${queueId}/join`)
+          .set("Authorization", `Bearer ${token}`),
+      ]);
+
+      const statuses = [first.status, second.status].sort();
+      assert.deepEqual(statuses, [201, 409]);
+      const created = first.status === 201 ? first : second;
+      const conflict = first.status === 409 ? first : second;
+      assert.equal(conflict.body.error, "Already in this queue");
+      assert.equal(created.body.tokenNumber, 1);
+
+      const list = await request(app)
+        .get(`/api/queues/${queueId}/status`)
+        .set("Authorization", `Bearer ${token}`);
+      assert.equal(list.status, 200);
+      assert.equal(list.body.tokenNumber, created.body.tokenNumber);
+    });
+
     it("uses Gym averageServiceTime (5) for ETA on that queue", async () => {
       await seedVenueAndQueues();
       const gym = await Queue.findOne({ slug: "gym" });

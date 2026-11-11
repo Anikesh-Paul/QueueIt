@@ -1,5 +1,6 @@
 import { createApp } from "./app.js";
 import { connectDb } from "./db.js";
+import { QueueEntry } from "./models/QueueEntry.js";
 import { seedAll } from "./seed.js";
 import { shouldSeedOnBoot } from "./seedOnBoot.js";
 
@@ -16,6 +17,8 @@ export async function prepareApp() {
   }
 
   await connectDb();
+  // Ensure unique partial indexes exist (autoIndex is off in production).
+  await QueueEntry.createIndexes();
 
   if (shouldSeedOnBoot() && !globalThis.__queueitSeeded) {
     await seedAll();

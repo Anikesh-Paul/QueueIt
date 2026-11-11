@@ -2,6 +2,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import { createApp } from "../src/app.js";
 import { connectDb, disconnectDb } from "../src/db.js";
+import { QueueEntry } from "../src/models/QueueEntry.js";
 
 /** @type {MongoMemoryServer | undefined} */
 let memoryServer;
@@ -17,6 +18,8 @@ export async function setupTestDb() {
   memoryServer = await MongoMemoryServer.create();
   const uri = memoryServer.getUri();
   await connectDb(uri);
+  // Unique partial indexes must exist for concurrency tests.
+  await QueueEntry.syncIndexes();
 }
 
 /** Drop all collections between tests so each case starts clean. */

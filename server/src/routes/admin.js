@@ -2,7 +2,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { Queue } from "../models/Queue.js";
-import { QueueEntry } from "../models/QueueEntry.js";
+import { QueueEntry, isDuplicateKeyError } from "../models/QueueEntry.js";
 import { parseArrivalValue } from "../services/arrivalPass.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import {
@@ -104,35 +104,6 @@ async function loadQueueOr404(queueId, res) {
   return queue;
 }
 
-/**
- * Resolve a waiting entry: optional entryId, else next by lowest tokenNumber.
- * @returns {Promise<{ entry: import("mongoose").Document | null, error?: string, status?: number }>}
- */
-async function resolveWaitingEntry(queueId, entryId) {
-  if (entryId) {
-    if (!mongoose.isValidObjectId(entryId)) {
-      return { entry: null, error: "Waiting entry not found", status: 404 };
-    }
-    const entry = await QueueEntry.findOne({
-      _id: entryId,
-      queue: queueId,
-      status: "waiting",
-    });
-    if (!entry) {
-      return { entry: null, error: "Waiting entry not found", status: 404 };
-    }
-    return { entry };
-  }
-
-  const entry = await QueueEntry.findOne({ queue: queueId, status: "waiting" })
-    .sort({ tokenNumber: 1 })
-    .exec();
-  if (!entry) {
-    return { entry: null, error: "No one waiting", status: 404 };
-  }
-  return { entry };
-}
-
 function rejectIfPaused(queue, res) {
   if (queue.status === "paused") {
     res.status(409).json({ error: "Queue is paused; resume before advancing" });
@@ -154,18 +125,30 @@ function rejectIfPaused(queue, res) {
  * >}
  */
 async function advanceWaitingEntry(queue, { entryId } = {}, terminalStatus) {
-  const resolved = await resolveWaitingEntry(queue._id, entryId);
-  if (!resolved.entry) {
-    return {
-      ok: false,
-      status: resolved.status || 404,
-      error: resolved.error || "No one waiting",
-    };
+  const filter = { queue: queue._id, status: "waiting" };
+  if (entryId) {
+    if (!mongoose.isValidObjectId(entryId)) {
+      return { ok: false, status: 404, error: "Waiting entry not found" };
+    }
+    filter._id = entryId;
   }
 
-  const entry = resolved.entry;
-  entry.status = terminalStatus;
-  await entry.save();
+  // Atomic: only one serve/skip can claim a given waiting entry (or the current head).
+  const entry = await QueueEntry.findOneAndUpdate(
+    filter,
+    { $set: { status: terminalStatus } },
+    {
+      sort: entryId ? undefined : { tokenNumber: 1 },
+      returnDocument: "after",
+    }
+  );
+  if (!entry) {
+    return {
+      ok: false,
+      status: 404,
+      error: entryId ? "Waiting entry not found" : "No one waiting",
+    };
+  }
 
   queue.nowServing = entry.tokenNumber;
   // Closed + empty after drain step → prepare next session numbering.
@@ -318,14 +301,22 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
       });
     }
 
-    const entry = await QueueEntry.create({
-      queue: queue._id,
-      user: null,
-      isWalkIn: true,
-      walkInName: name,
-      tokenNumber,
-      status: "waiting",
-    });
+    let entry;
+    try {
+      entry = await QueueEntry.create({
+        queue: queue._id,
+        user: null,
+        isWalkIn: true,
+        walkInName: name,
+        tokenNumber,
+        status: "waiting",
+      });
+    } catch (err) {
+      if (isDuplicateKeyError(err)) {
+        return res.status(409).json({ error: "Token already in use in this queue" });
+      }
+      throw err;
+    }
 
     emitQueueChanged(queue._id, "walk-in");
 

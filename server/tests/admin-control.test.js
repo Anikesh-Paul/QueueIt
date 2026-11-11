@@ -290,6 +290,80 @@ describe("Admin control: waiting list / serve / skip / pause (HTTP API)", () => 
       assert.equal(status.body.status, "waiting");
       assert.equal(status.body.queue.status, "paused");
     });
+
+    it("serves two different waiters when two serve-next requests race", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+      const { token: adminToken } = await createAdmin(app);
+      const { token: firstToken } = await registerUser(app, "first@example.com", "First");
+      const { token: secondToken } = await registerUser(app, "second@example.com", "Second");
+
+      const firstJoin = await joinQueue(app, firstToken, queueId);
+      const secondJoin = await joinQueue(app, secondToken, queueId);
+      const expected = new Set([firstJoin.tokenNumber, secondJoin.tokenNumber]);
+
+      const [a, b] = await Promise.all([
+        request(app)
+          .post(`/api/admin/queues/${queueId}/serve`)
+          .set("Authorization", `Bearer ${adminToken}`),
+        request(app)
+          .post(`/api/admin/queues/${queueId}/serve`)
+          .set("Authorization", `Bearer ${adminToken}`),
+      ]);
+
+      assert.equal(a.status, 200);
+      assert.equal(b.status, 200);
+      const served = new Set([a.body.served.tokenNumber, b.body.served.tokenNumber]);
+      assert.deepEqual(served, expected);
+      assert.notEqual(a.body.served.id, b.body.served.id);
+
+      const waiting = await request(app)
+        .get(`/api/admin/queues/${queueId}/waiting-list`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(waiting.status, 200);
+      assert.equal(waiting.body.waiting.length, 0);
+    });
+
+    it("does not mark a leaving waiter as served when leave and serve race", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+      const { token: adminToken } = await createAdmin(app);
+      const { token: userToken } = await registerUser(app);
+
+      const joined = await joinQueue(app, userToken, queueId);
+
+      const [leave, serve] = await Promise.all([
+        request(app)
+          .post(`/api/queues/${queueId}/leave`)
+          .set("Authorization", `Bearer ${userToken}`),
+        request(app)
+          .post(`/api/admin/queues/${queueId}/serve`)
+          .set("Authorization", `Bearer ${adminToken}`),
+      ]);
+
+      const outcomes = [leave.status, serve.status].sort();
+      // One writer wins the waiting row; the other sees it gone.
+      assert.ok(
+        (leave.status === 200 && serve.status === 404) ||
+          (leave.status === 404 && serve.status === 200),
+        `expected one success and one 404, got leave=${leave.status} serve=${serve.status}`
+      );
+      assert.deepEqual(outcomes, [200, 404]);
+
+      const history = await request(app)
+        .get("/api/queues/history")
+        .set("Authorization", `Bearer ${userToken}`);
+      assert.equal(history.status, 200);
+      assert.equal(history.body.events.length, 1);
+      const outcome = history.body.events[0].outcome;
+      if (leave.status === 200) {
+        assert.equal(outcome, "left");
+        assert.equal(serve.body.error, "No one waiting");
+      } else {
+        assert.equal(outcome, "served");
+        assert.equal(serve.body.served.tokenNumber, joined.tokenNumber);
+      }
+    });
   });
 
   describe("POST /api/admin/queues/:queueId/skip", () => {

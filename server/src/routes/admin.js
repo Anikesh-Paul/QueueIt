@@ -747,8 +747,8 @@ router.post(
 
 /**
  * PUT /api/admin/queues/:queueId/service-windows
- * Replace daily service windows (same pattern every day; campus IST HH:mm).
- * Body: { serviceWindows: [{ start, end }, ...] }.
+ * Replace service windows (campus IST HH:mm; optional days scope a window to weekdays).
+ * Body: { serviceWindows: [{ start, end, days? }, ...] }. Optional days (0=Sun…6=Sat IST); omit for every day.
  * Overlaps rejected; end must be after start. Adjacent windows allowed.
  * When Closed, recomputes reopenAt from the new schedule.
  */

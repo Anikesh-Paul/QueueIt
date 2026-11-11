@@ -11,7 +11,7 @@ export const CAMPUS_TIME_ZONE = "Asia/Kolkata";
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
 /**
- * @typedef {{ start: string, end: string }} ServiceWindow
+ * @typedef {{ start: string, end: string, days?: number[] }} ServiceWindow
  * @typedef {{ startMinutes: number, endMinutes: number, start: string, end: string }} ParsedWindow
  */
 
@@ -36,6 +36,112 @@ export function formatMinutesAsHhmm(minutes) {
   const h = Math.floor(minutes / 60);
   const min = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+const DAY_NAME_TO_INDEX = {
+  sun: 0,
+  sunday: 0,
+  mon: 1,
+  monday: 1,
+  tue: 2,
+  tues: 2,
+  tuesday: 2,
+  wed: 3,
+  wednesday: 3,
+  thu: 4,
+  thur: 4,
+  thurs: 4,
+  thursday: 4,
+  fri: 5,
+  friday: 5,
+  sat: 6,
+  saturday: 6,
+};
+
+/**
+ * Campus weekday 0=Sunday … 6=Saturday in Asia/Kolkata.
+ * @param {Date} date
+ */
+export function getCampusWeekday(date) {
+  const ist = new Date(date.getTime() + IST_OFFSET_MS);
+  return ist.getUTCDay();
+}
+
+function parseDayToken(raw) {
+  if (typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && raw <= 6) {
+    return raw;
+  }
+  if (typeof raw === "string") {
+    const token = raw.trim().toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(DAY_NAME_TO_INDEX, token)) {
+      return DAY_NAME_TO_INDEX[token];
+    }
+    if (/^[0-6]$/.test(token)) return Number(token);
+  }
+  return null;
+}
+
+/**
+ * Normalize optional `days` to a sorted unique 0–6 list, or null for every day.
+ * Accepts [1,2,3,4,5], "mon-fri", "1-5", "weekdays", "weekend", or a comma list.
+ * @param {unknown} raw
+ * @returns {number[] | null}
+ */
+export function normalizeDays(raw) {
+  if (raw == null || raw === "") return null;
+  if (Array.isArray(raw) && raw.length === 0) return null;
+
+  let tokens = raw;
+  if (typeof raw === "string") {
+    const s = raw.trim().toLowerCase();
+    if (!s || s === "every" || s === "everyday" || s === "daily" || s === "all") return null;
+    if (s === "weekdays" || s === "mon-fri" || s === "1-5") return [1, 2, 3, 4, 5];
+    if (s === "weekend" || s === "weekends" || s === "sat-sun" || s === "0,6" || s === "6,0") {
+      return [0, 6];
+    }
+    const range = /^([0-6]|sun|mon|tue|wed|thu|fri|sat)-([0-6]|sun|mon|tue|wed|thu|fri|sat)$/i.exec(s);
+    if (range) {
+      const a = parseDayToken(range[1]);
+      const b = parseDayToken(range[2]);
+      if (a != null && b != null) {
+        const days = [];
+        let cur = a;
+        days.push(cur);
+        while (cur !== b) {
+          cur = (cur + 1) % 7;
+          days.push(cur);
+        }
+        return [...new Set(days)].sort((x, y) => x - y);
+      }
+    }
+    tokens = s.split(/[,+\s]+/).filter(Boolean);
+  }
+
+  if (!Array.isArray(tokens)) return null;
+  const days = [...new Set(tokens.map(parseDayToken).filter((d) => d != null))].sort(
+    (a, b) => a - b
+  );
+  if (days.length === 0 || days.length === 7) return null;
+  return days;
+}
+
+export function windowAppliesOnDay(window, weekday) {
+  const days = window?.days;
+  if (!Array.isArray(days) || days.length === 0) return true;
+  return days.includes(weekday);
+}
+
+function daysOverlap(a, b) {
+  const left = a == null ? null : a;
+  const right = b == null ? null : b;
+  if (left == null || right == null) return true;
+  return left.some((day) => right.includes(day));
+}
+
+function withDays(start, end, days) {
+  const row = { start, end };
+  if (days && days.length) row.days = days;
+  return row;
 }
 
 /**
@@ -70,12 +176,15 @@ export function normalizeServiceWindows(windows) {
     const startMin = parseHhmmToMinutes(start);
     const endMin = parseHhmmToMinutes(end);
     if (startMin == null || endMin == null || endMin <= startMin) continue;
-    out.push({
-      start: formatMinutesAsHhmm(startMin),
-      end: formatMinutesAsHhmm(endMin),
-    });
+    out.push(withDays(formatMinutesAsHhmm(startMin), formatMinutesAsHhmm(endMin), normalizeDays(plain.days)));
   }
-  out.sort((a, b) => parseHhmmToMinutes(a.start) - parseHhmmToMinutes(b.start));
+  out.sort((a, b) => {
+    const startDiff = parseHhmmToMinutes(a.start) - parseHhmmToMinutes(b.start);
+    if (startDiff !== 0) return startDiff;
+    const aDay = a.days?.[0] ?? -1;
+    const bDay = b.days?.[0] ?? -1;
+    return aDay - bDay;
+  });
   return out;
 }
 
@@ -121,22 +230,28 @@ export function validateServiceWindows(windows) {
         error: `Window end must be after start (index ${i})`,
       };
     }
-    out.push({
-      start: formatMinutesAsHhmm(startMin),
-      end: formatMinutesAsHhmm(endMin),
-    });
+    out.push(
+      withDays(
+        formatMinutesAsHhmm(startMin),
+        formatMinutesAsHhmm(endMin),
+        normalizeDays(row.days)
+      )
+    );
   }
 
   out.sort((a, b) => parseHhmmToMinutes(a.start) - parseHhmmToMinutes(b.start));
 
-  for (let i = 1; i < out.length; i += 1) {
-    const prevEnd = /** @type {number} */ (parseHhmmToMinutes(out[i - 1].end));
-    const curStart = /** @type {number} */ (parseHhmmToMinutes(out[i].start));
-    if (curStart < prevEnd) {
-      return {
-        ok: false,
-        error: "Service windows must not overlap",
-      };
+  for (let i = 0; i < out.length; i += 1) {
+    for (let j = i + 1; j < out.length; j += 1) {
+      if (!daysOverlap(out[i].days, out[j].days)) continue;
+      const prevEnd = /** @type {number} */ (parseHhmmToMinutes(out[i].end));
+      const curStart = /** @type {number} */ (parseHhmmToMinutes(out[j].start));
+      if (curStart < prevEnd) {
+        return {
+          ok: false,
+          error: "Service windows must not overlap on the same day",
+        };
+      }
     }
   }
 
@@ -151,6 +266,7 @@ function parseWindows(windows) {
   return normalizeServiceWindows(windows).map((w) => ({
     start: w.start,
     end: w.end,
+    days: w.days,
     startMinutes: /** @type {number} */ (parseHhmmToMinutes(w.start)),
     endMinutes: /** @type {number} */ (parseHhmmToMinutes(w.end)),
   }));
@@ -229,30 +345,29 @@ export function resolveTargetWindow(windows, at = clockNow()) {
   const parts = getCampusParts(at);
   const nowMinutes = parts.hour * 60 + parts.minute;
 
-  for (const w of parsed) {
-    if (nowMinutes < w.endMinutes) {
+  for (let offset = 0; offset < 8; offset += 1) {
+    const day = offset === 0 ? parts : addCampusDays(parts, offset);
+    const weekday = getCampusWeekday(
+      campusLocalToUtc(day.year, day.month, day.day, 12, 0)
+    );
+    const minutes = offset === 0 ? nowMinutes : -1;
+    for (const w of parsed) {
+      if (!windowAppliesOnDay(w, weekday)) continue;
+      if (minutes >= w.endMinutes) continue;
       const sessionEndsAt = campusLocalToUtc(
-        parts.year,
-        parts.month,
-        parts.day,
+        day.year,
+        day.month,
+        day.day,
         Math.floor(w.endMinutes / 60),
         w.endMinutes % 60
       );
-      return { window: { start: w.start, end: w.end }, sessionEndsAt };
+      return {
+        window: withDays(w.start, w.end, w.days),
+        sessionEndsAt,
+      };
     }
   }
-
-  // All of today's windows have ended → first window tomorrow.
-  const first = parsed[0];
-  const nextDay = addCampusDays(parts, 1);
-  const sessionEndsAt = campusLocalToUtc(
-    nextDay.year,
-    nextDay.month,
-    nextDay.day,
-    Math.floor(first.endMinutes / 60),
-    first.endMinutes % 60
-  );
-  return { window: { start: first.start, end: first.end }, sessionEndsAt };
+  return null;
 }
 
 /**
@@ -267,28 +382,26 @@ export function nextWindowStartAfter(windows, at = clockNow()) {
 
   const parts = getCampusParts(at);
 
-  for (const w of parsed) {
-    const startAt = campusLocalToUtc(
-      parts.year,
-      parts.month,
-      parts.day,
-      Math.floor(w.startMinutes / 60),
-      w.startMinutes % 60
+  for (let offset = 0; offset < 8; offset += 1) {
+    const day = offset === 0 ? parts : addCampusDays(parts, offset);
+    const weekday = getCampusWeekday(
+      campusLocalToUtc(day.year, day.month, day.day, 12, 0)
     );
-    if (at.getTime() < startAt.getTime()) {
-      return startAt;
+    for (const w of parsed) {
+      if (!windowAppliesOnDay(w, weekday)) continue;
+      const startAt = campusLocalToUtc(
+        day.year,
+        day.month,
+        day.day,
+        Math.floor(w.startMinutes / 60),
+        w.startMinutes % 60
+      );
+      if (at.getTime() < startAt.getTime()) {
+        return startAt;
+      }
     }
   }
-
-  const first = parsed[0];
-  const nextDay = addCampusDays(parts, 1);
-  return campusLocalToUtc(
-    nextDay.year,
-    nextDay.month,
-    nextDay.day,
-    Math.floor(first.startMinutes / 60),
-    first.startMinutes % 60
-  );
+  return null;
 }
 
 /**

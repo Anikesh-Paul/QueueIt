@@ -219,7 +219,7 @@ export function useAdminConsoleState({
   );
 
   /**
-   * Replace daily service windows (campus IST HH:mm).
+   * Replace service windows (campus IST HH:mm; optional days).
    * @param {{ start: string, end: string }[]} serviceWindows
    */
   const adminUpdateServiceWindows = useCallback(

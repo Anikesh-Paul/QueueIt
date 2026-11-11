@@ -80,6 +80,9 @@ export function AdminConsolePage() {
   const [windowDraft, setWindowDraft] = useState([]);
   const [windowsDirty, setWindowsDirty] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [skipOpen, setSkipOpen] = useState(false);
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [stopOpen, setStopOpen] = useState(false);
   const [verifyValue, setVerifyValue] = useState("");
   const [verifyBusy, setVerifyBusy] = useState(false);
   /** @type {{ verified: boolean, entry?: object, reason?: string } | null} */
@@ -407,7 +410,7 @@ export function AdminConsolePage() {
                     Clears the line and restarts tokens.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter>
+                <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     variant="destructiveSolid"
@@ -510,20 +513,46 @@ export function AdminConsolePage() {
                         ? "Serve selected"
                         : "Serve next"}
                   </Button>
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    onClick={() => adminSkip(selectedEntryId || undefined)}
-                    disabled={adminActionBusy || paused || empty}
-                    data-testid="admin-skip"
-                    className="w-full sm:w-auto"
-                  >
-                    {adminActionBusy
-                      ? "Working…"
-                      : selectedEntryId
-                        ? "Skip selected"
-                        : "Skip next"}
-                  </Button>
+                  <AlertDialog open={skipOpen} onOpenChange={setSkipOpen}>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        disabled={adminActionBusy || paused || empty}
+                        data-testid="admin-skip"
+                        className="w-full sm:w-auto"
+                      >
+                        {adminActionBusy
+                          ? "Working…"
+                          : selectedEntryId
+                            ? "Skip selected"
+                            : "Skip next"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent data-testid="admin-skip-dialog">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {selectedEntryId ? "Skip this person?" : "Skip the next person?"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          They lose their place in line. This cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+                        <AlertDialogCancel data-testid="admin-skip-cancel">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          data-testid="admin-skip-confirm"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setSkipOpen(false);
+                            adminSkip(selectedEntryId || undefined);
+                          }}
+                        >
+                          {adminActionBusy ? "Working…" : "Skip"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                   {paused ? (
                     <Button
                       variant="outline"
@@ -536,32 +565,78 @@ export function AdminConsolePage() {
                       {adminActionBusy ? "Working…" : "Resume"}
                     </Button>
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={adminPause}
-                      disabled={adminActionBusy}
-                      data-testid="admin-pause"
-                      className="w-full sm:w-auto"
-                    >
-                      {adminActionBusy ? "Working…" : "Pause"}
-                    </Button>
+                    <AlertDialog open={pauseOpen} onOpenChange={setPauseOpen}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          disabled={adminActionBusy}
+                          data-testid="admin-pause"
+                          className="w-full sm:w-auto"
+                        >
+                          {adminActionBusy ? "Working…" : "Pause"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent data-testid="admin-pause-dialog">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Pause this line?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Serving and skip stop until you resume. People can still join.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+                          <AlertDialogCancel data-testid="admin-pause-cancel">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            data-testid="admin-pause-confirm"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              setPauseOpen(false);
+                              adminPause();
+                            }}
+                          >
+                            {adminActionBusy ? "Working…" : "Pause"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                   {acceptingTokens ? (
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={() => {
-                        const reopenAt = campusDatetimeLocalToIso(reopenOverride);
-                        adminStopAccepting(reopenAt ? { reopenAt } : {});
-                        setReopenOverride("");
-                      }}
-                      disabled={adminActionBusy}
-                      data-testid="admin-stop-accepting"
-                      className="col-span-2 w-full sm:col-auto sm:w-auto"
-                    >
-                      {adminActionBusy ? "Working…" : "Stop accepting tokens"}
-                    </Button>
+                    <AlertDialog open={stopOpen} onOpenChange={setStopOpen}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          disabled={adminActionBusy}
+                          data-testid="admin-stop-accepting"
+                          className="col-span-2 w-full sm:col-auto sm:w-auto"
+                        >
+                          {adminActionBusy ? "Working…" : "Stop accepting tokens"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent data-testid="admin-stop-dialog">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Stop accepting tokens?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            New joins will be refused. People already in line keep their place. This is not a reset.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+                          <AlertDialogCancel data-testid="admin-stop-cancel">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            data-testid="admin-stop-confirm"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              const reopenAt = campusDatetimeLocalToIso(reopenOverride);
+                              setStopOpen(false);
+                              adminStopAccepting(reopenAt ? { reopenAt } : {});
+                              setReopenOverride("");
+                            }}
+                          >
+                            {adminActionBusy ? "Working…" : "Stop accepting"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   ) : (
                     <Button
                       variant="outline"

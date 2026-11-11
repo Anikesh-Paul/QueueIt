@@ -2,7 +2,7 @@ import { Venue } from "../models/Venue.js";
 import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { normalizeServiceWindows, validateServiceWindows } from "./serviceWindows.js";
-import { normalizeMaxWaiting } from "./capacity.js";
+import { normalizeMaxWaiting, rejectIfCapBelowOccupancy } from "./capacity.js";
 import { isStaff, staffVenueId } from "./staffAccess.js";
 import {
   COUNTER_NAME_MAX,
@@ -181,6 +181,10 @@ export async function updateQueue(queue, patch = {}) {
     const cap = normalizeMaxWaiting(patch.maxWaiting);
     if (cap.error) return { ok: false, status: 400, error: cap.error };
     if (!cap.omitted) {
+      if (cap.value != null) {
+        const blocked = await rejectIfCapBelowOccupancy(queue, cap.value);
+        if (blocked) return { ok: false, status: 409, error: blocked.error };
+      }
       queue.maxWaiting = cap.value;
     }
   }

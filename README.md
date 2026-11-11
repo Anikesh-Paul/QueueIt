@@ -163,15 +163,14 @@ Placeholder emails in `server/.env.example` are local templates only.
 
 ## Tests
 
-### Server API
-
 ```bash
 npm test
+npm run lint
 ```
 
-Uses in-memory MongoDB (`mongodb-memory-server`). No local `mongod` required.
+`npm test` runs the server HTTP API suite and the client unit tests (`client/src/lib/*.test.js`). Server tests use in-memory MongoDB (`mongodb-memory-server`); no local `mongod` is required. They cover auth and role gates, seed, join / leave / status / history, admin control (serve, skip, pause, walk-in, reset, windows, analytics, QR verify), guest join and soft upgrade, Socket.IO room broadcasts, and CORS.
 
-Covers auth and role gates, seed, join / leave / status / history, admin control (serve, skip, pause, walk-in, reset, windows, analytics, QR verify), guest join and soft upgrade, Socket.IO room broadcasts, and CORS.
+`npm run lint` runs ESLint over the client and server (ESLint 9). A GitHub Actions workflow that runs lint, `npm test`, and `npm run build:client` on pull requests and pushes to `main` can be added later (the workflow file is ready locally, but is not in the repo yet). Playwright stays a separate, manual job (`npm run test:e2e`) because it needs a local MongoDB.
 
 ### Playwright
 
@@ -336,5 +335,6 @@ Keep `.env` files gitignored. This README must not contain production passwords 
 | `npm run build:client` | Production client build |
 | `npm run seed` | Upsert demo accounts + Campus Hub / Cafeteria / Gym |
 | `npm run seed:e2e` | Wipe + seed dedicated `queueit-e2e` DB |
-| `npm test` | Server HTTP API tests |
+| `npm test` | Server HTTP API tests + client unit tests |
+| `npm run lint` | ESLint for client and server |
 | `npm run test:e2e` | Playwright smoke (login + queues list) |

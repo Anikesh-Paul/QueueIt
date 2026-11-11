@@ -11,19 +11,25 @@
     "dev": "npm run dev --workspaces --if-present",
     "dev:client": "npm run dev -w client",
     "dev:server": "npm run dev -w server",
-    "test": "npm run test -w server",
+    "test": "npm run test -w server && npm run test -w client",
     "test:server": "npm run test -w server",
     "seed": "npm run seed -w server",
     "seed:e2e": "npm run seed:e2e -w server",
     "test:e2e": "npm run seed:e2e && playwright test e2e/smoke",
     "start:server": "npm run start -w server",
-    "build:client": "npm run build -w client"
+    "build:client": "npm run build -w client",
+    "lint": "eslint ."
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.62.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
     "vercel": "^58.7.1"
   },
   "overrides": {

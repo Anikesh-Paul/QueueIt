@@ -226,7 +226,7 @@ export function QueuesPage() {
                       data-testid="queue-in-line"
                       className="mt-1 text-sm font-medium text-primary"
                     >
-                      You're in this line
+                      You’re in this line
                       {activeMemberships.find((row) => row.queue?.id === queue.id)?.tokenNumber
                         ? ` · token ${activeMemberships.find((row) => row.queue?.id === queue.id).tokenNumber}`
                         : ""}

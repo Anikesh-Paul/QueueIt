@@ -4,7 +4,6 @@ import request from "supertest";
 import { setupTestDb, teardownTestDb, resetDb, testApp } from "./helpers.js";
 import { seedVenueAndQueues } from "../src/seed.js";
 import { Queue } from "../src/models/Queue.js";
-import { QueueEntry } from "../src/models/QueueEntry.js";
 import { User } from "../src/models/User.js";
 import { setNow, resetClock, advanceMs } from "../src/services/clock.js";
 import { attachRealtime } from "../src/services/realtime.js";

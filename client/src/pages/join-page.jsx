@@ -100,7 +100,7 @@ export function JoinPage() {
         >
           <MotifIllustration motif="serviceWindow" variant="error" dimmer className="mb-4" />
           <p className="font-display text-display font-semibold tracking-[-0.01em] text-foreground">
-            This join link isn't valid
+            This join link isn’t valid
           </p>
           <p className="mt-1 text-sm text-text-secondary">Ask staff for a new poster QR.</p>
           <Button
@@ -203,7 +203,7 @@ export function JoinPage() {
 
           {membership ? (
             <p data-testid="queue-in-line" className="mt-3 text-sm font-medium text-primary">
-              You're in this line
+              You’re in this line
               {membership.tokenNumber ? ` · token ${membership.tokenNumber}` : ""}
             </p>
           ) : null}
@@ -216,7 +216,7 @@ export function JoinPage() {
 
           {closed && !membership && !isAdmin ? (
             <p data-testid="join-closed-reason" className="mt-3 text-sm text-text-secondary">
-              This queue isn't accepting tokens right now.
+              This queue isn’t accepting tokens right now.
               {queue.reopenAt
                 ? ` It reopens ${formatCampusDateTime(queue.reopenAt)}.`
                 : " Try again later, or browse other queues."}

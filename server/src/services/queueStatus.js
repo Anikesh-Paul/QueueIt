@@ -3,7 +3,7 @@ import { sessionFieldsForJson } from "./queueSession.js";
 import { signArrivalPass } from "./arrivalPass.js";
 import { resolveEtaServicePace } from "./recentServicePace.js";
 import { servingFieldsForJson } from "./servingDeadline.js";
-import { countersForJson, ensureDefaultCounters } from "./counters.js";
+import { countersForJson, ensureDefaultCounters, reconcileCounterServing } from "./counters.js";
 
 /**
  * Live position among active waiters (1 = front of waiting line).
@@ -32,9 +32,13 @@ export function computeEtaMinutes(position, servicePaceMinutes) {
  * Build the public join/status payload for an active entry + queue.
  */
 export async function buildStatusPayload(queue, entry) {
-  if (ensureDefaultCounters(queue)) {
-    await queue.save();
-  }
+  const servingEntries = await QueueEntry.find({
+    queue: queue._id,
+    status: "serving",
+  }).select("tokenNumber servingCounterId status");
+  const missingCounters = ensureDefaultCounters(queue);
+  const reconciled = reconcileCounterServing(queue, servingEntries);
+  if (missingCounters || reconciled) await queue.save();
   const position = await computePosition(queue._id, entry.tokenNumber, entry.status);
   const averageServiceTime = queue.averageServiceTime;
   const { pace: etaServiceTime, source: etaPaceSource } = await resolveEtaServicePace(queue);

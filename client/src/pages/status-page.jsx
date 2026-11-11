@@ -27,12 +27,8 @@ import {
 import { resolveArrivalPass } from "@/lib/arrival-pass";
 import { nearFrontBannerCopy, NEAR_FRONT_POSITION_LIMIT } from "@/lib/queue-notifications";
 import { statusConnectionPresentation } from "@/lib/status-connection";
+import { presentServingBoard } from "@/lib/now-serving";
 import { NotifyControls } from "@/components/status/notify-controls";
-
-function formatNowServing(value) {
-  if (value === null || value === undefined) return "—";
-  return String(value);
-}
 
 /**
  * Live status — signature student surface.
@@ -141,6 +137,7 @@ export function StatusPage() {
     paused,
   });
   const sessionEndsAt = liveStatus.queue?.sessionEndsAt;
+  const servingBoard = presentServingBoard(liveStatus.counters, liveStatus.nowServing);
 
   async function handleLeave() {
     const ok = await leave();
@@ -405,27 +402,27 @@ export function StatusPage() {
                 testId="eta"
               />
               <StatusMetric
-                label="Now serving"
+                label={servingBoard.label}
                 value={
-                  Array.isArray(liveStatus.counters) && liveStatus.counters.length > 1 ? (
+                  servingBoard.multi ? (
                     <ul className="flex flex-col gap-1 text-left" data-testid="now-serving-counters">
-                      {liveStatus.counters.map((counter) => (
+                      {servingBoard.rows.map((row) => (
                         <li
-                          key={counter.id || counter.name}
+                          key={row.id}
                           className="flex items-baseline justify-between gap-2 text-sm font-medium"
                           data-testid="now-serving-counter"
                         >
                           <span className="truncate font-sans text-xs font-semibold uppercase tracking-wide text-text-muted">
-                            {counter.name}
+                            {row.name}
                           </span>
                           <span className="font-metric tabular-nums">
-                            {formatNowServing(counter.nowServing)}
+                            {row.value}
                           </span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    formatNowServing(liveStatus.nowServing)
+                    servingBoard.value
                   )
                 }
                 testId="now-serving"

@@ -181,6 +181,8 @@ describe("Admin control: waiting list / serve / skip / pause (HTTP API)", () => 
       assert.equal(serve.body.served.tokenNumber, 1);
       assert.equal(serve.body.served.status, "served");
       assert.equal(serve.body.queue.nowServing, 1);
+      assert.equal(serve.body.queue.counters[0].nowServing, null);
+      assert.equal(serve.body.queue.counters[0].lastServed, 1);
       assert.equal(serve.body.queue.status, "open");
 
       // Served user no longer has active membership.

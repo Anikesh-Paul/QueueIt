@@ -146,7 +146,11 @@ describe("Multi-counter call/serve + admin catalog", () => {
       .send({ counterId: counter2.id });
     assert.equal(serve2.status, 200);
     assert.equal(serve2.body.served.tokenNumber, 2);
-    assert.equal(serve2.body.queue.counters.find((c) => c.id === counter2.id).nowServing, 2);
+    const servedCounter = serve2.body.queue.counters.find((c) => c.id === counter2.id);
+    const stillCalling = serve2.body.queue.counters.find((c) => c.id === counter1.id);
+    assert.equal(servedCounter.nowServing, null);
+    assert.equal(servedCounter.lastServed, 2);
+    assert.equal(stillCalling.nowServing, 1);
 
     // Counter 1 is still calling token 1.
     const waiting = await request(app)

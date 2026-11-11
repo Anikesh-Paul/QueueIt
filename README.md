@@ -200,6 +200,8 @@ CORS rejects browser calls if `CLIENT_ORIGIN` does not match the site origin exa
 
 The API also applies Helmet security headers, a 16kb JSON body cap, and per-IP rate limits on `POST /api/auth/login`, `POST /api/auth/register`, and `POST /api/queues/:id/join`. Register and login reject invalid emails, passwords outside 8–128 characters (register also enforces a minimum of 8), and names longer than 80 characters. Do not set `trust proxy` unless the process is behind a known reverse proxy; rate limits are keyed by the direct client IP.
 
+Guest credentials are minted as high-entropy secrets and returned once to the device. Mongo stores only a SHA-256 hash; a presented header is hashed and compared (legacy plaintext rows are re-hashed on use or at boot). The browser keeps the raw Guest credential and JWT in `localStorage`, which is convenient on this device but means any XSS can steal the session. Prefer fixing XSS over treating `localStorage` as a vault; moving to httpOnly cookie sessions would be a separate migration.
+
 ## Deploy
 
 Suggested free-tier path:

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import mongoose from "mongoose";
-import { attachJoiner, requireJoiner } from "../middleware/auth.js";
+import { attachJoiner, requireJoiner, GUEST_CREDENTIAL_HEADER } from "../middleware/auth.js";
 import { Guest } from "../models/Guest.js";
 import { Queue } from "../models/Queue.js";
 import { QueueEntry, ACTIVE_ENTRY_STATUSES, isDuplicateKeyError } from "../models/QueueEntry.js";
@@ -115,11 +115,14 @@ async function findJoinerActiveEntry(queueId, req) {
  */
 async function resolveGuestForJoin(req) {
   if (req.guest) {
-    return { guest: req.guest, minted: false };
+    return { guest: req.guest, minted: false, rawCredential: null };
   }
-  const credential = Guest.mintCredential();
-  const guest = await Guest.create({ credential });
-  return { guest, minted: true };
+  const rawCredential = Guest.mintCredential();
+  const guest = await Guest.create({
+    credential: Guest.hashCredential(rawCredential),
+    hashed: true,
+  });
+  return { guest, minted: true, rawCredential };
 }
 
 /**
@@ -152,10 +155,12 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
     let guest = null;
     let guestMinted = false;
 
+    let mintedRawCredential = null;
     if (!req.user) {
       const resolved = await resolveGuestForJoin(req);
       guest = resolved.guest;
       guestMinted = resolved.minted;
+      mintedRawCredential = resolved.rawCredential;
       // So findJoinerActiveEntry sees the guest for double-join checks.
       req.guest = guest;
     }
@@ -208,11 +213,14 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
     const payload = await buildStatusPayload(freshQueue, entry);
 
     if (!req.user && guest) {
-      // Always echo credential so the client can persist after first join.
-      payload.guestCredential = guest.credential;
-      // Hint whether this response minted (clients may ignore).
+      // Return the raw secret only from the mint path or by echoing the
+      // presented header — never the stored hash.
       if (guestMinted) {
+        payload.guestCredential = mintedRawCredential;
         payload.guestCredentialMinted = true;
+      } else {
+        const presented = String(req.headers[GUEST_CREDENTIAL_HEADER] || "").trim();
+        if (presented) payload.guestCredential = presented;
       }
     }
 

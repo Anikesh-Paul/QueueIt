@@ -81,7 +81,7 @@ describe("Soft upgrade (claim Guest onto User + retire credential)", () => {
       assert.equal(register.body.user.role, "user");
       assert.equal(register.body.softUpgrade?.claimed, 2);
 
-      const guest = await Guest.findOne({ credential });
+      const guest = await Guest.findOne({ credential: Guest.hashCredential(credential) });
       assert.ok(guest);
       assert.ok(guest.retiredAt);
 
@@ -156,7 +156,7 @@ describe("Soft upgrade (claim Guest onto User + retire credential)", () => {
       assert.equal(login.status, 200);
       assert.equal(login.body.softUpgrade?.claimed, 1);
 
-      const guest = await Guest.findOne({ credential });
+      const guest = await Guest.findOne({ credential: Guest.hashCredential(credential) });
       assert.ok(guest.retiredAt);
 
       const status = await request(app)
@@ -295,7 +295,7 @@ describe("Soft upgrade (claim Guest onto User + retire credential)", () => {
         .set(GUEST_HEADER, credential);
       assert.equal(leave.status, 200);
 
-      const guest = await Guest.findOne({ credential });
+      const guest = await Guest.findOne({ credential: Guest.hashCredential(credential) });
       assert.equal(guest.retiredAt, null);
     });
   });

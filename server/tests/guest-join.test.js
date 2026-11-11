@@ -85,7 +85,9 @@ describe("Guest join path (credential, live status, device-local history)", () =
 
       const guests = await Guest.find();
       assert.equal(guests.length, 1);
-      assert.equal(guests[0].credential, res.body.guestCredential);
+      assert.equal(guests[0].hashed, true);
+      assert.equal(guests[0].credential, Guest.hashCredential(res.body.guestCredential));
+      assert.notEqual(guests[0].credential, res.body.guestCredential);
 
       const entry = await QueueEntry.findOne({ tokenNumber: 1 });
       assert.ok(entry);
@@ -330,6 +332,92 @@ describe("Guest join path (credential, live status, device-local history)", () =
       });
       assert.ok(entry.user);
       assert.equal(entry.guest, null);
+    });
+  });
+
+  describe("Guest credential hashing", () => {
+    it("authenticates with the minted secret and never stores the raw value", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+
+      const join = await request(app).post(`/api/queues/${queueId}/join`);
+      assert.equal(join.status, 201);
+      const credential = join.body.guestCredential;
+      assert.ok(credential);
+
+      const stored = await Guest.find();
+      assert.equal(stored.length, 1);
+      assert.equal(stored[0].hashed, true);
+      assert.equal(stored[0].credential, Guest.hashCredential(credential));
+      assert.equal(JSON.stringify(stored[0].toObject()).includes(credential), false);
+
+      const status = await request(app)
+        .get(`/api/queues/${queueId}/status`)
+        .set(GUEST_HEADER, credential);
+      assert.equal(status.status, 200);
+      assert.equal(status.body.tokenNumber, join.body.tokenNumber);
+    });
+
+    it("does not authenticate when the stored hash is presented (no pass-the-hash)", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const app = testApp();
+
+      const join = await request(app).post(`/api/queues/${queueId}/join`);
+      assert.equal(join.status, 201);
+      const digest = Guest.hashCredential(join.body.guestCredential);
+
+      const status = await request(app)
+        .get(`/api/queues/${queueId}/status`)
+        .set(GUEST_HEADER, digest);
+      assert.equal(status.status, 401);
+    });
+
+    it("migrates a legacy plaintext credential on first use and still authenticates", async () => {
+      const queueId = await seedAndGetCafeteriaId();
+      const raw = Guest.mintCredential();
+      const guest = await Guest.create({ credential: raw, hashed: false });
+
+      const entry = await QueueEntry.create({
+        queue: queueId,
+        guest: guest._id,
+        tokenNumber: 1,
+        status: "waiting",
+        isWalkIn: false,
+      });
+      assert.ok(entry);
+
+      const app = testApp();
+      const status = await request(app)
+        .get(`/api/queues/${queueId}/status`)
+        .set(GUEST_HEADER, raw);
+      assert.equal(status.status, 200);
+      assert.equal(status.body.tokenNumber, 1);
+
+      const reloaded = await Guest.findById(guest._id);
+      assert.equal(reloaded.hashed, true);
+      assert.equal(reloaded.credential, Guest.hashCredential(raw));
+      assert.notEqual(reloaded.credential, raw);
+
+      // Second lookup uses the hash path.
+      const again = await request(app)
+        .get(`/api/queues/${queueId}/status`)
+        .set(GUEST_HEADER, raw);
+      assert.equal(again.status, 200);
+    });
+
+    it("rehashes leftover plaintext credentials in a boot migration", async () => {
+      const raw = Guest.mintCredential();
+      const guest = await Guest.create({ credential: raw, hashed: false });
+
+      const migrated = await Guest.migrateLegacyPlaintextCredentials();
+      assert.equal(migrated, 1);
+
+      const reloaded = await Guest.findById(guest._id);
+      assert.equal(reloaded.hashed, true);
+      assert.equal(reloaded.credential, Guest.hashCredential(raw));
+
+      const again = await Guest.migrateLegacyPlaintextCredentials();
+      assert.equal(again, 0);
     });
   });
 });

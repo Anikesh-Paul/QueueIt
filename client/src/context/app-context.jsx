@@ -32,7 +32,11 @@ import {
 import { createRealtimeClient } from "@/lib/realtime";
 
 export const TOKEN_KEY = "queueit_token";
-/** Device-bound Guest credential (survives refresh on this browser). */
+/**
+ * Device-bound Guest credential (survives refresh on this browser).
+ * Stored in localStorage alongside the JWT — convenient, but XSS on this origin
+ * can read it. The API stores only a hash of this secret.
+ */
 export const GUEST_CREDENTIAL_KEY = "queueit_guest_credential";
 /** Client flag: entered student path as Guest before first join. */
 export const GUEST_MODE_KEY = "queueit_guest_mode";

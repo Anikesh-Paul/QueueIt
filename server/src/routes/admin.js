@@ -18,7 +18,7 @@ import {
   priorityFieldsForJson,
 } from "../services/priorityLane.js";
 import { noShowConfigForJson, resolveNoShowWindow } from "../services/noShowWindow.js";
-import { listAdminAudit, recordAdminAudit } from "../services/adminAudit.js";
+import { exportAdminAuditCsv, listAdminAudit, listAuditActors, recordAdminAudit } from "../services/adminAudit.js";
 import { inviteStaff, listStaffAccounts, updateStaffQueues } from "../services/staffInvite.js";
 import {
   applyExtend,
@@ -557,6 +557,7 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
     }
 
     emitQueueChanged(queue._id, "walk-in");
+    await writeAudit(req, { action: "walk-in", queue, meta: { tokenNumber } });
 
     const freshQueue = await Queue.findById(queue._id);
     const waitingCount = await QueueEntry.countDocuments({
@@ -1079,6 +1080,53 @@ router.get("/analytics.csv", requireAuth, requireAdmin, async (req, res, next) =
   }
 });
 
+/** Audit filters accepted from the query string. */
+function auditQuery(q = {}) {
+  const pick = (k) => (typeof q[k] === "string" && q[k].trim() ? q[k].trim() : undefined);
+  return {
+    queueId: pick("queueId"),
+    venueId: pick("venueId"),
+    cursor: pick("cursor"),
+    limit: pick("limit"),
+    category: pick("category"),
+    action: pick("action"),
+    actorId: pick("actorId"),
+    from: pick("from"),
+    to: pick("to"),
+  };
+}
+
+/**
+ * GET /api/admin/audit/actors — who appears in the log I can see.
+ */
+router.get("/audit/actors", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await listAuditActors(req.user);
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(200).json({ actors: result.actors });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * GET /api/admin/audit.csv — the filtered log as CSV (newest first, capped).
+ */
+router.get("/audit.csv", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await exportAdminAuditCsv(req.user, auditQuery(req.query));
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-QueueIt-Rows", String(result.count));
+    if (result.truncated) res.setHeader("X-QueueIt-Truncated", "1");
+    res.setHeader("Content-Disposition", 'attachment; filename="queueit-audit-log.csv"');
+    return res.status(200).send(result.csv);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 /**
  * GET /api/admin/audit
  * Paginated admin action log (newest first). Staff are locked to their venue.
@@ -1086,12 +1134,7 @@ router.get("/analytics.csv", requireAuth, requireAdmin, async (req, res, next) =
  */
 router.get("/audit", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const result = await listAdminAudit(req.user, {
-      queueId: req.query.queueId,
-      venueId: req.query.venueId,
-      cursor: req.query.cursor,
-      limit: req.query.limit,
-    });
+    const result = await listAdminAudit(req.user, auditQuery(req.query));
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     return res.status(200).json({
       events: result.events,
@@ -1162,6 +1205,13 @@ router.patch("/staff/:staffId", requireAuth, requireAdmin, async (req, res, next
       queueIds: req.body?.queueIds,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
+    const staffVenue = result.user.staffVenue ? await Venue.findById(result.user.staffVenue).select("name") : null;
+    const allowed = (result.user.staffQueues || []).length;
+    await writeAudit(req, {
+      action: "staff-access",
+      venue: staffVenue,
+      meta: { email: result.user.email, scope: allowed ? `${allowed} queue${allowed === 1 ? "" : "s"}` : "whole venue" },
+    });
     return res.status(200).json({ staff: result.user.toPublicJSON() });
   } catch (err) {
     return next(err);
@@ -1175,6 +1225,7 @@ router.post("/venues", requireAuth, requireAdmin, async (req, res, next) => {
     }
     const result = await createVenue({ name: req.body?.name });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
+    await writeAudit(req, { action: "venue-create", venue: result.venue, meta: { name: result.venue.name } });
     return res.status(201).json({ venue: result.venue.toPublicJSON() });
   } catch (err) {
     return next(err);
@@ -1185,8 +1236,12 @@ router.patch("/venues/:venueId", requireAuth, requireAdmin, async (req, res, nex
   try {
     const venue = await loadVenueOr404(req.params.venueId, res, req.user);
     if (!venue) return;
+    const previousName = venue.name;
     const result = await updateVenue(venue, { name: req.body?.name });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
+    if (result.venue.name !== previousName) {
+      await writeAudit(req, { action: "venue-rename", venue: result.venue, meta: { from: previousName, to: result.venue.name } });
+    }
     return res.status(200).json({ venue: result.venue.toPublicJSON() });
   } catch (err) {
     return next(err);
@@ -1216,6 +1271,7 @@ router.post("/queues", requireAuth, requireAdmin, async (req, res, next) => {
       equivalentGroup: req.body?.equivalentGroup,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
+    await writeAudit(req, { action: "queue-create", queue: result.queue, venue: result.venue, meta: { name: result.queue.name } });
     return res.status(201).json({
       queue: toAdminCatalogQueueJSON(result.queue, result.venue),
     });
@@ -1228,6 +1284,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
   try {
     const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
+    const wasArchived = Boolean(queue.archivedAt);
     const result = await updateCatalogQueue(queue, {
       name: req.body?.name,
       averageServiceTime: req.body?.averageServiceTime,
@@ -1249,11 +1306,22 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       slotGraceMinutes: req.body?.slotGraceMinutes,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
-    await writeAudit(req, {
-      action: "queue-update",
-      queue: result.queue,
-      meta: { maxWaiting: req.body?.maxWaiting ?? undefined, guestJoin: req.body?.guestJoin ?? undefined },
-    });
+    const isArchived = Boolean(result.queue.archivedAt);
+    const fields = Object.keys(req.body || {}).filter((k) => k !== "archived" && req.body[k] !== undefined);
+    if (wasArchived !== isArchived) {
+      await writeAudit(req, { action: isArchived ? "queue-archive" : "queue-restore", queue: result.queue });
+    }
+    if (fields.length) {
+      await writeAudit(req, {
+        action: "queue-update",
+        queue: result.queue,
+        meta: {
+          maxWaiting: req.body?.maxWaiting ?? undefined,
+          guestJoin: req.body?.guestJoin ?? undefined,
+          fields: fields.sort().join(", "),
+        },
+      });
+    }
     const venue = await Venue.findById(result.queue.venue);
     return res.status(200).json({
       queue: toAdminCatalogQueueJSON(result.queue, venue),
@@ -1306,6 +1374,7 @@ router.post("/queues/:queueId/counters", requireAuth, requireAdmin, async (req, 
     if (!queue) return;
     const result = await addCounter(queue, { name: req.body?.name });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
+    await writeAudit(req, { action: "counter-add", queue: result.queue, meta: { counter: result.counter.name } });
     return res.status(201).json({
       queue: toAdminQueueJSON(result.queue),
       counter: {
@@ -1327,8 +1396,13 @@ router.patch(
     try {
       const queue = await loadQueueOr404(req.params.queueId, res, req.user);
       if (!queue) return;
+      const previousName = queue.counters?.id?.(req.params.counterId)?.name ?? null;
       const result = await renameCounter(queue, req.params.counterId, { name: req.body?.name });
       if (!result.ok) return res.status(result.status).json({ error: result.error });
+      const renamed = result.queue.counters?.id?.(req.params.counterId)?.name ?? null;
+      if (renamed && renamed !== previousName) {
+        await writeAudit(req, { action: "counter-rename", queue: result.queue, meta: { from: previousName, to: renamed } });
+      }
       return res.status(200).json({ queue: toAdminQueueJSON(result.queue) });
     } catch (err) {
       return next(err);
@@ -1344,8 +1418,10 @@ router.delete(
     try {
       const queue = await loadQueueOr404(req.params.queueId, res, req.user);
       if (!queue) return;
+      const removedName = queue.counters?.id?.(req.params.counterId)?.name ?? null;
       const result = await removeCounter(queue, req.params.counterId);
       if (!result.ok) return res.status(result.status).json({ error: result.error });
+      await writeAudit(req, { action: "counter-remove", queue: result.queue, meta: { counter: removedName } });
       return res.status(200).json({ queue: toAdminQueueJSON(result.queue) });
     } catch (err) {
       return next(err);

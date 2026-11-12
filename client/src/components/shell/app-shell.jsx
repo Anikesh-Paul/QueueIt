@@ -76,6 +76,11 @@ function ShellNavItems({ isAdmin, inQueue, openAdminQueueId, t }) {
           Notices
         </ShellNavLink>
       )}
+      {isAdmin && (
+        <ShellNavLink to="/admin/audit" testId="nav-audit">
+          Audit
+        </ShellNavLink>
+      )}
       {isAdmin && openAdminQueueId && (
         <>
           <ShellNavLink to={`/admin/queues/${openAdminQueueId}`} testId="nav-admin">

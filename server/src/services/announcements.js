@@ -9,10 +9,12 @@ import {
   ANNOUNCEMENT_TITLE_MAX,
   ANNOUNCEMENT_TONES,
 } from "../models/Announcement.js";
+import { Organization } from "../models/Organization.js";
 import { Queue } from "../models/Queue.js";
 import { Venue } from "../models/Venue.js";
 import { now as clockNow } from "./clock.js";
 import { campusLocalToUtc, getCampusParts } from "./serviceWindows.js";
+import { DEFAULT_ORG_NAME, findOrganization, orgIdOfVenue } from "./organizations.js";
 import { canAccessQueue, canAccessVenue, isGlobalAdmin, staffVenueId } from "./staffAccess.js";
 
 export const MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -80,7 +82,13 @@ export async function resolveTarget(user, input = {}) {
   const scope = input.scope;
   if (scope === "campus") {
     if (!isGlobalAdmin(user)) throw new AnnouncementError(403, "Only campus admins can post to everyone");
-    return { scope, venue: null, queue: null, venueDoc: null, queueDoc: null };
+    let organizationId = null;
+    if (input.organizationId) {
+      const org = await findOrganization(input.organizationId);
+      if (!org) throw new AnnouncementError(404, "Organization not found");
+      organizationId = org.id;
+    }
+    return { scope, venue: null, queue: null, venueDoc: null, queueDoc: null, organizationId };
   }
   if (scope === "venue") {
     const venueId = input.venueId ?? staffVenueId(user);
@@ -122,6 +130,7 @@ export function toAnnouncementJSON(doc, { at = clockNow(), names = null } = {}) 
     scope: doc.scope,
     venueId,
     queueId,
+    organizationId: doc.organizationId || null,
     tone: doc.tone,
     title: doc.title,
     body: doc.body || "",
@@ -134,6 +143,7 @@ export function toAnnouncementJSON(doc, { at = clockNow(), names = null } = {}) 
     json.author = doc.author?.name || null;
     json.venueName = venueId ? names.venues.get(venueId) ?? null : null;
     json.queueName = queueId ? names.queues.get(queueId) ?? null : null;
+    json.organizationName = doc.organizationId ? names.orgs?.get(doc.organizationId) ?? null : null;
   }
   return json;
 }
@@ -142,9 +152,14 @@ export function toAnnouncementJSON(doc, { at = clockNow(), names = null } = {}) 
 export async function listLiveAnnouncements({ queueId = null, at = clockNow() } = {}) {
   const filter = { startsAt: { $lte: at }, endsAt: { $gt: at }, endedEarlyAt: null };
   if (queueId) {
-    const queue = await Queue.findById(queueId).select("venue");
+    const queue = await Queue.findById(queueId).select("venue").populate("venue", "organization");
     if (!queue) return [];
-    filter.$or = [{ scope: "campus" }, { scope: "venue", venue: queue.venue }, { scope: "queue", queue: queue._id }];
+    const venueId = queue.venue?._id ?? queue.venue;
+    filter.$or = [
+      { scope: "campus", organizationId: { $in: [null, orgIdOfVenue(queue.venue)] } },
+      { scope: "venue", venue: venueId },
+      { scope: "queue", queue: queue._id },
+    ];
   }
   const docs = await Announcement.find(filter).sort({ startsAt: -1, _id: -1 }).limit(MAX_ACTIVE_PUBLIC);
   return docs.map((d) => toAnnouncementJSON(d, { at }));
@@ -157,9 +172,12 @@ async function nameMaps(docs) {
     venueIds.length ? Venue.find({ _id: { $in: venueIds } }).select("name") : [],
     queueIds.length ? Queue.find({ _id: { $in: queueIds } }).select("name") : [],
   ]);
+  const orgIds = [...new Set(docs.map((d) => d.organizationId).filter((id) => id && id !== "default"))];
+  const orgs = orgIds.length ? await Organization.find({ _id: { $in: orgIds } }).select("name") : [];
   return {
     venues: new Map(venues.map((v) => [String(v._id), v.name])),
     queues: new Map(queues.map((q) => [String(q._id), q.name])),
+    orgs: new Map([["default", DEFAULT_ORG_NAME], ...orgs.map((o) => [String(o._id), o.name])]),
   };
 }
 
@@ -182,6 +200,7 @@ export async function createAnnouncement(user, input, at = clockNow()) {
     scope: target.scope,
     venue: target.venue,
     queue: target.queue,
+    organizationId: target.organizationId ?? null,
     ...fields,
     author: { id: String(user._id), name: user.name || user.email || null },
   });

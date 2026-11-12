@@ -88,7 +88,7 @@ export function toCampusInput(iso) {
 
 /** Who a notice reaches, in console words. */
 export function audienceLabel(a) {
-  if (a.scope === "campus") return "Everyone on campus";
+  if (a.scope === "campus") return a.organizationName ? `Everyone at ${a.organizationName}` : "Everyone on campus";
   if (a.scope === "venue") return a.venueName ? `Everyone at ${a.venueName}` : "One venue";
   return a.queueName ? `${a.queueName} line` : "One queue";
 }

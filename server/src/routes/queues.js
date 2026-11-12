@@ -23,6 +23,7 @@ import { attachEquivalentSuggestions } from "../services/equivalentQueues.js";
 import { attachQuietHints } from "../services/bestTime.js";
 import { toBoardJSON } from "../services/queueBoard.js";
 import { listLiveAnnouncements } from "../services/announcements.js";
+import { findOrganization, listOrganizations, venueIdsForOrg } from "../services/organizations.js";
 import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
 import { Appointment } from "../models/Appointment.js";
 import {
@@ -66,11 +67,18 @@ const router = Router();
  * GET /api/queues — list available queues (seeded catalog).
  * Public: Guests may browse without a credential; JWT optional.
  */
-router.get("/", async (_req, res, next) => {
+router.get("/", async (req, res, next) => {
   try {
     // Catalog lists open, paused, and closed (not accepting) queues honestly.
     // status is advancement-only (open|paused); acceptingTokens is orthogonal.
-    const queues = await Queue.find({ status: { $in: ["open", "paused"] }, archivedAt: null })
+    const filter = { status: { $in: ["open", "paused"] }, archivedAt: null };
+    const orgKey = typeof req.query.org === "string" ? req.query.org : "";
+    if (orgKey) {
+      const org = await findOrganization(orgKey);
+      if (!org) return res.status(404).json({ error: "Organization not found" });
+      filter.venue = { $in: await venueIdsForOrg(org) };
+    }
+    const queues = await Queue.find(filter)
       .populate("venue")
       .sort({ name: 1 })
       .exec();
@@ -89,6 +97,17 @@ router.get("/", async (_req, res, next) => {
   }
 });
 
+
+/**
+ * GET /api/queues/organizations — organizations that have open lines. Public.
+ */
+router.get("/organizations", async (_req, res, next) => {
+  try {
+    return res.status(200).json({ organizations: await listOrganizations() });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /**
  * GET /api/queues/announcements[?queueId=] — notices live right now. Public.

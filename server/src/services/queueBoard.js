@@ -10,7 +10,7 @@ import { countersForJson } from "./counters.js";
 export function toBoardJSON(queue, waitingCount = 0) {
   const publicQueue = typeof queue.toPublicJSON === "function" ? queue.toPublicJSON() : queue;
   const venue = publicQueue.venue
-    ? { id: publicQueue.venue.id, name: publicQueue.venue.name }
+    ? { id: publicQueue.venue.id, name: publicQueue.venue.name, organizationId: publicQueue.venue.organizationId ?? null }
     : null;
   return {
     id: publicQueue.id,

@@ -350,8 +350,12 @@ export function fetchAdminCatalog(token) {
   return apiRequest("/api/admin/catalog", { token });
 }
 
-export function createVenue(token, { name }) {
-  return apiRequest("/api/admin/venues", { method: "POST", token, body: { name } });
+export function createVenue(token, { name, organizationId }) {
+  return apiRequest("/api/admin/venues", {
+    method: "POST",
+    token,
+    body: organizationId ? { name, organizationId } : { name },
+  });
 }
 
 export function inviteStaff(token, payload) {
@@ -370,8 +374,11 @@ export function updateStaffQueues(token, staffId, { queueIds }) {
   });
 }
 
-export function updateVenue(token, venueId, { name }) {
-  return apiRequest(`/api/admin/venues/${venueId}`, { method: "PATCH", token, body: { name } });
+export function updateVenue(token, venueId, { name, organizationId }) {
+  const body = {};
+  if (name !== undefined) body.name = name;
+  if (organizationId !== undefined) body.organizationId = organizationId;
+  return apiRequest(`/api/admin/venues/${venueId}`, { method: "PATCH", token, body });
 }
 
 export function createAdminQueue(token, payload) {
@@ -587,4 +594,22 @@ export function editNotice(token, id, body) {
 
 export function endNotice(token, id) {
   return apiRequest(`/api/admin/announcements/${id}/end`, { method: "POST", token });
+}
+
+/** GET /api/queues/organizations — organizations with open lines. Public. */
+export function fetchOrganizations() {
+  return apiRequest("/api/queues/organizations");
+}
+
+/** GET /api/admin/organizations — every organization, including empty ones. */
+export function fetchAdminOrganizations(token) {
+  return apiRequest("/api/admin/organizations", { token });
+}
+
+export function createOrganization(token, { name }) {
+  return apiRequest("/api/admin/organizations", { method: "POST", token, body: { name } });
+}
+
+export function renameOrganization(token, id, { name }) {
+  return apiRequest(`/api/admin/organizations/${id}`, { method: "PATCH", token, body: { name } });
 }

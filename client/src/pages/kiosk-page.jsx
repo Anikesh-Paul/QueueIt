@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { NoticeList } from "@/components/notices/notice-list";
 import { useNotices } from "@/hooks/use-notices";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { placeLabel } from "@/lib/organizations";
 import { useParams } from "react-router-dom";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ export function KioskPage() {
   const [error, setError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
   const notices = useNotices(queueId, { enabled: Boolean(queueId) });
+  const orgs = useOrganizations();
 
   const load = useCallback(async () => {
     if (!queueId) return;
@@ -117,7 +120,7 @@ export function KioskPage() {
         >
           <div className="text-center">
             <p className="text-sm font-medium uppercase tracking-wide text-text-muted">
-              {board.venue?.name || "Campus"}
+              {placeLabel(board.venue?.name, orgs, board.venue?.organizationId) || "Campus"}
             </p>
             <h1
               className="mt-1 font-display text-4xl font-semibold tracking-[-0.03em] text-foreground sm:text-6xl"

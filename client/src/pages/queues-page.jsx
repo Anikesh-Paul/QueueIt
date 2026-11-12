@@ -22,6 +22,49 @@ import { fetchMyAppointments } from "@/api";
 import { formatBookingWhen } from "@/lib/appointments";
 import { NoticeList } from "@/components/notices/notice-list";
 import { useNotices } from "@/hooks/use-notices";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { noticesForOrg, pickOrg, queuesForOrg, readOrgChoice, writeOrgChoice } from "@/lib/organizations";
+
+/** Segmented picker shown only when there's more than one organization. */
+function OrgPicker({ orgs, active, onPick, label }) {
+  function onKeyDown(event) {
+    const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const i = orgs.findIndex((o) => o.id === active?.id);
+    const next = orgs[(i + step + orgs.length) % orgs.length];
+    onPick(next);
+    const buttons = event.currentTarget.querySelectorAll("[role=radio]");
+    buttons[(i + step + orgs.length) % orgs.length]?.focus();
+  }
+  return (
+    <div className="mb-5 -mx-1 overflow-x-auto px-1" data-testid="org-picker">
+      <div role="radiogroup" aria-label={label} onKeyDown={onKeyDown} className="inline-flex gap-1 rounded-lg border border-border bg-card p-1 shadow-card">
+        {orgs.map((org) => {
+          const on = org.id === active?.id;
+          return (
+            <button
+              key={org.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              tabIndex={on ? 0 : -1}
+              onClick={() => onPick(org)}
+              data-testid="org-option"
+              data-slug={org.slug}
+              className={cn(
+                "whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                on ? "bg-primary text-primary-foreground" : "text-text-secondary hover:bg-secondary hover:text-foreground"
+              )}
+            >
+              {org.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 /** Label each notice with the line or venue it's about, using catalog names. */
 function withAudience(notices, queues) {
@@ -46,7 +89,7 @@ export function QueuesPage() {
     isGuest,
     isAdmin,
     user,
-    queues,
+    queues: allQueues,
     queuesLoading,
     queuesError,
     selectedQueueId,
@@ -60,13 +103,32 @@ export function QueuesPage() {
     activeMemberships,
     selectMembership,
   } = useApp();
-  const notices = useNotices(null);
+  const allNotices = useNotices(null);
+  const orgs = useOrganizations();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [savedOrg, setSavedOrg] = useState(readOrgChoice);
+  const activeOrg = pickOrg(orgs, { linkSlug: searchParams.get("org") || "", savedSlug: savedOrg });
+  const queues = queuesForOrg(allQueues, activeOrg);
+  const notices = noticesForOrg(allNotices, activeOrg, queues);
+  const linkedOrg = activeOrg && searchParams.get("org") === activeOrg.slug ? activeOrg.slug : "";
+  useEffect(() => {
+    // A shared ?org= link becomes this device's choice for next time.
+    if (linkedOrg) writeOrgChoice(linkedOrg);
+  }, [linkedOrg]);
+  function chooseOrg(org) {
+    writeOrgChoice(org.slug);
+    setSavedOrg(org.slug);
+    if (searchParams.get("org")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("org");
+      setSearchParams(next, { replace: true });
+    }
+  }
   const navigate = useNavigate();
   function canManageQueue(queue) {
     if (!isAdmin) return false;
     return staffCanManageQueue(user, queue);
   }
-  const [searchParams] = useSearchParams();
   const [myBookings, setMyBookings] = useState([]);
 
   useEffect(() => {
@@ -162,6 +224,8 @@ export function QueuesPage() {
           {t("common.refresh")}
         </Button>
       </header>
+
+      {activeOrg ? <OrgPicker orgs={orgs} active={activeOrg} onPick={chooseOrg} label={t("org.pickerLabel")} /> : null}
 
       <FeedbackPrompt />
 

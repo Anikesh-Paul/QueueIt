@@ -7,10 +7,14 @@ import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShellContent } from "@/components/shell/shell-content";
 import { useApp } from "@/context/app-context";
+import { OrganizationsPanel } from "@/components/admin/organizations-panel";
 import {
   createAdminQueue,
+  createOrganization,
   createVenue,
   fetchAdminCatalog,
+  fetchAdminOrganizations,
+  renameOrganization,
   fetchStaffAccounts,
   inviteStaff,
   updateAdminQueue,
@@ -30,6 +34,8 @@ export function AdminCatalogPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [venueName, setVenueName] = useState("");
+  const [orgs, setOrgs] = useState([]);
+  const [venueOrgId, setVenueOrgId] = useState("default");
   const [queueVenueId, setQueueVenueId] = useState("");
   const [queueName, setQueueName] = useState("");
   const [queuePace, setQueuePace] = useState("3");
@@ -55,6 +61,8 @@ export function AdminCatalogPage() {
       setQueueVenueId((prev) => prev || list[0]?.id || "");
       setStaffVenueId((prev) => prev || list[0]?.id || "");
       if (user?.role === "admin") {
+        const orgData = await fetchAdminOrganizations(token);
+        setOrgs(Array.isArray(orgData.organizations) ? orgData.organizations : []);
         const staffData = await fetchStaffAccounts(token);
         setStaffAccounts(Array.isArray(staffData.staff) ? staffData.staff : []);
       } else {
@@ -91,7 +99,9 @@ export function AdminCatalogPage() {
     event.preventDefault();
     const name = venueName.trim();
     if (!name) return;
-    const ok = await run(() => createVenue(token, { name }));
+    const ok = await run(() =>
+      createVenue(token, { name, organizationId: orgs.length > 1 && venueOrgId !== "default" ? venueOrgId : undefined })
+    );
     if (ok) setVenueName("");
   }
 
@@ -233,6 +243,10 @@ export function AdminCatalogPage() {
     await run(() => updateVenue(token, venue.id, { name }));
   }
 
+  async function handleMoveVenue(venue, organizationId) {
+    await run(() => updateVenue(token, venue.id, { organizationId }));
+  }
+
   async function handleOpen(queue) {
     await openAdminConsole(queue.id);
     navigate(`/admin/queues/${queue.id}`);
@@ -263,6 +277,15 @@ export function AdminCatalogPage() {
       </header>
 
       {error ? <Alert variant="destructive" className="mb-4">{error}</Alert> : null}
+
+      {!loading && user?.role === "admin" && orgs.length ? (
+        <OrganizationsPanel
+          orgs={orgs}
+          busy={busy}
+          onCreate={(name) => run(() => createOrganization(token, { name }))}
+          onRename={(org, name) => run(() => renameOrganization(token, org.id, { name }))}
+        />
+      ) : null}
 
       {loading ? (
         <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading catalog">
@@ -299,6 +322,25 @@ export function AdminCatalogPage() {
                 >
                   Save name
                 </Button>
+                {user?.role === "admin" && orgs.length > 1 ? (
+                  <div className="w-full sm:w-52">
+                    <Label htmlFor={`venue-org-${venue.id}`}>Organization</Label>
+                    <select
+                      id={`venue-org-${venue.id}`}
+                      value={venue.organizationId || "default"}
+                      onChange={(event) => handleMoveVenue(venue, event.target.value)}
+                      disabled={busy}
+                      data-testid="catalog-venue-org"
+                      className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      {orgs.map((org) => (
+                        <option key={org.id} value={org.id}>
+                          {org.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
               </div>
 
               <ul className="mt-4 flex flex-col gap-3">
@@ -672,6 +714,25 @@ export function AdminCatalogPage() {
                   data-testid="catalog-new-venue-name"
                 />
               </div>
+              {orgs.length > 1 ? (
+                <div className="w-full sm:w-52">
+                  <Label htmlFor="new-venue-org">Organization</Label>
+                  <select
+                    id="new-venue-org"
+                    value={venueOrgId}
+                    onChange={(event) => setVenueOrgId(event.target.value)}
+                    disabled={busy}
+                    data-testid="catalog-new-venue-org"
+                    className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    {orgs.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <Button type="submit" disabled={busy || !venueName.trim()} data-testid="catalog-create-venue">
                 Add venue
               </Button>

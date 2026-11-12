@@ -14,7 +14,7 @@ export const AUDIT_CATEGORIES = {
   operations: ["serve", "call", "skip", "walk-in", "reset", "pause", "resume", "stop-accepting", "start-accepting", "rejoin"],
   settings: [
     "queue-update", "queue-create", "queue-archive", "queue-restore", "service-windows",
-    "venue-create", "venue-rename", "counter-add", "counter-rename", "counter-remove",
+    "venue-create", "venue-rename", "venue-move", "org-create", "org-rename", "counter-add", "counter-rename", "counter-remove",
   ],
   staff: ["staff-invite", "staff-access", "shift-start", "shift-break", "shift-back", "shift-end", "shift-open", "shift-close"],
   notices: ["announcement-post", "announcement-edit", "announcement-end"],

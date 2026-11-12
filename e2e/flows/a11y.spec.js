@@ -17,6 +17,7 @@ async function pages(request) {
     ["analytics", "/admin/analytics", admin],
     ["shift", "/admin/shift", admin],
     ["notices", "/admin/notices", admin],
+    ["audit log", "/admin/audit", admin],
     ["poster", `/admin/queues/${cafeteria.id}/poster`, admin],
   ];
 }

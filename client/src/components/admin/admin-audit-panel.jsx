@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { fetchAdminAudit } from "@/api";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { auditActionLabel, auditMetaLine } from "@/lib/admin-audit";
@@ -37,7 +38,16 @@ export function AdminAuditPanel({ token, queueId }) {
       className="overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card"
       data-testid="admin-audit-panel"
     >
-      <h2 className="text-label uppercase tracking-wide text-text-muted">Activity</h2>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-label uppercase tracking-wide text-text-muted">Activity</h2>
+        <Link
+          to={`/admin/audit?queueId=${queueId}`}
+          className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+          data-testid="admin-audit-full"
+        >
+          Full log
+        </Link>
+      </div>
       <p className="mt-1 text-xs text-text-secondary">Recent admin actions · campus time (IST)</p>
 
       {loading ? (

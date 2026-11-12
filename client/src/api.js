@@ -261,8 +261,44 @@ export function fetchAdminAudit(token, options = {}) {
   if (options.venueId) params.set("venueId", options.venueId);
   if (options.cursor) params.set("cursor", options.cursor);
   if (options.limit) params.set("limit", String(options.limit));
+  for (const key of ["category", "actorId", "from", "to"]) {
+    if (options[key]) params.set(key, String(options[key]));
+  }
   const qs = params.toString();
   return apiRequest(`/api/admin/audit${qs ? `?${qs}` : ""}`, { token });
+}
+
+/** GET /api/admin/audit/actors — people in the log I can see. */
+export function fetchAuditActors(token) {
+  return apiRequest("/api/admin/audit/actors", { token });
+}
+
+/** GET /api/admin/audit.csv — download the filtered log. */
+export async function downloadAuditCsv(token, query, filename = "queueit-audit-log.csv") {
+  const res = await fetch(`${API_URL}/api/admin/audit.csv${query ? `?${query}` : ""}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = await res.json();
+      if (data?.error) message = data.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(message);
+  }
+  const text = await res.text();
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return Math.max(0, text.trim().split("\n").length - 1);
 }
 
 export function fetchAnalytics(token, queueId, options = {}) {

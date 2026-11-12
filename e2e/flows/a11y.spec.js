@@ -11,6 +11,7 @@ async function pages(request) {
     ["queues", "/queues", student],
     ["join (QR)", `/join/${cafeteria.id}?src=qr`, null],
     ["history", "/history", student],
+    ["book a time", `/book/${cafeteria.id}`, student],
     ["kiosk", `/kiosk/${cafeteria.id}`, null],
     ["admin console", `/admin/queues/${cafeteria.id}`, admin],
     ["analytics", "/admin/analytics", admin],

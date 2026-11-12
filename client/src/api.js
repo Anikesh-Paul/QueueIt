@@ -455,3 +455,39 @@ export function verifyArrival(token, queueId, value) {
     body: { value },
   });
 }
+
+/** GET /api/queues/:id/slots — bookable slot grid for one campus day. */
+export function fetchSlots(token, queueId, date) {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  return apiRequest(`/api/queues/${queueId}/slots${qs}`, { token });
+}
+
+/** POST /api/queues/:id/appointments — book a slot (signed-in users only). */
+export function bookSlot(token, queueId, start) {
+  return apiRequest(`/api/queues/${queueId}/appointments`, { method: "POST", token, body: { start } });
+}
+
+export function cancelBooking(token, queueId, appointmentId) {
+  return apiRequest(`/api/queues/${queueId}/appointments/${appointmentId}/cancel`, { method: "POST", token });
+}
+
+/** Self check-in: returns the live status payload for the new place in line. */
+export function checkInBooking(token, queueId, appointmentId) {
+  return apiRequest(`/api/queues/${queueId}/appointments/${appointmentId}/check-in`, { method: "POST", token });
+}
+
+export function fetchMyAppointments(token) {
+  return apiRequest("/api/queues/appointments/mine", { token });
+}
+
+export function fetchQueueAppointments(token, queueId, date) {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  return apiRequest(`/api/admin/queues/${queueId}/appointments${qs}`, { token });
+}
+
+export function adminCheckInAppointment(token, queueId, appointmentId) {
+  return apiRequest(`/api/admin/queues/${queueId}/appointments/${appointmentId}/check-in`, {
+    method: "POST",
+    token,
+  });
+}

@@ -216,6 +216,16 @@ const queueSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /** Booked time slots alongside walk-ins. Off by default. */
+    appointmentsEnabled: { type: Boolean, default: false },
+    /** Slot length in minutes. */
+    slotMinutes: { type: Number, min: 5, max: 120, default: 15 },
+    /** People who may book the same slot. */
+    slotCapacity: { type: Number, min: 1, max: 20, default: 2 },
+    /** Minutes after slot start a booking may still check in before it is missed. */
+    slotGraceMinutes: { type: Number, min: 0, max: 30, default: 10 },
+    /** Walk-in serves since the last booked serve (0 or 1). Booked turns alternate with walk-ins. */
+    walkInsSinceAppointment: { type: Number, min: 0, max: 1, default: 1 },
     /** Same-venue group key for equivalent-queue suggestions. Empty means none. */
     equivalentGroup: {
       type: String,
@@ -267,6 +277,12 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     archived: Boolean(this.archivedAt),
     maxWaiting: this.maxWaiting ?? null,
     guestJoin: this.guestJoin !== false,
+    appointments: {
+      enabled: this.appointmentsEnabled === true,
+      slotMinutes: this.slotMinutes ?? 15,
+      slotCapacity: this.slotCapacity ?? 2,
+      graceMinutes: this.slotGraceMinutes ?? 10,
+    },
   };
 };
 

@@ -1,5 +1,6 @@
 import { Queue } from "../models/Queue.js";
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "../models/QueueEntry.js";
+import { now as clockNow } from "./clock.js";
 import { sessionFieldsForJson } from "./queueSession.js";
 import { signArrivalPass } from "./arrivalPass.js";
 import { resolveEtaServicePace } from "./recentServicePace.js";
@@ -20,10 +21,10 @@ export async function computePosition(queueId, tokenOrEntry, entryStatus = "wait
   if (status === "serving") return 0;
   if (status === "skipped" || status === "left" || status === "served") return null;
   const waiters = await QueueEntry.find({ queue: queueId, status: "waiting" }).select(
-    "tokenNumber waitOrder priority"
+    "tokenNumber waitOrder priority appointmentAt"
   );
   const fairness =
-    queue || (await Queue.findById(queueId).select("priorityEveryK regularServesSincePriority"));
+    queue || (await Queue.findById(queueId).select("priorityEveryK regularServesSincePriority walkInsSinceAppointment"));
   return positionInFairOrder(waiters, entry, fairness) ?? 1;
 }
 
@@ -50,7 +51,12 @@ export async function buildStatusPayload(queue, entry) {
   const position = await computePosition(queue._id, entry, entry.status, queue);
   const averageServiceTime = queue.averageServiceTime;
   const { pace: etaServiceTime, source: etaPaceSource } = await resolveEtaServicePace(queue);
-  const etaMinutes = position == null ? null : computeEtaMinutes(position, etaServiceTime);
+  let etaMinutes = position == null ? null : computeEtaMinutes(position, etaServiceTime);
+  // A booking is not called before its slot starts.
+  if (etaMinutes != null && entry.appointmentAt) {
+    const untilSlot = Math.ceil((new Date(entry.appointmentAt).getTime() - clockNow().getTime()) / 60_000);
+    if (untilSlot > etaMinutes) etaMinutes = untilSlot;
+  }
   const recoverable = isRecoverable(entry, queue);
   const until = recoverable ? recoveryDeadline(entry, queue) : null;
 
@@ -69,6 +75,7 @@ export async function buildStatusPayload(queue, entry) {
     canRecover: recoverable,
     recoverUntil: until ? until.toISOString() : null,
     returning: Boolean(entry.returning),
+    appointmentAt: entry.appointmentAt ? new Date(entry.appointmentAt).toISOString() : null,
     ...priorityFieldsForJson(entry),
     ...servingFieldsForJson(entry, { paused: queue.status === "paused", queue }),
     queue: {

@@ -37,44 +37,92 @@ export function applyServedFairness(queue, entry) {
     queue.regularServesSincePriority = 0;
   } else {
     queue.regularServesSincePriority = Math.min(k - 1, regularServesSincePriorityOf(queue) + 1);
+    // Booked and walk-in turns alternate while both are waiting.
+    queue.walkInsSinceAppointment = entry?.appointmentAt ? 0 : 1;
   }
   return queue.regularServesSincePriority;
 }
 
+/** True when the next serve may go to a due booking (no two booked turns in a row while walk-ins wait). */
+export function canTakeAppointment(queue, { walkInsWaiting = null } = {}) {
+  if (walkInsWaiting === 0) return true;
+  const value = Number(queue?.walkInsSinceAppointment);
+  return !Number.isFinite(value) || value >= 1;
+}
+
+function isDueAppointment(entry, at) {
+  if (!entry?.appointmentAt) return false;
+  return new Date(entry.appointmentAt).getTime() <= at.getTime();
+}
+
+function compareAppointments(a, b) {
+  const ta = new Date(a.appointmentAt).getTime();
+  const tb = new Date(b.appointmentAt).getTime();
+  if (ta !== tb) return ta - tb;
+  return compareWaiters(a, b);
+}
+
 /**
- * Fair call order for waiting entries: priority occupies at most every Kth serve,
- * unless only priority waiters remain. Relative order inside each lane is waitOrder.
+ * Fair call order for waiting entries.
+ * - Priority occupies at most every Kth serve, unless only priority waiters remain.
+ * - A checked-in booking whose slot has started goes ahead of walk-ins, but booked
+ *   turns never run back to back while walk-ins wait.
+ * - Bookings checked in early wait until their slot unless nobody else is waiting.
+ * Relative order inside a lane is waitOrder (bookings: slot time).
  */
-export function fairCallOrder(waiters, queue) {
+export function fairCallOrder(waiters, queue, at = clockNow()) {
   const priority = [];
+  const booked = [];
   const regular = [];
+  const early = [];
   for (const entry of waiters || []) {
-    if (entry?.priority) priority.push(entry);
+    if (entry?.appointmentAt && !isDueAppointment(entry, at)) early.push(entry);
+    else if (entry?.priority) priority.push(entry);
+    else if (entry?.appointmentAt) booked.push(entry);
     else regular.push(entry);
   }
   priority.sort(compareWaiters);
+  booked.sort(compareAppointments);
   regular.sort(compareWaiters);
+  early.sort(compareAppointments);
   const k = resolvePriorityEveryK(queue);
   let since = regularServesSincePriorityOf(queue);
+  let walkIns = canTakeAppointment(queue) ? 1 : 0;
   const out = [];
   let i = 0;
+  let b = 0;
   let j = 0;
-  while (i < priority.length || j < regular.length) {
-    const canP = k <= 1 || since >= k - 1 || j >= regular.length;
+  while (i < priority.length || b < booked.length || j < regular.length) {
+    const nonPriorityLeft = b < booked.length || j < regular.length;
+    const canP = k <= 1 || since >= k - 1 || !nonPriorityLeft;
     if (canP && i < priority.length) {
       out.push(priority[i++]);
       since = 0;
+      continue;
+    }
+    const canB = walkIns >= 1 || j >= regular.length;
+    if (canB && b < booked.length) {
+      out.push(booked[b++]);
+      walkIns = 0;
     } else if (j < regular.length) {
       out.push(regular[j++]);
-      since = Math.min(k - 1, since + 1);
+      walkIns = 1;
+    } else if (b < booked.length) {
+      out.push(booked[b++]);
+      walkIns = 0;
+    } else {
+      out.push(priority[i++]);
+      since = 0;
+      continue;
     }
+    since = Math.min(k - 1, since + 1);
   }
-  return out;
+  return [...out, ...early];
 }
 
-export function positionInFairOrder(waiters, entry, queue) {
+export function positionInFairOrder(waiters, entry, queue, at = clockNow()) {
   if (!entry) return null;
-  const ordered = fairCallOrder(waiters, queue);
+  const ordered = fairCallOrder(waiters, queue, at);
   const id = entry._id?.toString?.() ?? entry.id;
   const token = Number(entry.tokenNumber);
   const index = ordered.findIndex((row) => {
@@ -198,23 +246,39 @@ export async function claimNextWaiting(queue, { entryId, update, extraStatuses =
   }
 
   const sort = { waitOrder: 1, tokenNumber: 1 };
+  const now = clockNow();
   const base = { queue: queue._id, status: "waiting" };
+  // Bookings checked in early are not callable until their slot (unless nobody else waits).
+  const notEarly = { $or: [{ appointmentAt: null }, { appointmentAt: { $lte: now } }] };
   if (canTakePriority(queue)) {
     const priority = await QueueEntry.findOneAndUpdate(
-      { ...base, priority: true },
+      { ...base, ...notEarly, priority: true },
       update,
       { sort, returnDocument: "after" }
     );
     if (priority) return { ok: true, entry: priority };
   }
+  if (canTakeAppointment(queue)) {
+    const booked = await QueueEntry.findOneAndUpdate(
+      { ...base, priority: { $ne: true }, appointmentAt: { $ne: null, $lte: now } },
+      update,
+      { sort: { appointmentAt: 1, ...sort }, returnDocument: "after" }
+    );
+    if (booked) return { ok: true, entry: booked };
+  }
   const regular = await QueueEntry.findOneAndUpdate(
-    { ...base, priority: { $ne: true } },
+    { ...base, priority: { $ne: true }, appointmentAt: null },
     update,
     { sort, returnDocument: "after" }
   );
   if (regular) return { ok: true, entry: regular };
+  const due = await QueueEntry.findOneAndUpdate({ ...base, ...notEarly }, update, {
+    sort: { priority: -1, appointmentAt: 1, ...sort },
+    returnDocument: "after",
+  });
+  if (due) return { ok: true, entry: due };
   const fallback = await QueueEntry.findOneAndUpdate(base, update, {
-    sort,
+    sort: { appointmentAt: 1, ...sort },
     returnDocument: "after",
   });
   if (!fallback) return { ok: false, status: 404, error: "No one waiting" };

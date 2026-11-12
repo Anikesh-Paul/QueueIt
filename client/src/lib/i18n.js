@@ -301,6 +301,7 @@ export const MESSAGES = {
     "notices.tone.closure": "Closure",
     "notices.more": "Show {count} more",
     "notices.fewer": "Show fewer",
+    "org.pickerLabel": "Choose your organization",
   },
   hi: {
     "language.label": "भाषा",
@@ -599,6 +600,7 @@ export const MESSAGES = {
     "notices.tone.closure": "बंद",
     "notices.more": "{count} और देखें",
     "notices.fewer": "कम दिखाएँ",
+    "org.pickerLabel": "अपना संगठन चुनें",
   },
 };
 

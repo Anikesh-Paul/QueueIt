@@ -40,6 +40,14 @@ import {
 import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing, reconcileCounterServing } from "../services/counters.js";
 import { applyShiftAction, shiftBoard } from "../services/shifts.js";
 import {
+  OrgError,
+  createOrganization,
+  findOrganization,
+  listOrganizations,
+  moveVenue,
+  renameOrganization,
+} from "../services/organizations.js";
+import {
   AnnouncementError,
   createAnnouncement,
   endAnnouncement,
@@ -1223,7 +1231,13 @@ router.post("/venues", requireAuth, requireAdmin, async (req, res, next) => {
     if (!isGlobalAdmin(req.user)) {
       return res.status(403).json({ error: "You don't have access to this venue" });
     }
-    const result = await createVenue({ name: req.body?.name });
+    let organization = null;
+    if (req.body?.organizationId) {
+      const org = await findOrganization(req.body.organizationId);
+      if (!org) return res.status(404).json({ error: "Organization not found" });
+      organization = org.isDefault ? null : org.doc._id;
+    }
+    const result = await createVenue({ name: req.body?.name, organization });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     await writeAudit(req, { action: "venue-create", venue: result.venue, meta: { name: result.venue.name } });
     return res.status(201).json({ venue: result.venue.toPublicJSON() });
@@ -1237,6 +1251,20 @@ router.patch("/venues/:venueId", requireAuth, requireAdmin, async (req, res, nex
     const venue = await loadVenueOr404(req.params.venueId, res, req.user);
     if (!venue) return;
     const previousName = venue.name;
+    if (req.body?.organizationId !== undefined) {
+      if (!isGlobalAdmin(req.user)) {
+        return res.status(403).json({ error: "Only a global admin can move a venue" });
+      }
+      try {
+        const moved = await moveVenue(venue, req.body.organizationId);
+        if (moved.changed) {
+          await writeAudit(req, { action: "venue-move", venue, meta: { from: moved.from, to: moved.to } });
+        }
+      } catch (err) {
+        if (err instanceof OrgError) return res.status(err.status).json({ error: err.message });
+        throw err;
+      }
+    }
     const result = await updateVenue(venue, { name: req.body?.name });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     if (result.venue.name !== previousName) {
@@ -1506,6 +1534,47 @@ router.post("/announcements/:announcementId/end", requireAuth, requireAdmin, asy
     return res.status(200).json({ announcement: toAnnouncementJSON(doc) });
   } catch (err) {
     return announcementErrorOr(next, res, err);
+  }
+});
+
+/**
+ * GET /api/admin/organizations — every organization, including empty ones.
+ */
+router.get("/organizations", requireAuth, requireAdmin, async (_req, res, next) => {
+  try {
+    return res.status(200).json({ organizations: await listOrganizations({ includeEmpty: true }) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/organizations { name } — global admin only.
+ */
+router.post("/organizations", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (!isGlobalAdmin(req.user)) return res.status(403).json({ error: "Only a global admin can add organizations" });
+    const org = await createOrganization({ name: req.body?.name });
+    await writeAudit(req, { action: "org-create", meta: { name: org.name } });
+    return res.status(201).json({ organization: org.toPublicJSON() });
+  } catch (err) {
+    if (err instanceof OrgError) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+/**
+ * PATCH /api/admin/organizations/:id { name } — global admin only.
+ */
+router.patch("/organizations/:organizationId", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (!isGlobalAdmin(req.user)) return res.status(403).json({ error: "Only a global admin can rename organizations" });
+    const { doc, previous } = await renameOrganization(req.params.organizationId, { name: req.body?.name });
+    if (previous !== doc.name) await writeAudit(req, { action: "org-rename", meta: { from: previous, to: doc.name } });
+    return res.status(200).json({ organization: doc.toPublicJSON() });
+  } catch (err) {
+    if (err instanceof OrgError) return res.status(err.status).json({ error: err.message });
+    return next(err);
   }
 });
 

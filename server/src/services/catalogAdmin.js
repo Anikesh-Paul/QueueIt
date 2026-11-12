@@ -198,6 +198,7 @@ export function toAdminVenueJSON(venue, queues = []) {
     id: venue._id.toString(),
     name: venue.name,
     slug: venue.slug,
+    organizationId: venue.organization ? venue.organization.toString() : null,
     queues: queues.map((queue) => toAdminCatalogQueueJSON(queue, venue)),
   };
 }
@@ -231,11 +232,11 @@ export async function listAdminCatalog(user) {
   return venues.map((venue) => toAdminVenueJSON(venue, byVenue.get(venue._id.toString()) || []));
 }
 
-export async function createVenue({ name }) {
+export async function createVenue({ name, organization = null }) {
   const cleaned = cleanName(name, "Venue name");
   if (cleaned.error) return { ok: false, status: 400, error: cleaned.error };
   const slug = await uniqueVenueSlug(slugifyName(cleaned.name));
-  const venue = await Venue.create({ name: cleaned.name, slug });
+  const venue = await Venue.create({ name: cleaned.name, slug, organization });
   return { ok: true, venue };
 }
 

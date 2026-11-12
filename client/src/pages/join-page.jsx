@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/context/i18n-context";
 import { staffCanManageQueue } from "@/lib/staff-access";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { placeLabel } from "@/lib/organizations";
 
 /**
  * Poster / deep-link landing — join a specific queue (or explain why not).
@@ -23,6 +25,7 @@ import { OpenWatchControls } from "@/components/status/open-watch-controls";
  */
 export function JoinPage() {
   const { t, locale } = useI18n();
+  const orgs = useOrganizations();
   const { queueId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -187,7 +190,7 @@ export function JoinPage() {
                 {queue.name}
               </h2>
               <p className="mt-0.5 text-sm text-text-muted">
-                {queue.venue?.name || t("common.venue")} · {t("queue.avgMinutes", { minutes: queue.averageServiceTime })}
+                {placeLabel(queue.venue?.name, orgs, queue.venue?.organizationId) || t("common.venue")} · {t("queue.avgMinutes", { minutes: queue.averageServiceTime })}
                 {" · "}
                 <span data-testid="queue-occupancy">{occupancyLine}</span>
               </p>

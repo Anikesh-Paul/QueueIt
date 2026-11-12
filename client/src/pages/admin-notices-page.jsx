@@ -8,7 +8,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { PageToolbar } from "@/components/shell/page-toolbar";
 import { ShellContent } from "@/components/shell/shell-content";
 import { useApp } from "@/context/app-context";
-import { editNotice, endNotice, fetchAdminCatalog, fetchConsoleNotices, postNotice } from "@/api";
+import { editNotice, endNotice, fetchAdminCatalog, fetchAdminOrganizations, fetchConsoleNotices, postNotice } from "@/api";
 import { BODY_MAX, TITLE_MAX, audienceLabel, toCampusInput, untilLabel } from "@/lib/announcements";
 import { campusDatetimeLocalToIso, formatCampusDateTime } from "@/lib/campus-time";
 import { staffCanManageQueue } from "@/lib/staff-access";
@@ -41,7 +41,7 @@ function emptyDraft(defaultAudience) {
 
 function parseAudience(value) {
   const [scope, id] = String(value || "").split(":");
-  if (scope === "campus") return { scope };
+  if (scope === "campus") return id ? { scope, organizationId: id } : { scope };
   if (scope === "venue") return { scope, venueId: id };
   if (scope === "queue") return { scope, queueId: id };
   return {};
@@ -309,6 +309,7 @@ export function AdminNoticesPage() {
   const isAdmin = user?.role === "admin";
   const [notices, setNotices] = useState(null);
   const [venues, setVenues] = useState([]);
+  const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -324,12 +325,16 @@ export function AdminNoticesPage() {
       const [list, catalog] = await Promise.all([fetchConsoleNotices(token), fetchAdminCatalog(token)]);
       setNotices(list.announcements || []);
       setVenues(Array.isArray(catalog.venues) ? catalog.venues : []);
+      if (isAdmin) {
+        const orgData = await fetchAdminOrganizations(token).catch(() => null);
+        setOrgs(Array.isArray(orgData?.organizations) ? orgData.organizations : []);
+      }
     } catch (err) {
       setError(err.message || "Couldn't load notices");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, isAdmin]);
 
   useEffect(() => {
     load();
@@ -337,7 +342,17 @@ export function AdminNoticesPage() {
 
   const audiences = useMemo(() => {
     const out = [];
-    if (isAdmin) out.push({ value: "campus", label: "Everyone on campus" });
+    if (isAdmin && orgs.length > 1) {
+      out.push({
+        group: "Whole organizations",
+        items: [
+          { value: "campus", label: "Everyone, every organization" },
+          ...orgs.map((o) => ({ value: `campus:${o.id}`, label: `Everyone at ${o.name}` })),
+        ],
+      });
+    } else if (isAdmin) {
+      out.push({ value: "campus", label: "Everyone on campus" });
+    }
     for (const venue of venues) {
       const venueOk = isAdmin || (user?.staffVenueId === venue.id && !(user?.staffQueueIds || []).length);
       const queues = (venue.queues || []).filter((q) => !q.archived && staffCanManageQueue(user, { ...q, venue: { id: venue.id } }));
@@ -351,7 +366,7 @@ export function AdminNoticesPage() {
       });
     }
     return out;
-  }, [venues, isAdmin, user]);
+  }, [venues, isAdmin, user, orgs]);
 
   const firstAudience = audiences[0]?.value || audiences[0]?.items?.[0]?.value || "";
   const audienceValue = draft.audience || firstAudience;

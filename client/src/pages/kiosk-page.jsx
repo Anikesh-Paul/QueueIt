@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { NoticeList } from "@/components/notices/notice-list";
+import { useNotices } from "@/hooks/use-notices";
 import { useParams } from "react-router-dom";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ export function KioskPage() {
   const [board, setBoard] = useState(null);
   const [error, setError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
+  const notices = useNotices(queueId, { enabled: Boolean(queueId) });
 
   const load = useCallback(async () => {
     if (!queueId) return;
@@ -137,6 +140,8 @@ export function KioskPage() {
               <span data-testid="kiosk-waiting">{formatWaitingOccupancy({ waitingCount: board.waitingCount })}</span>
             </p>
           </div>
+
+          <NoticeList notices={notices} hideable={false} className="w-full max-w-3xl" />
 
           <ul
             className={cn(

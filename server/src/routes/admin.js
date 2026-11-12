@@ -39,6 +39,14 @@ import {
 } from "../services/servingDeadline.js";
 import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing, reconcileCounterServing } from "../services/counters.js";
 import { applyShiftAction, shiftBoard } from "../services/shifts.js";
+import {
+  AnnouncementError,
+  createAnnouncement,
+  endAnnouncement,
+  listAnnouncementsForConsole,
+  toAnnouncementJSON,
+  updateAnnouncement,
+} from "../services/announcements.js";
 import { rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 import { Appointment } from "../models/Appointment.js";
 import {
@@ -1344,5 +1352,85 @@ router.delete(
     }
   }
 );
+
+/** Audit refs for an announcement's target (campus notices carry neither). */
+async function announcementAuditRefs(doc) {
+  const queue = doc.queue ? await Queue.findById(doc.queue).populate("venue", "name") : null;
+  const venue = !queue && doc.venue ? await Venue.findById(doc.venue).select("name") : null;
+  return { queue, venue };
+}
+
+function announcementErrorOr(next, res, err) {
+  if (err instanceof AnnouncementError) return res.status(err.status).json({ error: err.message });
+  return next(err);
+}
+
+/**
+ * GET /api/admin/announcements — live, scheduled and recently ended notices I can see.
+ */
+router.get("/announcements", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    return res.status(200).json({ announcements: await listAnnouncementsForConsole(req.user) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/announcements { scope, venueId?, queueId?, tone, title, body?, startsAt?, endsAt? }
+ */
+router.post("/announcements", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const { doc, target } = await createAnnouncement(req.user, req.body || {});
+    await writeAudit(req, {
+      action: "announcement-post",
+      queue: target.queueDoc,
+      venue: target.queueDoc ? null : target.venueDoc,
+      meta: { title: doc.title, tone: doc.tone, scope: doc.scope, endsAt: doc.endsAt.toISOString() },
+    });
+    if (doc.queue) emitQueueChanged(doc.queue, "announcement");
+    return res.status(201).json({ announcement: toAnnouncementJSON(doc) });
+  } catch (err) {
+    return announcementErrorOr(next, res, err);
+  }
+});
+
+/**
+ * PATCH /api/admin/announcements/:id — edit text, tone or times of a live or scheduled notice.
+ */
+router.patch("/announcements/:announcementId", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const { doc, changed } = await updateAnnouncement(req.user, req.params.announcementId, req.body || {});
+    if (changed.length) {
+      await writeAudit(req, {
+        action: "announcement-edit",
+        ...(await announcementAuditRefs(doc)),
+        meta: { title: doc.title, scope: doc.scope, changed: changed.sort().join(", ") },
+      });
+      if (doc.queue) emitQueueChanged(doc.queue, "announcement");
+    }
+    return res.status(200).json({ announcement: toAnnouncementJSON(doc) });
+  } catch (err) {
+    return announcementErrorOr(next, res, err);
+  }
+});
+
+/**
+ * POST /api/admin/announcements/:id/end — take a notice down now.
+ */
+router.post("/announcements/:announcementId/end", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const doc = await endAnnouncement(req.user, req.params.announcementId);
+    await writeAudit(req, {
+      action: "announcement-end",
+      ...(await announcementAuditRefs(doc)),
+      meta: { title: doc.title, scope: doc.scope },
+    });
+    if (doc.queue) emitQueueChanged(doc.queue, "announcement");
+    return res.status(200).json({ announcement: toAnnouncementJSON(doc) });
+  } catch (err) {
+    return announcementErrorOr(next, res, err);
+  }
+});
 
 export default router;

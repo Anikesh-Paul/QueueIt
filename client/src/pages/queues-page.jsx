@@ -20,6 +20,18 @@ import { staffCanManageQueue } from "@/lib/staff-access";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
 import { fetchMyAppointments } from "@/api";
 import { formatBookingWhen } from "@/lib/appointments";
+import { NoticeList } from "@/components/notices/notice-list";
+import { useNotices } from "@/hooks/use-notices";
+
+/** Label each notice with the line or venue it's about, using catalog names. */
+function withAudience(notices, queues) {
+  const queueNames = new Map((queues || []).map((q) => [q.id, q.name]));
+  const venueNames = new Map((queues || []).filter((q) => q.venue?.id).map((q) => [q.venue.id, q.venue.name]));
+  return notices.map((n) => ({
+    ...n,
+    audience: n.scope === "queue" ? queueNames.get(n.queueId) : n.scope === "venue" ? venueNames.get(n.venueId) : null,
+  }));
+}
 
 /**
  * Queue catalog — joinable queues for the seeded venue.
@@ -48,6 +60,7 @@ export function QueuesPage() {
     activeMemberships,
     selectMembership,
   } = useApp();
+  const notices = useNotices(null);
   const navigate = useNavigate();
   function canManageQueue(queue) {
     if (!isAdmin) return false;
@@ -151,6 +164,8 @@ export function QueuesPage() {
       </header>
 
       <FeedbackPrompt />
+
+      <NoticeList notices={withAudience(notices, queues)} showAudience collapseAfter={2} className="mb-5" />
 
       {isGuest && showPostLeaveUpgrade ? (
         <div className="mb-5" data-testid="soft-upgrade-post-leave">

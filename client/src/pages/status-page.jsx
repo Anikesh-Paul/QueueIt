@@ -33,6 +33,8 @@ import { NotifyControls } from "@/components/status/notify-controls";
 import { useI18n } from "@/context/i18n-context";
 import { acknowledgeArrival, rejoinQueue, requestPriority, setTravelMinutes } from "@/api";
 import { LeaveNowBanner, LeaveTimeCard } from "@/components/status/leave-time-card";
+import { NoticeList } from "@/components/notices/notice-list";
+import { useNotices } from "@/hooks/use-notices";
 import { liveLeave } from "@/lib/leave-alert";
 
 /**
@@ -64,6 +66,7 @@ export function StatusPage() {
     selectMembership,
     adoptMembership,
   } = useAppStatus();
+  const notices = useNotices(statusQueueId, { enabled: Boolean(statusQueueId) });
   const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [browserOffline, setBrowserOffline] = useState(
@@ -456,6 +459,8 @@ export function StatusPage() {
             />
           </div>
         )}
+
+        <NoticeList notices={notices} collapseAfter={1} className="mb-4" />
 
         {leaveNow ? (
           <div className="mb-4">

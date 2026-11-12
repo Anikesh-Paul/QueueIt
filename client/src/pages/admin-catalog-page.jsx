@@ -168,6 +168,10 @@ export function AdminCatalogPage() {
     });
   }
 
+  function setDraftField(queueId, key, value) {
+    setDrafts((prev) => ({ ...prev, [queueId]: { ...(prev[queueId] || {}), [key]: value } }));
+  }
+
   async function handleSaveQueue(queue) {
     const draft = drafts[queue.id] || {};
     const name = (draft.name ?? queue.name).trim();
@@ -188,6 +192,13 @@ export function AdminCatalogPage() {
     const equivalentGroupRaw =
       draft.equivalentGroup !== undefined ? draft.equivalentGroup : (queue.equivalentGroup ?? "");
     const guestJoin = draft.guestJoin !== undefined ? draft.guestJoin : queue.guestJoin !== false;
+    const booking = queue.appointments || {};
+    const appointmentsEnabled =
+      draft.appointmentsEnabled !== undefined ? draft.appointmentsEnabled : booking.enabled === true;
+    const slotNumber = (key, fallback) => {
+      const raw = draft[key] !== undefined ? draft[key] : fallback;
+      return raw === "" || raw == null ? "" : Number(raw);
+    };
     await run(() =>
       updateAdminQueue(token, queue.id, {
         name,
@@ -203,6 +214,10 @@ export function AdminCatalogPage() {
         priorityEveryK: priorityKRaw === "" || priorityKRaw == null ? "" : Number(priorityKRaw),
         equivalentGroup: equivalentGroupRaw == null ? "" : String(equivalentGroupRaw),
         guestJoin,
+        appointmentsEnabled,
+        slotMinutes: slotNumber("slotMinutes", booking.slotMinutes),
+        slotCapacity: slotNumber("slotCapacity", booking.slotCapacity),
+        slotGraceMinutes: slotNumber("slotGraceMinutes", booking.graceMinutes),
       })
     );
   }
@@ -554,6 +569,49 @@ export function AdminCatalogPage() {
                           <span className="block text-xs text-text-muted">Guests from the poster QR. Off means sign-in only.</span>
                         </span>
                       </label>
+                      <fieldset
+                        className="w-full rounded-md border border-border px-3 pb-3 pt-1"
+                        data-testid="catalog-queue-bookings"
+                        disabled={busy}
+                      >
+                        <legend className="px-1 text-sm font-medium text-foreground">Bookings</legend>
+                        <label htmlFor={`queue-book-on-${queue.id}`} className="flex items-start gap-2 text-sm">
+                          <input
+                            id={`queue-book-on-${queue.id}`}
+                            type="checkbox"
+                            className="mt-0.5 size-4 accent-[var(--primary)]"
+                            defaultChecked={queue.appointments?.enabled === true}
+                            onChange={(event) => setDraftField(queue.id, "appointmentsEnabled", event.target.checked)}
+                            data-testid="catalog-queue-bookings-enabled"
+                          />
+                          <span>
+                            <span className="font-medium text-foreground">Let people book a time</span>
+                            <span className="block text-xs text-text-muted">
+                              Slots follow the service hours. Booked and walk-in turns alternate.
+                            </span>
+                          </span>
+                        </label>
+                        <div className="mt-2 flex flex-wrap gap-3">
+                          {[
+                            ["slotMinutes", "Slot length (min)", 5, 120, queue.appointments?.slotMinutes ?? 15, "catalog-queue-slot-minutes"],
+                            ["slotCapacity", "People per slot", 1, 20, queue.appointments?.slotCapacity ?? 2, "catalog-queue-slot-capacity"],
+                            ["slotGraceMinutes", "Grace (min)", 0, 30, queue.appointments?.graceMinutes ?? 10, "catalog-queue-slot-grace"],
+                          ].map(([key, label, min, max, value, testId]) => (
+                            <div key={key} className="w-full sm:w-36">
+                              <Label htmlFor={`queue-${key}-${queue.id}`}>{label}</Label>
+                              <Input
+                                id={`queue-${key}-${queue.id}`}
+                                type="number"
+                                min={min}
+                                max={max}
+                                defaultValue={value}
+                                onChange={(event) => setDraftField(queue.id, key, event.target.value)}
+                                data-testid={testId}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </fieldset>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button

@@ -106,6 +106,10 @@ const queueEntrySchema = new mongoose.Schema(
     priorityRequestedAt: { type: Date, default: null },
     /** When this entry was served. */
     servedAt: { type: Date, default: null },
+    /** Booking this entry came from (checked-in appointment). */
+    appointment: { type: mongoose.Schema.Types.ObjectId, ref: "Appointment", default: null },
+    /** Booked slot start. Set only for appointment entries; drives the appointment lane. */
+    appointmentAt: { type: Date, default: null },
     /** How an app join arrived: "qr" from a printed poster / kiosk QR, otherwise "app". */
     joinSource: { type: String, enum: ["app", "qr"], default: "app" },
   },

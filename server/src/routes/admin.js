@@ -39,6 +39,14 @@ import {
 } from "../services/servingDeadline.js";
 import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing, reconcileCounterServing } from "../services/counters.js";
 import { rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
+import { Appointment } from "../models/Appointment.js";
+import {
+  BOOKING_ERRORS,
+  checkInAppointment,
+  expireMissedAppointments,
+  listQueueAppointments,
+  toAppointmentJSON,
+} from "../services/appointments.js";
 import {
   addCounter,
   createQueue as createCatalogQueue,
@@ -131,6 +139,7 @@ function toWaitingRow(entry, position, { paused = false, queue = null } = {}) {
     isGuest,
     joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
     returning: Boolean(entry.returning),
+    appointmentAt: entry.appointmentAt ? new Date(entry.appointmentAt).toISOString() : null,
     ...priorityFieldsForJson(entry),
     ...servingFieldsForJson(entry, { paused, queue }),
   };
@@ -156,6 +165,7 @@ async function loadQueueOr404(queueId, res, user) {
   // Lazy auto-close when past bound session end; also skip expired no-shows.
   await ensureQueueSessionState(queue);
   await expireNoShowCalls({ queueId: queue._id });
+  await expireMissedAppointments(queue);
   if (ensureDefaultCounters(queue)) {
     await queue.save();
   }
@@ -332,6 +342,52 @@ router.post("/queues/:queueId/call", requireAuth, requireAdmin, async (req, res,
   }
 });
 
+
+/**
+ * GET /api/admin/queues/:queueId/appointments?date=YYYY-MM-DD — bookings for a campus day.
+ */
+router.get("/queues/:queueId/appointments", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    const date = typeof req.query?.date === "string" ? req.query.date : null;
+    return res.status(200).json(await listQueueAppointments(queue, date));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/queues/:queueId/appointments/:appointmentId/check-in — staff check a booker in at the desk.
+ */
+router.post(
+  "/queues/:queueId/appointments/:appointmentId/check-in",
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+      if (!queue) return;
+      const { appointmentId } = req.params;
+      const appointment = mongoose.isValidObjectId(appointmentId)
+        ? await Appointment.findOne({ _id: appointmentId, queue: queue._id })
+        : null;
+      if (!appointment) return res.status(404).json({ error: BOOKING_ERRORS.notFound });
+      const result = await checkInAppointment(queue, appointment, { by: "staff" });
+      if (!result.ok) return res.status(result.status).json({ error: result.error });
+      await writeAudit(req, {
+        action: "appointment-checkin",
+        queue,
+        meta: { tokenNumber: result.entry.tokenNumber },
+      });
+      return res.status(200).json({
+        appointment: toAppointmentJSON(result.appointment, { queue, entry: result.entry }),
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
 
 /**
  * POST /api/admin/queues/:queueId/entries/:entryId/priority
@@ -1178,6 +1234,10 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       priorityEveryK: req.body?.priorityEveryK,
       equivalentGroup: req.body?.equivalentGroup,
       guestJoin: req.body?.guestJoin,
+      appointmentsEnabled: req.body?.appointmentsEnabled,
+      slotMinutes: req.body?.slotMinutes,
+      slotCapacity: req.body?.slotCapacity,
+      slotGraceMinutes: req.body?.slotGraceMinutes,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     await writeAudit(req, {

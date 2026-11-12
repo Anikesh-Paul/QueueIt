@@ -1,3 +1,4 @@
+import { formatCampusClockTime } from "@/lib/campus-time";
 import { Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -110,6 +111,14 @@ export function AdminWaitingList({
                                   data-testid="waiting-here-badge"
                                 >
                                   Here
+                                </span>
+                              ) : null}
+                              {entry.appointmentAt ? (
+                                <span
+                                  className="shrink-0 rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold text-info-ink"
+                                  data-testid="waiting-booked-badge"
+                                >
+                                  Booked · {formatCampusClockTime(entry.appointmentAt)}
                                 </span>
                               ) : null}
                               {entry.returning ? (

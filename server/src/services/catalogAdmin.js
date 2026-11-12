@@ -1,3 +1,4 @@
+import { applyAppointmentSettings } from "./appointments.js";
 import { Venue } from "../models/Venue.js";
 import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
@@ -402,6 +403,8 @@ export async function updateQueue(queue, patch = {}) {
     }
     queue.guestJoin = patch.guestJoin;
   }
+  const booking = applyAppointmentSettings(queue, patch);
+  if (booking.error) return { ok: false, status: 400, error: booking.error };
   if (patch.maxWaiting !== undefined) {
     const cap = normalizeMaxWaiting(patch.maxWaiting);
     if (cap.error) return { ok: false, status: 400, error: cap.error };

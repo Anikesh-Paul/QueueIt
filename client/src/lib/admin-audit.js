@@ -16,6 +16,8 @@ const ACTION_LABELS = {
   "priority-approve": "Approved a priority request",
   "priority-reject": "Declined a priority request",
   "priority-request": "Requested priority",
+  "appointment-book": "Booked a time",
+  "appointment-checkin": "Checked in a booking",
 };
 
 export function auditActionLabel(action) {
@@ -31,5 +33,13 @@ export function auditMetaLine(event) {
   if (meta.email) parts.push(meta.email);
   if (meta.maxWaiting != null) parts.push(`cap ${meta.maxWaiting || "none"}`);
   if (meta.reason) parts.push(meta.reason);
+  if (meta.slotStart) {
+    const at = new Date(meta.slotStart);
+    if (!Number.isNaN(at.getTime())) {
+      parts.push(
+        `slot ${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(at)}`
+      );
+    }
+  }
   return parts.join(" · ");
 }

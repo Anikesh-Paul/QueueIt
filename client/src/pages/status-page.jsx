@@ -20,6 +20,7 @@ import { ShellContent } from "@/components/shell/shell-content";
 import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
 import {
+  formatCampusClockTime,
   formatCampusDateTime,
   formatPaceLine,
   presentLiveEta,
@@ -469,6 +470,11 @@ export function StatusPage() {
               hero
               testId="token-number"
             />
+            {liveStatus.appointmentAt ? (
+              <p className="text-sm font-medium text-info-ink" data-testid="status-booked-for">
+                {t("book.bookedFor", { time: formatCampusClockTime(liveStatus.appointmentAt, locale) })}
+              </p>
+            ) : null}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
               <StatusMetric label={t("status.position")} value={isCalled ? t("status.called") : isMissed ? "—" : liveStatus.position} testId="position" />
               <StatusMetric

@@ -254,6 +254,7 @@ export function AppProvider({ children }) {
     leaveBusy: student.leaveBusy,
     leaveError: student.leaveError,
     join: student.join,
+    adoptMembership: student.adoptMembership,
     leave: student.leave,
     refreshStatus: student.refreshStatus,
     historyEvents: student.historyEvents,

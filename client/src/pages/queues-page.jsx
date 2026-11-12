@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/context/i18n-context";
 import { staffCanManageQueue } from "@/lib/staff-access";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
+import { fetchMyAppointments } from "@/api";
+import { formatBookingWhen } from "@/lib/appointments";
 
 /**
  * Queue catalog — joinable queues for the seeded venue.
@@ -51,6 +53,25 @@ export function QueuesPage() {
     return staffCanManageQueue(user, queue);
   }
   const [searchParams] = useSearchParams();
+  const [myBookings, setMyBookings] = useState([]);
+
+  useEffect(() => {
+    if (!token || isAdmin) {
+      setMyBookings([]);
+      return;
+    }
+    let cancelled = false;
+    fetchMyAppointments(token)
+      .then((data) => {
+        if (!cancelled) setMyBookings(data.appointments || []);
+      })
+      .catch(() => {
+        if (!cancelled) setMyBookings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isAdmin]);
 
   useEffect(() => {
     const target = searchParams.get("join");
@@ -268,6 +289,14 @@ export function QueuesPage() {
                         : t("queue.inLine")}
                     </span>
                   ) : null}
+                  {myBookings
+                    .filter((row) => row.queueId === queue.id && row.status === "booked")
+                    .slice(0, 1)
+                    .map((mine) => (
+                      <span key={mine.id} data-testid="queue-my-booking" className="mt-1 text-sm font-medium text-info-ink">
+                        {t("book.bookedLine", { time: formatBookingWhen(mine.slotStart, locale) })}
+                      </span>
+                    ))}
                   {describeTodayException(queue.serviceExceptions, new Date(), locale) ? (
                     <span data-testid="queue-holiday-hours" className="text-sm text-text-secondary">
                       {describeTodayException(queue.serviceExceptions, new Date(), locale)}
@@ -326,6 +355,18 @@ export function QueuesPage() {
               {t("queue.viewPlace", { name: selected.name })}
             </Button>
           ) : (
+            <>
+            {selected.appointments?.enabled ? (
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => navigate(`/book/${selected.id}`)}
+                data-testid="book-time"
+                className="w-full sm:w-auto"
+              >
+                {t("book.cta")}
+              </Button>
+            ) : null}
             <Button
               size="lg"
               onClick={handleJoin}
@@ -346,6 +387,7 @@ export function QueuesPage() {
                     ? t("queue.full", { name: selected.name })
                     : t("queue.join", { name: selected.name })}
             </Button>
+            </>
           )}
         </div>
       )}

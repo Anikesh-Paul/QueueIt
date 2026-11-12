@@ -12,6 +12,7 @@ import { AdminPosterQr } from "@/components/admin/admin-poster-qr";
 import { AdminCounters } from "@/components/admin/admin-counters";
 import { AdminResetDangerZone } from "@/components/admin/admin-reset-danger-zone";
 import { AdminAuditPanel } from "@/components/admin/admin-audit-panel";
+import { AdminAppointments } from "@/components/admin/admin-appointments";
 
 /**
  * Admin console — medium-density waiting list + operate | Check arrival (lg+).
@@ -129,6 +130,12 @@ export function AdminConsolePage() {
               adminExtend={adminExtend}
               adminMarkPriority={adminMarkPriority}
               adminDecidePriorityRequest={adminDecidePriorityRequest}
+            />
+            <AdminAppointments
+              token={token}
+              queueId={queueId}
+              refreshKey={waitingList.length}
+              onCheckedIn={() => openAdminConsole(queueId)}
             />
             <AdminServiceWindows
               queueId={queueId}

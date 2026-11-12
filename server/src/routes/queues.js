@@ -21,6 +21,17 @@ import { attachEquivalentSuggestions } from "../services/equivalentQueues.js";
 import { attachQuietHints } from "../services/bestTime.js";
 import { toBoardJSON } from "../services/queueBoard.js";
 import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
+import { Appointment } from "../models/Appointment.js";
+import {
+  BOOKING_ERRORS,
+  bookSlot,
+  cancelBooking,
+  checkInAppointment,
+  expireMissedAppointments,
+  listMyAppointments,
+  listSlots,
+  toAppointmentJSON,
+} from "../services/appointments.js";
 import { checkExistingGuest, checkGuestMint, GUEST_JOIN_DISABLED, networkHashOf } from "../services/guestLimits.js";
 // Register Venue model so Queue.populate("venue") resolves at runtime.
 import "../models/Venue.js";
@@ -216,6 +227,138 @@ router.get("/active", attachJoiner, requireJoiner, async (req, res, next) => {
   }
 });
 
+
+/**
+ * GET /api/queues/appointments/mine — the signed-in user's live bookings.
+ * Registered before /:queueId routes so "appointments" is not parsed as an id.
+ */
+router.get("/appointments/mine", attachJoiner, async (req, res, next) => {
+  try {
+    if (!req.user) return res.status(200).json({ appointments: [] });
+    return res.status(200).json({ appointments: await listMyAppointments(req.user._id) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+async function loadBookableQueue(queueId, res) {
+  if (!mongoose.isValidObjectId(queueId)) {
+    res.status(404).json({ error: "Queue not found" });
+    return null;
+  }
+  const queue = await Queue.findOne({ _id: queueId, archivedAt: null });
+  if (!queue) {
+    res.status(404).json({ error: "Queue not found" });
+    return null;
+  }
+  await expireMissedAppointments(queue);
+  return queue;
+}
+
+async function loadOwnAppointment(queue, req, res) {
+  const { appointmentId } = req.params;
+  if (!mongoose.isValidObjectId(appointmentId)) {
+    res.status(404).json({ error: BOOKING_ERRORS.notFound });
+    return null;
+  }
+  const appointment = await Appointment.findOne({
+    _id: appointmentId,
+    queue: queue._id,
+    user: req.user._id,
+  });
+  if (!appointment) {
+    res.status(404).json({ error: BOOKING_ERRORS.notFound });
+    return null;
+  }
+  return appointment;
+}
+
+function requireBookingUser(req, res) {
+  if (!req.user) {
+    res.status(401).json({ error: BOOKING_ERRORS.guest, code: "sign-in-to-book" });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * GET /api/queues/:queueId/slots?date=YYYY-MM-DD — public slot grid for a campus day.
+ */
+router.get("/:queueId/slots", attachJoiner, async (req, res, next) => {
+  try {
+    const queue = await loadBookableQueue(req.params.queueId, res);
+    if (!queue) return;
+    const grid = await listSlots(queue, typeof req.query?.date === "string" ? req.query.date : null);
+    let booking = null;
+    if (req.user) {
+      const mine = await Appointment.findOne({
+        queue: queue._id,
+        user: req.user._id,
+        status: { $in: ["booked", "checked-in"] },
+      }).populate("entry");
+      if (mine && !(mine.status === "checked-in" && !["waiting", "serving"].includes(mine.entry?.status))) {
+        booking = toAppointmentJSON(mine, { queue, entry: mine.entry });
+      }
+    }
+    return res.status(200).json({ queue: { id: queue._id.toString(), name: queue.name }, ...grid, booking });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/** POST /api/queues/:queueId/appointments — body { start } (ISO slot start). */
+router.post("/:queueId/appointments", attachJoiner, async (req, res, next) => {
+  try {
+    if (!requireBookingUser(req, res)) return;
+    const queue = await loadBookableQueue(req.params.queueId, res);
+    if (!queue) return;
+    const result = await bookSlot(queue, req.user, req.body?.start);
+    if (!result.ok) return res.status(result.status).json({ error: result.error, ...(result.body || {}) });
+    await recordAdminAudit({
+      actor: req.user,
+      action: "appointment-book",
+      queue,
+      meta: { slotStart: result.appointment.slotStart.toISOString() },
+    });
+    return res.status(201).json({ appointment: toAppointmentJSON(result.appointment, { queue }) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/** POST /api/queues/:queueId/appointments/:appointmentId/cancel */
+router.post("/:queueId/appointments/:appointmentId/cancel", attachJoiner, async (req, res, next) => {
+  try {
+    if (!requireBookingUser(req, res)) return;
+    const queue = await loadBookableQueue(req.params.queueId, res);
+    if (!queue) return;
+    const appointment = await loadOwnAppointment(queue, req, res);
+    if (!appointment) return;
+    const result = await cancelBooking(queue, appointment);
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.status(200).json({ appointment: toAppointmentJSON(result.appointment, { queue }) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/** POST /api/queues/:queueId/appointments/:appointmentId/check-in — returns live status. */
+router.post("/:queueId/appointments/:appointmentId/check-in", attachJoiner, async (req, res, next) => {
+  try {
+    if (!requireBookingUser(req, res)) return;
+    const queue = await loadBookableQueue(req.params.queueId, res);
+    if (!queue) return;
+    const appointment = await loadOwnAppointment(queue, req, res);
+    if (!appointment) return;
+    await ensureQueueSessionState(queue);
+    const result = await checkInAppointment(queue, appointment, { by: "self" });
+    if (!result.ok) return res.status(result.status).json({ error: result.error, ...(result.body || {}) });
+    const fresh = await Queue.findById(queue._id);
+    return res.status(200).json(await buildStatusPayload(fresh, result.entry));
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /**
  * Resolve active membership for the current joiner (User or Guest).

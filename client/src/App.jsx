@@ -21,6 +21,7 @@ import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
 import { ForgotPasswordPage, ResetPasswordPage } from "@/pages/password-reset-pages";
 import { KioskPage } from "@/pages/kiosk-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
+import { BookPage } from "@/pages/book-page";
 
 const AdminConsolePage = lazy(() =>
   import("@/pages/admin-console-page").then((mod) => ({ default: mod.AdminConsolePage }))
@@ -118,6 +119,7 @@ const router = createBrowserRouter([
                 children: [
                   { path: "status", element: <StatusPage /> },
                   { path: "history", element: <HistoryPage /> },
+                  { path: "book/:queueId", element: <BookPage /> },
                 ],
               },
               {

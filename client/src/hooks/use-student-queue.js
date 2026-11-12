@@ -306,6 +306,17 @@ export function useStudentQueue({
     [joinerAuth, user?.role, refreshStatus, persistGuestCredential]
   );
 
+  /** Adopt a status payload from another entry path (e.g. booking check-in). */
+  const adoptMembership = useCallback((data) => {
+    const queueId = data?.queue?.id;
+    if (!queueId) return;
+    setLiveStatus(data);
+    setStatusQueueId(queueId);
+    setActiveMemberships((list) => [...list.filter((row) => row.queue?.id !== queueId), data]);
+    setStatusLastUpdatedAt(Date.now());
+    setStatusError("");
+  }, []);
+
   const leave = useCallback(async () => {
     const auth = joinerAuth();
     if ((!auth.token && !auth.guestCredential) || !statusQueueId) return false;
@@ -390,6 +401,7 @@ export function useStudentQueue({
     leaveBusy,
     leaveError,
     join,
+    adoptMembership,
     leave,
     refreshStatus,
     historyEvents,

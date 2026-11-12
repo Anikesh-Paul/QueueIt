@@ -8,6 +8,7 @@ import { useApp, SOFT_UPGRADE_POST_LEAVE_KEY } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
+import { FeedbackPrompt } from "@/components/feedback/feedback-prompt";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { describeTodayException } from "@/lib/service-exceptions";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
@@ -148,6 +149,8 @@ export function QueuesPage() {
           {t("common.refresh")}
         </Button>
       </header>
+
+      <FeedbackPrompt />
 
       {isGuest && showPostLeaveUpgrade ? (
         <div className="mb-5" data-testid="soft-upgrade-post-leave">

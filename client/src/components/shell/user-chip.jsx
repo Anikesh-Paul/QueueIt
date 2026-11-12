@@ -62,7 +62,7 @@ export function UserChip({ user, className, softUpgrade = false }) {
       </span>
       <span
         data-testid="identity-name"
-        className="max-w-[7rem] truncate text-sm font-medium text-foreground sm:max-w-32"
+        className="max-w-[7rem] truncate text-sm font-medium text-foreground max-[419px]:sr-only sm:max-w-32"
       >
         {label}
       </span>

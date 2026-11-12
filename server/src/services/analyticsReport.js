@@ -10,6 +10,7 @@ import { Queue } from "../models/Queue.js";
 import { Venue } from "../models/Venue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { now as clockNow } from "./clock.js";
+import { feedbackSummary } from "./feedback.js";
 import {
   canAccessQueue,
   isGlobalAdmin,
@@ -238,8 +239,12 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
   const peak = hourly.reduce((best, h) => (h.served > best.served ? h : best), { hour: null, served: 0 });
   const busiestDay = [...daily.values()].reduce((best, d) => (d.served > best.served ? d : best), { date: null, served: 0 });
 
+  const ratings = await feedbackSummary(queueIds, range);
+  const queueNames = new Map(scope.queues.map((q) => [String(q._id), q.name]));
+
   const queueRows = scope.queues.map((queue) => {
     const s = perQueue.get(String(queue._id));
+    const r = ratings.byQueue.get(String(queue._id));
     const qWait = s.waits.reduce((a, b) => a + b, 0);
     return {
       id: String(queue._id),
@@ -251,6 +256,8 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       noShowRate: noShowRate(s.served, s.noShows),
       averageWaitMinutes: s.served ? round1(qWait / s.served) : null,
       p90WaitMinutes: s.served ? round1(percentile(s.waits, 90)) : null,
+      ratings: r?.ratings ?? 0,
+      averageRating: r?.averageRating ?? null,
     };
   });
 
@@ -272,6 +279,8 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
         averageServedPerDay: round1(served / range.days.length),
         peakHour: peak.served ? peak.hour : null,
         busiestDay: busiestDay.served ? { date: busiestDay.date, served: busiestDay.served } : null,
+        ratings: ratings.totals.ratings,
+        averageRating: ratings.totals.averageRating,
       },
       daily: [...daily.values()].map((d) => ({
         date: d.date,
@@ -282,6 +291,10 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       })),
       hourly,
       queues: queueRows,
+      counters: ratings.counters
+        .map((row) => ({ ...row, queue: queueNames.get(row.queueId) || null }))
+        .sort((a, b) => (a.queue || "").localeCompare(b.queue || "") || a.counter.localeCompare(b.counter)),
+      comments: ratings.comments.map((row) => ({ ...row, queue: queueNames.get(row.queueId) || null })),
     },
   };
 }
@@ -299,7 +312,19 @@ function pct(rate) {
 
 /** Report payload → CSV with a leading `section` column (summary, daily, hourly, queue). */
 export function formatAnalyticsReportCsv(payload) {
-  const header = ["section", "label", "venue", "served", "no_shows", "left", "no_show_rate_pct", "avg_wait_min", "p90_wait_min"];
+  const header = [
+    "section",
+    "label",
+    "venue",
+    "served",
+    "no_shows",
+    "left",
+    "no_show_rate_pct",
+    "avg_wait_min",
+    "p90_wait_min",
+    "ratings",
+    "avg_rating",
+  ];
   const lines = [header.join(",")];
   const push = (cells) => lines.push(cells.map(csvCell).join(","));
   const t = payload.totals;
@@ -313,15 +338,32 @@ export function formatAnalyticsReportCsv(payload) {
     pct(t.noShowRate),
     t.averageWaitMinutes ?? "",
     t.p90WaitMinutes ?? "",
+    t.ratings ?? 0,
+    t.averageRating ?? "",
   ]);
   for (const d of payload.daily) {
-    push(["daily", d.date, "", d.served, d.noShows, d.left, pct(noShowRate(d.served, d.noShows)), d.averageWaitMinutes ?? "", ""]);
+    push(["daily", d.date, "", d.served, d.noShows, d.left, pct(noShowRate(d.served, d.noShows)), d.averageWaitMinutes ?? "", "", "", ""]);
   }
   for (const h of payload.hourly) {
-    push(["hourly", `${String(h.hour).padStart(2, "0")}:00 IST`, "", h.served, "", "", "", "", ""]);
+    push(["hourly", `${String(h.hour).padStart(2, "0")}:00 IST`, "", h.served, "", "", "", "", "", "", ""]);
   }
   for (const q of payload.queues) {
-    push(["queue", q.name, q.venue || "", q.served, q.noShows, q.left, pct(q.noShowRate), q.averageWaitMinutes ?? "", q.p90WaitMinutes ?? ""]);
+    push([
+      "queue",
+      q.name,
+      q.venue || "",
+      q.served,
+      q.noShows,
+      q.left,
+      pct(q.noShowRate),
+      q.averageWaitMinutes ?? "",
+      q.p90WaitMinutes ?? "",
+      q.ratings ?? 0,
+      q.averageRating ?? "",
+    ]);
+  }
+  for (const c of payload.counters || []) {
+    push(["counter", `${c.queue || ""} · ${c.counter}`, "", "", "", "", "", "", "", c.ratings, c.averageRating ?? ""]);
   }
   return `${lines.join("\n")}\n`;
 }

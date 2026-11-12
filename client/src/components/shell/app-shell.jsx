@@ -138,7 +138,7 @@ export function AppShell() {
             >
               {navItems}
             </nav>
-            <div className="ml-auto flex shrink-0 items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
               <ThemeToggle />
               <LanguageToggle />
               <UserChip user={identity} softUpgrade={guestSoftUpgrade} />

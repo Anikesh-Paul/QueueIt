@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
@@ -9,6 +9,8 @@ import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/context/i18n-context";
+import { FeedbackForm, RatingStars } from "@/components/feedback/feedback-form";
+import { canRateVisit } from "@/lib/feedback";
 
 function formatOutcomeLabel(outcome, t) {
   if (!outcome) return "—";
@@ -36,6 +38,9 @@ export function HistoryPage() {
     historyLoadingMore,
     loadHistory,
   } = useApp();
+  const [ratingOpen, setRatingOpen] = useState(null);
+  const [rated, setRated] = useState({});
+  const [nowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (token || guestCredential) {
@@ -135,6 +140,16 @@ export function HistoryPage() {
                   locale
                 )}
               </p>
+              <HistoryRating
+                event={event}
+                rating={rated[event.id] ?? event.feedback?.rating ?? null}
+                open={ratingOpen === event.id}
+                canRate={canRateVisit(event, nowMs) && rated[event.id] == null}
+                onOpen={() => setRatingOpen(event.id)}
+                onClose={() => setRatingOpen(null)}
+                onRated={(value) => setRated((map) => ({ ...map, [event.id]: value }))}
+                t={t}
+              />
             </li>
           ))}
         </ul>
@@ -174,4 +189,32 @@ function outcomeTone(outcome) {
     default:
       return "bg-secondary text-text-secondary";
   }
+}
+
+function HistoryRating({ event, rating, open, canRate, onOpen, onClose, onRated, t }) {
+  if (rating) {
+    return (
+      <p className="mt-2 flex items-center gap-2 text-xs text-text-secondary" data-testid="history-rated">
+        <RatingStars rating={rating} />
+      </p>
+    );
+  }
+  if (!canRate) return null;
+  if (!open) {
+    return (
+      <Button variant="link" size="sm" className="mt-1 h-auto px-0 text-sm" onClick={onOpen} data-testid="history-rate">
+        {t("feedback.rate")}
+      </Button>
+    );
+  }
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <FeedbackForm
+        visit={{ entryId: event.id }}
+        testId="history-feedback"
+        onSubmitted={(value) => onRated(value)}
+        onDismiss={onClose}
+      />
+    </div>
+  );
 }

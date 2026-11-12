@@ -29,7 +29,7 @@ test("admin analytics: presets, custom range validation and CSV export", async (
   const file = await download;
   expect(file.suggestedFilename()).toBe("queueit-report-2026-11-01-to-2026-11-07.csv");
   const text = fs.readFileSync(await file.path(), "utf8");
-  expect(text.split("\n")[0]).toBe("section,label,venue,served,no_shows,left,no_show_rate_pct,avg_wait_min,p90_wait_min");
+  expect(text.split("\n")[0]).toBe("section,label,venue,served,no_shows,left,no_show_rate_pct,avg_wait_min,p90_wait_min,ratings,avg_rating");
   expect(text.match(/^daily,/gm)).toHaveLength(7);
 });
 

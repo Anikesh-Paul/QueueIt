@@ -461,7 +461,7 @@ export function CampusAnalyticsPage() {
                   role="region"
                   aria-label="Queue breakdown table"
                 >
-                  <table className="w-full min-w-[560px] text-sm" data-testid="campus-analytics-queues">
+                  <table className="w-full min-w-[640px] text-sm" data-testid="campus-analytics-queues">
                     <thead className="bg-secondary/60 text-left text-xs text-text-muted">
                       <tr>
                         <th scope="col" className="px-5 py-2 font-medium">Queue</th>
@@ -469,7 +469,8 @@ export function CampusAnalyticsPage() {
                         <th scope="col" className="px-3 py-2 font-medium">Average wait</th>
                         <th scope="col" className="px-3 py-2 text-right font-medium">90th pct</th>
                         <th scope="col" className="px-3 py-2 text-right font-medium">No-shows</th>
-                        <th scope="col" className="px-5 py-2 text-right font-medium">No-show rate</th>
+                        <th scope="col" className="px-3 py-2 text-right font-medium">No-show rate</th>
+                        <th scope="col" className="px-5 py-2 text-right font-medium">Rating</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -493,7 +494,10 @@ export function CampusAnalyticsPage() {
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-text-secondary">{formatMinutes(row.p90WaitMinutes)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">{row.noShows}</td>
-                          <td className="px-5 py-2.5 text-right"><RateCell rate={row.noShowRate} /></td>
+                          <td className="px-3 py-2.5 text-right"><RateCell rate={row.noShowRate} /></td>
+                          <td className="px-5 py-2.5 text-right tabular-nums" data-testid="analytics-queue-rating">
+                            <RatingCell average={row.averageRating} count={row.ratings} />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -501,9 +505,94 @@ export function CampusAnalyticsPage() {
                 </div>
               )}
             </Panel>
+
+            <RatingsPanel totals={totals} counters={data.counters || []} comments={data.comments || []} multiQueue={!queueLabel} year={year} />
           </div>
         ) : null}
       </ShellContent>
     </>
+  );
+}
+
+function RatingCell({ average, count }) {
+  if (!count) return <span className="text-text-muted">—</span>;
+  return (
+    <span className="inline-flex items-baseline gap-1">
+      <span className="font-medium text-foreground">{average.toFixed(1)}</span>
+      <span className="text-xs text-text-muted">({count})</span>
+    </span>
+  );
+}
+
+function ratingTone(average) {
+  if (average == null) return "text-text-muted";
+  if (average < 3) return "text-danger-ink";
+  if (average < 4) return "text-warning-ink";
+  return "text-success";
+}
+
+/** Ratings left after service: per counter, plus the latest comments. */
+function RatingsPanel({ totals, counters, comments, multiQueue, year }) {
+  const subtitle = totals.ratings
+    ? `${totals.averageRating.toFixed(1)} average from ${totals.ratings.toLocaleString("en-IN")} ${totals.ratings === 1 ? "rating" : "ratings"}`
+    : "Ratings people leave after they're served";
+  return (
+    <Panel title="Service ratings" subtitle={subtitle} testId="analytics-ratings">
+      {!totals.ratings ? (
+        <p className="px-5 py-8 text-center text-sm text-text-muted" data-testid="analytics-ratings-empty">
+          No ratings in this range yet.
+        </p>
+      ) : (
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:divide-x lg:divide-border">
+          <div className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-ring/40" tabIndex={0} role="region" aria-label="Ratings by counter">
+            <table className="w-full min-w-[420px] text-sm" data-testid="analytics-counter-ratings">
+              <thead className="bg-secondary/60 text-left text-xs text-text-muted">
+                <tr>
+                  <th scope="col" className="px-5 py-2 font-medium">Counter</th>
+                  <th scope="col" className="px-3 py-2 text-right font-medium">Ratings</th>
+                  <th scope="col" className="px-3 py-2 text-right font-medium">Average</th>
+                  <th scope="col" className="px-5 py-2 text-right font-medium">1–2 stars</th>
+                </tr>
+              </thead>
+              <tbody>
+                {counters.map((row) => (
+                  <tr key={`${row.queueId}:${row.counter}`} className="border-t border-border">
+                    <th scope="row" className="px-5 py-2.5 text-left font-medium text-foreground">
+                      {row.counter}
+                      {multiQueue && row.queue ? <span className="block text-xs font-normal text-text-muted">{row.queue}</span> : null}
+                    </th>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{row.ratings}</td>
+                    <td className={cn("px-3 py-2.5 text-right font-medium tabular-nums", ratingTone(row.averageRating))}>
+                      {row.averageRating?.toFixed(1) ?? "—"}
+                    </td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-text-secondary">{row.lowRatings}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="border-t border-border px-5 py-4 lg:border-t-0" data-testid="analytics-comments">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-text-muted">Latest comments</h3>
+            {comments.length === 0 ? (
+              <p className="mt-3 text-sm text-text-muted">No written comments yet.</p>
+            ) : (
+              <ul className="mt-2 flex flex-col divide-y divide-border">
+                {comments.map((row, index) => (
+                  <li key={`${row.createdAt}-${index}`} className="py-2.5">
+                    <p className="text-sm text-foreground">“{row.comment}”</p>
+                    <p className="mt-1 text-xs text-text-muted">
+                      <span className={cn("font-semibold", ratingTone(row.rating))}>{row.rating}/5</span>
+                      {" · "}
+                      {[row.queue, row.counter].filter(Boolean).join(" · ")}
+                      {row.createdAt ? ` · ${formatShortDate(campusDate(new Date(row.createdAt)), year)}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 }

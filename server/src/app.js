@@ -12,6 +12,7 @@ export const JSON_BODY_LIMIT = "16kb";
 
 const DEFAULT_AUTH_RATE = { windowMs: 15 * 60 * 1000, max: 20 };
 const DEFAULT_JOIN_RATE = { windowMs: 15 * 60 * 1000, max: 30 };
+const DEFAULT_FEEDBACK_RATE = { windowMs: 15 * 60 * 1000, max: 10 };
 
 function tooManyAttempts(req, res, _next, options) {
   res.status(options.statusCode).json({ error: "Too many attempts, try again later" });
@@ -46,6 +47,7 @@ function buildLimiter(kind, defaults, override) {
  *   rateLimit?: false,
  *   authRateLimit?: { windowMs?: number, max?: number },
  *   joinRateLimit?: { windowMs?: number, max?: number },
+ *   feedbackRateLimit?: { windowMs?: number, max?: number },
  * }} [options]
  */
 /**
@@ -88,6 +90,8 @@ export function createApp(options = {}) {
   if (options.rateLimit !== false) {
     const authLimiter = buildLimiter("auth", DEFAULT_AUTH_RATE, options.authRateLimit);
     const joinLimiter = buildLimiter("join", DEFAULT_JOIN_RATE, options.joinRateLimit);
+    const feedbackLimiter = buildLimiter("feedback", DEFAULT_FEEDBACK_RATE, options.feedbackRateLimit);
+    app.post("/api/queues/feedback", feedbackLimiter);
     app.post("/api/auth/register", authLimiter);
     app.post("/api/auth/login", authLimiter);
     app.post("/api/auth/forgot-password", authLimiter);

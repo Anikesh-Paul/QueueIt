@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { cleanTravelMinutes, MAX_TRAVEL_MINUTES } from "../services/leaveAlert.js";
+import { feedbackByEntry, pendingFeedback, submitFeedback } from "../services/feedback.js";
 import mongoose from "mongoose";
 import { attachJoiner, requireJoiner, GUEST_CREDENTIAL_HEADER } from "../middleware/auth.js";
 import { Guest } from "../models/Guest.js";
@@ -172,12 +173,44 @@ router.get("/history", attachJoiner, requireJoiner, async (req, res, next) => {
     const page = hasMore ? entries.slice(0, limit) : entries;
     const last = page[page.length - 1];
 
+    const ratings = await feedbackByEntry(page.filter((e) => e.status === "served").map((e) => e._id));
     return res.status(200).json({
-      events: page.map((entry) => toHistoryEvent(entry)),
+      events: page.map((entry) => {
+        const event = toHistoryEvent(entry);
+        if (entry.status === "served") event.feedback = ratings.get(String(entry._id)) || null;
+        return event;
+      }),
       limit,
       hasMore,
       nextCursor: hasMore && last ? historyCursorOf(last) : null,
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * GET /api/queues/feedback/pending — recent served tickets with no rating yet.
+ */
+router.get("/feedback/pending", attachJoiner, requireJoiner, async (req, res, next) => {
+  try {
+    const pending = await pendingFeedback({ user: req.user, guest: req.guest });
+    return res.status(200).json({ pending });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/queues/feedback — rate one served ticket { entryId, rating, comment }.
+ */
+router.post("/feedback", attachJoiner, requireJoiner, async (req, res, next) => {
+  try {
+    const result = await submitFeedback({ user: req.user, guest: req.guest }, req.body || {});
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
+    }
+    return res.status(201).json({ feedback: result.feedback });
   } catch (err) {
     return next(err);
   }

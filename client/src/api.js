@@ -156,6 +156,21 @@ export function setTravelMinutes(token, queueId, minutes, guestCredential) {
   });
 }
 
+/** GET /api/queues/feedback/pending — recent served visits with no rating yet. */
+export function fetchPendingFeedback(token, guestCredential) {
+  return apiRequest("/api/queues/feedback/pending", { token, guestCredential });
+}
+
+/** POST /api/queues/feedback — one 1–5 rating (and optional comment) per served ticket. */
+export function sendFeedback(token, { entryId, rating, comment }, guestCredential) {
+  return apiRequest("/api/queues/feedback", {
+    method: "POST",
+    token,
+    guestCredential,
+    body: { entryId, rating, comment },
+  });
+}
+
 /** POST /api/queues/:queueId/rejoin — recover a missed (skipped) turn once. */
 export function rejoinQueue(token, queueId, guestCredential) {
   return apiRequest(`/api/queues/${queueId}/rejoin`, {

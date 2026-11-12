@@ -243,10 +243,10 @@ describe("GET /api/admin/analytics/report", () => {
     assert.match(res.headers["content-type"], /text\/csv/);
     assert.match(res.headers["content-disposition"], /queueit-report-2026-11-06-to-2026-11-12\.csv/);
     const lines = res.text.trim().split("\n");
-    assert.equal(lines[0], "section,label,venue,served,no_shows,left,no_show_rate_pct,avg_wait_min,p90_wait_min");
-    assert.equal(lines[1], "summary,2026-11-06 to 2026-11-12,All venues,3,1,1,25.0,7.3,10");
-    assert.ok(lines.includes("daily,2026-11-11,,2,1,0,33.3,6,"));
-    assert.ok(lines.includes("hourly,10:00 IST,,2,,,,,"));
+    assert.equal(lines[0], "section,label,venue,served,no_shows,left,no_show_rate_pct,avg_wait_min,p90_wait_min,ratings,avg_rating");
+    assert.equal(lines[1], "summary,2026-11-06 to 2026-11-12,All venues,3,1,1,25.0,7.3,10,0,");
+    assert.ok(lines.includes("daily,2026-11-11,,2,1,0,33.3,6,,,"));
+    assert.ok(lines.includes("hourly,10:00 IST,,2,,,,,,,"));
     assert.equal(lines.filter((l) => l.startsWith("daily,")).length, 7);
     assert.equal(lines.filter((l) => l.startsWith("hourly,")).length, 24);
   });

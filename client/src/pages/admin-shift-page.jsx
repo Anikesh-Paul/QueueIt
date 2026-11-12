@@ -10,6 +10,7 @@ import { fetchShiftBoard, shiftAction } from "@/api";
 import { formatCampusClockTime } from "@/lib/campus-time";
 import { ACTION_LABEL, STATE_LABEL, counterActions, effectivePace, staffingSummary } from "@/lib/shifts";
 import { cn } from "@/lib/utils";
+import { paceReadout } from "@/lib/wait-estimate";
 
 const PILL = {
   open: "bg-success/12 text-success",
@@ -194,6 +195,11 @@ export function AdminShiftPage() {
                           {staffingSummary(queue)} · {queue.waiting} waiting
                           {pace ? ` · ~${pace} min each` : ""}
                         </p>
+                        {queue.estimate ? (
+                          <p className="w-full text-xs text-text-muted" data-testid="shift-queue-estimate">
+                            <span className="font-medium text-text-secondary">Pace</span> {paceReadout(queue.estimate)}
+                          </p>
+                        ) : null}
                       </header>
                       <ul className="divide-y divide-border">
                         {queue.counters.map((counter) => {

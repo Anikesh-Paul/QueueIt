@@ -15,6 +15,7 @@ import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { formatCatalogServing } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
+import { catalogWaitLabel } from "@/lib/wait-estimate";
 import { useI18n } from "@/context/i18n-context";
 import { staffCanManageQueue } from "@/lib/staff-access";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
@@ -339,7 +340,14 @@ export function QueuesPage() {
                     </span>
                   </span>
                   <span className="text-sm text-text-muted">
-                    {queue.venue?.name || t("common.venue")} · {t("queue.avgMinutes", { minutes: queue.averageServiceTime })}
+                    {queue.venue?.name || t("common.venue")} ·{" "}
+                    {catalogWaitLabel(queue.waitEstimate, locale) ? (
+                      <span data-testid="queue-wait-estimate" className="font-medium text-text-secondary">
+                        {catalogWaitLabel(queue.waitEstimate, locale)}
+                      </span>
+                    ) : (
+                      t("queue.avgMinutes", { minutes: queue.averageServiceTime })
+                    )}
                     {" · "}
                     <span data-testid="queue-occupancy">{occupancyLine}</span>
                   </span>

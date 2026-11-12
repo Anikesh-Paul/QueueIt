@@ -19,6 +19,7 @@ import { PageToolbar } from "@/components/shell/page-toolbar";
 import { ShellContent } from "@/components/shell/shell-content";
 import { RealtimeIndicator } from "@/components/realtime-indicator";
 import { cn } from "@/lib/utils";
+import { confidenceLabel, estimateBasisLine, formatWaitRange } from "@/lib/wait-estimate";
 import {
   formatCampusClockTime,
   formatCampusDateTime,
@@ -180,6 +181,10 @@ export function StatusPage() {
     paused,
     locale,
   });
+  const showEstimate = !isCalled && !isMissed && !paused;
+  const etaRangeText = showEstimate ? formatWaitRange(liveStatus.etaRange, locale) : null;
+  const basisLine = showEstimate ? estimateBasisLine(liveStatus.etaBasis, { locale, nowMs }) : null;
+  const confidence = showEstimate ? confidenceLabel(liveStatus.etaConfidence, locale) : null;
   const sessionEndsAt = liveStatus.queue?.sessionEndsAt;
   const servingBoard = presentServingBoard(liveStatus.counters, liveStatus.nowServing, locale);
 
@@ -528,7 +533,7 @@ export function StatusPage() {
                         data-testid="eta-minutes"
                         className="text-sm font-medium tracking-normal text-text-muted"
                       >
-                        {etaPresented.secondary}
+                        {etaRangeText ?? etaPresented.secondary}
                       </span>
                     ) : paused ? (
                       <span
@@ -575,6 +580,16 @@ export function StatusPage() {
                 className="text-sm text-text-secondary"
               >
                 {paceLine}
+              </p>
+            ) : null}
+            {basisLine ? (
+              <p
+                data-testid="status-estimate-basis"
+                data-confidence={liveStatus.etaConfidence || undefined}
+                className="-mt-1.5 text-sm text-text-muted"
+              >
+                {confidence ? <span className="font-medium text-text-secondary">{confidence}. </span> : null}
+                {basisLine}
               </p>
             ) : null}
             {!isCalled && !isMissed && liveStatus.countersTotal > 1 && liveStatus.countersOpen < liveStatus.countersTotal ? (

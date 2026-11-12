@@ -312,7 +312,11 @@ export function useStudentQueue({
     if (!queueId) return;
     setLiveStatus(data);
     setStatusQueueId(queueId);
-    setActiveMemberships((list) => [...list.filter((row) => row.queue?.id !== queueId), data]);
+    setActiveMemberships((list) =>
+      list.some((row) => row.queue?.id === queueId)
+        ? list.map((row) => (row.queue?.id === queueId ? data : row))
+        : [...list, data]
+    );
     setStatusLastUpdatedAt(Date.now());
     setStatusError("");
   }, []);

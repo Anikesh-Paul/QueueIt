@@ -31,7 +31,9 @@ import { statusConnectionPresentation } from "@/lib/status-connection";
 import { presentServingBoard } from "@/lib/now-serving";
 import { NotifyControls } from "@/components/status/notify-controls";
 import { useI18n } from "@/context/i18n-context";
-import { acknowledgeArrival, rejoinQueue, requestPriority } from "@/api";
+import { acknowledgeArrival, rejoinQueue, requestPriority, setTravelMinutes } from "@/api";
+import { LeaveNowBanner, LeaveTimeCard } from "@/components/status/leave-time-card";
+import { liveLeave } from "@/lib/leave-alert";
 
 /**
  * Live status — signature student surface.
@@ -60,6 +62,7 @@ export function StatusPage() {
     realtimeConnected,
     activeMemberships,
     selectMembership,
+    adoptMembership,
   } = useAppStatus();
   const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -75,6 +78,8 @@ export function StatusPage() {
   const [priorityBusy, setPriorityBusy] = useState(false);
   const [priorityError, setPriorityError] = useState("");
   const [priorityReason, setPriorityReason] = useState("accessibility");
+  const [travelBusy, setTravelBusy] = useState(false);
+  const [travelError, setTravelError] = useState("");
 
   useEffect(() => {
     if (!inQueue) navigate("/queues", { replace: true });
@@ -151,6 +156,10 @@ export function StatusPage() {
     Number.isInteger(liveStatus.position) &&
     liveStatus.position <= NEAR_FRONT_POSITION_LIMIT;
 
+  const leaveTime = isCalled || isMissed ? null : liveLeave(liveStatus.leave, nowMs);
+  const leaveNow =
+    leaveTime?.state === "now" && !paused && Number.isInteger(liveStatus.position) && liveStatus.position > 1;
+
   const paceLine = isCalled || isMissed
     ? null
     : formatPaceLine(
@@ -174,6 +183,20 @@ export function StatusPage() {
   async function handleLeave() {
     const ok = await leave();
     if (ok) navigate("/queues");
+  }
+
+  async function handleTravelChange(minutes) {
+    if (travelBusy || !statusQueueId) return;
+    setTravelBusy(true);
+    setTravelError("");
+    try {
+      const data = await setTravelMinutes(token, statusQueueId, minutes, guestCredential);
+      adoptMembership?.(data);
+    } catch {
+      setTravelError(t("leave.saveFailed"));
+    } finally {
+      setTravelBusy(false);
+    }
   }
 
   async function handleHere() {
@@ -434,11 +457,19 @@ export function StatusPage() {
           </div>
         )}
 
-        {nearFront && (
+        {leaveNow ? (
+          <div className="mb-4">
+            <LeaveNowBanner
+              etaMinutes={liveStatus.etaMinutes}
+              travelMinutes={liveStatus.travelMinutes}
+              locale={locale}
+            />
+          </div>
+        ) : nearFront ? (
           <div className="mb-4">
             <NearFrontBanner position={liveStatus.position} locale={locale} />
           </div>
-        )}
+        ) : null}
 
         {!isMissed && (
           <PriorityBanner
@@ -541,6 +572,16 @@ export function StatusPage() {
                 {paceLine}
               </p>
             ) : null}
+            <LeaveTimeCard
+              leave={leaveTime}
+              etaMinutes={liveStatus.etaMinutes}
+              travelMinutes={liveStatus.travelMinutes}
+              busy={travelBusy}
+              error={travelError}
+              onTravelChange={handleTravelChange}
+              locale={locale}
+              t={t}
+            />
           </section>
 
           {isMissed ? null : (

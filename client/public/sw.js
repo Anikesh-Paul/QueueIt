@@ -6,7 +6,8 @@
  * - Catalog, active memberships, and queue status GETs: network-first; on
  *   failure, return the last successful response with X-QueueIt-Cache: offline.
  * - Never caches POST/PUT/PATCH/DELETE, auth, admin APIs, or Socket.IO.
- * - Does not implement Web Push. Live polling is unchanged while online.
+ * - Shows queue alerts raised by the page (registration.showNotification) and
+ *   focuses the status page when one is tapped. No server push subscription yet.
  */
 const SHELL_CACHE = "queueit-shell-v1";
 const DATA_CACHE = "queueit-data-v1";
@@ -40,6 +41,24 @@ self.addEventListener("activate", (event) => {
           .map((key) => caches.delete(key))
       );
       await self.clients.claim();
+    })()
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of windows) {
+        if ("focus" in client) {
+          if ("navigate" in client && !new URL(client.url).pathname.startsWith("/status")) {
+            await client.navigate("/status").catch(() => {});
+          }
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow ? self.clients.openWindow("/status") : undefined;
     })()
   );
 });

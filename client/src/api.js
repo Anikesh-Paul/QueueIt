@@ -146,6 +146,16 @@ export function acknowledgeArrival(token, queueId, guestCredential) {
   });
 }
 
+/** POST /api/queues/:queueId/travel — minutes it takes to reach the counter. */
+export function setTravelMinutes(token, queueId, minutes, guestCredential) {
+  return apiRequest(`/api/queues/${queueId}/travel`, {
+    method: "POST",
+    token,
+    guestCredential,
+    body: { minutes },
+  });
+}
+
 /** POST /api/queues/:queueId/rejoin — recover a missed (skipped) turn once. */
 export function rejoinQueue(token, queueId, guestCredential) {
   return apiRequest(`/api/queues/${queueId}/rejoin`, {

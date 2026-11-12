@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { cleanTravelMinutes, MAX_TRAVEL_MINUTES } from "../services/leaveAlert.js";
 import mongoose from "mongoose";
 import { attachJoiner, requireJoiner, GUEST_CREDENTIAL_HEADER } from "../middleware/auth.js";
 import { Guest } from "../models/Guest.js";
@@ -624,6 +625,37 @@ router.post("/:queueId/here", attachJoiner, requireJoiner, async (req, res, next
     }
 
     const payload = await buildStatusPayload(queue, result.entry);
+    return res.status(200).json(payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/queues/:queueId/travel — how long it takes this person to get
+ * to the counter, so the status page can say when to set off.
+ */
+router.post("/:queueId/travel", attachJoiner, requireJoiner, async (req, res, next) => {
+  try {
+    const { queueId } = req.params;
+    if (!mongoose.isValidObjectId(queueId)) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+    const minutes = cleanTravelMinutes(req.body?.minutes);
+    if (minutes == null) {
+      return res.status(400).json({ error: `Travel time must be a whole number of minutes from 0 to ${MAX_TRAVEL_MINUTES}` });
+    }
+    const queue = await Queue.findById(queueId);
+    if (!queue) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+    const entry = await findJoinerActiveEntry(queue._id, req);
+    if (!entry) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+    entry.travelMinutes = minutes;
+    await entry.save();
+    const payload = await buildStatusPayload(queue, entry);
     return res.status(200).json(payload);
   } catch (err) {
     return next(err);

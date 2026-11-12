@@ -22,6 +22,13 @@ test("student logs in, joins a queue, sees live status, and leaves", async ({ pa
   await expect(page.getByTestId("status-metrics")).toBeVisible();
   await expect(page.getByTestId("arrival-token")).toBeVisible();
 
+  // Leave-when-it's-time: default travel time is 10 min and can be changed.
+  const leaveCard = page.getByTestId("leave-card");
+  await expect(leaveCard).toBeVisible();
+  await expect(page.getByTestId("travel-10")).toHaveAttribute("aria-checked", "true");
+  await page.getByTestId("travel-20").click();
+  await expect(page.getByTestId("travel-20")).toHaveAttribute("aria-checked", "true");
+
   await page.getByTestId("leave-queue").click();
   await expect(page.getByTestId("leave-dialog")).toBeVisible();
   await page.getByTestId("leave-confirm").click();

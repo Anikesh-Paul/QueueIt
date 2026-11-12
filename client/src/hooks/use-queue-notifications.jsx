@@ -20,6 +20,8 @@ import {
   subscribeOpenWatch as addOpenWatch,
   writeOpenWatches,
 } from "@/lib/open-queue-watch";
+import { decideLeaveNotification, liveLeave } from "@/lib/leave-alert";
+import { t as translate } from "@/lib/i18n";
 
 const NotifyContext = createContext(null);
 
@@ -45,6 +47,33 @@ function writeFlag(key, value) {
 function currentPermission() {
   if (!isNotificationSupported()) return "unsupported";
   return Notification.permission;
+}
+
+/**
+ * Show a system notification. Prefer the service worker registration so it
+ * works on Android Chrome (where `new Notification` throws) and while the tab
+ * is in the background; fall back to the page Notification API.
+ */
+function showSystemNotification(title, options) {
+  const fallback = () => {
+    try {
+      new Notification(title, options);
+    } catch {
+      // Some WebViews throw even after permission is granted; the banner still shows.
+    }
+  };
+  try {
+    if (typeof navigator !== "undefined" && navigator.serviceWorker?.getRegistration) {
+      navigator.serviceWorker
+        .getRegistration()
+        .then((reg) => (reg?.showNotification ? reg.showNotification(title, options) : fallback()))
+        .catch(fallback);
+      return;
+    }
+  } catch {
+    // fall through
+  }
+  fallback();
 }
 
 function playBeep() {
@@ -77,6 +106,7 @@ function useQueueNotificationState() {
   const [sound, setSound] = useState(() => readFlag(NOTIFY_SOUND_KEY));
   const [vibrate, setVibrate] = useState(() => readFlag(NOTIFY_VIBRATE_KEY, true));
   const lastKeyByQueueRef = useRef(new Map());
+  const lastLeaveKeyRef = useRef(new Map());
   const [openWatches, setOpenWatches] = useState(() => readOpenWatches());
   const previousAcceptingRef = useRef(new Map());
 
@@ -268,6 +298,25 @@ function useQueueNotificationState() {
       } else {
         lastKeyByQueueRef.current.delete(queueId);
       }
+      const leaveDecision = decideLeaveNotification({
+        leave: row.queue?.status === "paused" ? null : liveLeave(row.leave),
+        position: row.position,
+        queueId,
+        tokenNumber: row.tokenNumber,
+        lastKey: lastLeaveKeyRef.current.get(queueId) ?? null,
+      });
+      if (leaveDecision.lastKey) lastLeaveKeyRef.current.set(queueId, leaveDecision.lastKey);
+      if (leaveDecision.fire) {
+        const queue = row.queue?.name || translate(locale, "common.queue");
+        showSystemNotification(translate(locale, "leave.notifyTitle", { queue }), {
+          body: translate(locale, "leave.notifyBody", { eta: Math.max(0, Math.round(row.etaMinutes ?? 0)) }),
+          tag: `queueit:${leaveDecision.key}`,
+        });
+        if (sound) playBeep();
+        if (vibrate && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+          navigator.vibrate([120, 80, 120]);
+        }
+      }
       if (!decision.fire) continue;
       const copy = notificationCopy({
         kind: decision.kind,
@@ -275,14 +324,10 @@ function useQueueNotificationState() {
         queueName: row.queue?.name,
         locale,
       });
-      try {
-        new Notification(copy.title, {
-          body: copy.body,
-          tag: `queueit:${decision.key}`,
-        });
-      } catch {
-        // Some WebViews throw even after permission is granted.
-      }
+      showSystemNotification(copy.title, {
+        body: copy.body,
+        tag: `queueit:${decision.key}`,
+      });
       if (sound) playBeep();
       if (vibrate && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
         navigator.vibrate(200);

@@ -1,6 +1,7 @@
 import { Queue } from "../models/Queue.js";
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "../models/QueueEntry.js";
 import { now as clockNow } from "./clock.js";
+import { leaveFieldsForJson } from "./leaveAlert.js";
 import { sessionFieldsForJson } from "./queueSession.js";
 import { signArrivalPass } from "./arrivalPass.js";
 import { resolveEtaServicePace } from "./recentServicePace.js";
@@ -76,6 +77,7 @@ export async function buildStatusPayload(queue, entry) {
     recoverUntil: until ? until.toISOString() : null,
     returning: Boolean(entry.returning),
     appointmentAt: entry.appointmentAt ? new Date(entry.appointmentAt).toISOString() : null,
+    ...leaveFieldsForJson(entry, { etaMinutes, paused: queue.status === "paused" }),
     ...priorityFieldsForJson(entry),
     ...servingFieldsForJson(entry, { paused: queue.status === "paused", queue }),
     queue: {

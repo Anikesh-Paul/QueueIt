@@ -110,6 +110,8 @@ const queueEntrySchema = new mongoose.Schema(
     appointment: { type: mongoose.Schema.Types.ObjectId, ref: "Appointment", default: null },
     /** Booked slot start. Set only for appointment entries; drives the appointment lane. */
     appointmentAt: { type: Date, default: null },
+    /** Minutes it takes this person to reach the counter; null = default. */
+    travelMinutes: { type: Number, min: 0, max: 120, default: null },
     /** How an app join arrived: "qr" from a printed poster / kiosk QR, otherwise "app". */
     joinSource: { type: String, enum: ["app", "qr"], default: "app" },
   },

@@ -48,7 +48,36 @@ export function countersForJson(queue) {
     name: counter.name || DEFAULT_COUNTER_NAME,
     nowServing: counter.nowServing ?? null,
     lastServed: counter.lastServed ?? null,
+    state: counterState(counter),
+    staffedBy: counter.staffedBy
+      ? { id: counter.staffedBy.toString(), name: counter.staffedByName || null }
+      : null,
+    stateSince: counter.stateSince ? new Date(counter.stateSince).toISOString() : null,
   }));
+}
+
+/** Counter state, treating legacy rows (no field) as open. */
+export function counterState(counter) {
+  const state = counter?.state;
+  return state === "break" || state === "closed" ? state : "open";
+}
+
+export function isCounterOpen(counter) {
+  return counterState(counter) === "open";
+}
+
+/**
+ * How staffing stretches the wait. Pace is measured for the queue as a
+ * whole, so with every counter open the factor is 1 (today's behaviour);
+ * with 1 of 2 open, each place takes twice as long. With none open we
+ * estimate as if one counter comes back.
+ */
+export function staffingFactor(queue) {
+  const list = Array.isArray(queue?.counters) && queue.counters.length ? queue.counters : null;
+  if (!list) return { open: 1, total: 1, factor: 1 };
+  const total = list.length;
+  const open = list.filter(isCounterOpen).length;
+  return { open, total, factor: total / Math.max(1, open) };
 }
 
 export function findCounter(queue, counterId) {
@@ -81,14 +110,32 @@ export function resolveTargetCounter(queue, { counterId, busyIds } = {}) {
     if (!counter) {
       return { ok: false, status: 404, error: "Counter not found" };
     }
+    if (!isCounterOpen(counter)) {
+      const state = counterState(counter);
+      return {
+        ok: false,
+        status: 409,
+        error: state === "break" ? `${counter.name} is on a break` : `${counter.name} is closed`,
+        code: "counter-not-open",
+      };
+    }
     return { ok: true, counter };
   }
-  const free = queue.counters.filter((counter) => !busy.has(counter._id.toString()));
+  const openCounters = queue.counters.filter(isCounterOpen);
+  if (openCounters.length === 0) {
+    return {
+      ok: false,
+      status: 409,
+      error: "No counters are open. Start a shift or reopen a counter first.",
+      code: "no-open-counter",
+    };
+  }
+  const free = openCounters.filter((counter) => !busy.has(counter._id.toString()));
   if (free.length > 0) {
     free.sort((a, b) => assignedAtMs(a) - assignedAtMs(b));
     return { ok: true, counter: free[0] };
   }
-  const onlyOne = queue.counters.length <= 1;
+  const onlyOne = openCounters.length <= 1;
   return {
     ok: false,
     status: 409,

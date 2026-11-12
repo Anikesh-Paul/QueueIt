@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +38,10 @@ export function AdminCounters({
         Counters
       </h2>
       <p className="mt-1 text-sm text-text-secondary">
-        Call and serve can target a counter. Students see which counter is calling them.
+        Call and serve can target a counter. Students see which counter is calling them.{" "}
+        <Link to="/admin/shift" className="font-medium text-primary underline-offset-4 hover:underline" data-testid="counters-shift-link">
+          Breaks and shifts
+        </Link>
       </p>
 
       <ul className="mt-4 flex flex-col gap-3">
@@ -62,8 +66,21 @@ export function AdminCounters({
                   disabled={adminActionBusy}
                   data-testid="counter-name-input"
                 />
-                <p className="mt-1 text-xs text-text-muted">
+                <p className="mt-1 text-xs text-text-muted" data-testid="counter-meta">
                   {`${presentCounterServing(counter).label} ${presentCounterServing(counter).value}`}
+                  {counter.state && counter.state !== "open" ? (
+                    <span
+                      className={
+                        counter.state === "break"
+                          ? "ml-2 rounded-full bg-warning-soft px-1.5 py-0.5 font-semibold text-warning-ink"
+                          : "ml-2 rounded-full bg-background px-1.5 py-0.5 font-semibold text-text-secondary"
+                      }
+                      data-testid="counter-state"
+                    >
+                      {counter.state === "break" ? "On break" : "Closed"}
+                    </span>
+                  ) : null}
+                  {counter.staffedBy?.name ? ` · ${counter.staffedBy.name}` : ""}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

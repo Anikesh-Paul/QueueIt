@@ -291,6 +291,8 @@ export const MESSAGES = {
     "feedback.already": "You've already rated this visit.",
     "feedback.rate": "Rate this visit",
     "feedback.youRated": "You rated this {rating} out of 5",
+    "status.countersOpen": "{open} of {total} counters open right now, so each turn takes a little longer.",
+    "status.countersNoneOpen": "No counters are open right now. Your place is kept.",
   },
   hi: {
     "language.label": "भाषा",
@@ -579,6 +581,8 @@ export const MESSAGES = {
     "feedback.already": "आप इस विज़िट को पहले ही रेट कर चुके हैं।",
     "feedback.rate": "इस विज़िट को रेट करें",
     "feedback.youRated": "आपने इसे 5 में से {rating} दिया",
+    "status.countersOpen": "अभी {total} में से {open} काउंटर खुले हैं, इसलिए हर बारी में थोड़ा ज़्यादा समय लगेगा।",
+    "status.countersNoneOpen": "अभी कोई काउंटर खुला नहीं है। आपकी जगह सुरक्षित है।",
   },
 };
 

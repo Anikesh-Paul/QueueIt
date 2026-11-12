@@ -27,6 +27,12 @@ const counterSchema = new mongoose.Schema(
     lastServed: { type: Number, default: null, min: 1 },
     /** When this counter was last auto/explicitly assigned a call. */
     lastAssignedAt: { type: Date, default: null },
+    /** open = taking calls; break = staffer stepped away; closed = nobody on it. */
+    state: { type: String, enum: ["open", "break", "closed"], default: "open" },
+    /** Staff member on shift at this counter (null = unstaffed). */
+    staffedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    staffedByName: { type: String, trim: true, maxlength: 80, default: null },
+    stateSince: { type: Date, default: null },
   },
   { _id: true }
 );

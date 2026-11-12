@@ -516,3 +516,17 @@ export function adminCheckInAppointment(token, queueId, appointmentId) {
     token,
   });
 }
+
+/** GET /api/admin/shifts — my shift plus every counter I can manage. */
+export function fetchShiftBoard(token) {
+  return apiRequest("/api/admin/shifts", { token });
+}
+
+/** POST shift action: start | break | back | end | open | close. */
+export function shiftAction(token, queueId, counterId, action) {
+  return apiRequest(`/api/admin/queues/${queueId}/counters/${counterId}/shift`, {
+    method: "POST",
+    token,
+    body: { action },
+  });
+}

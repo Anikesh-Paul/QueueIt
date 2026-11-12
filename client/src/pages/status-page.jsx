@@ -572,6 +572,13 @@ export function StatusPage() {
                 {paceLine}
               </p>
             ) : null}
+            {!isCalled && !isMissed && liveStatus.countersTotal > 1 && liveStatus.countersOpen < liveStatus.countersTotal ? (
+              <p data-testid="status-counters-open" className="-mt-1 text-sm text-text-secondary">
+                {liveStatus.countersOpen === 0
+                  ? t("status.countersNoneOpen")
+                  : t("status.countersOpen", { open: liveStatus.countersOpen, total: liveStatus.countersTotal })}
+              </p>
+            ) : null}
             <LeaveTimeCard
               leave={leaveTime}
               etaMinutes={liveStatus.etaMinutes}

@@ -38,6 +38,7 @@ import {
   servingFieldsForJson,
 } from "../services/servingDeadline.js";
 import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing, reconcileCounterServing } from "../services/counters.js";
+import { applyShiftAction, shiftBoard } from "../services/shifts.js";
 import { rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 import { Appointment } from "../models/Appointment.js";
 import {
@@ -1249,6 +1250,43 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
     return res.status(200).json({
       queue: toAdminCatalogQueueJSON(result.queue, venue),
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * GET /api/admin/shifts — my shift plus every counter I can manage.
+ */
+router.get("/shifts", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    return res.status(200).json(await shiftBoard(req.user));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/queues/:queueId/counters/:counterId/shift { action }
+ * start | break | back | end (staffer) · open | close (unstaffed counter).
+ */
+router.post("/queues/:queueId/counters/:counterId/shift", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    const action = typeof req.body?.action === "string" ? req.body.action.trim() : "";
+    const result = await applyShiftAction(req.user, queue, req.params.counterId, action);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
+    }
+    if (!result.unchanged) {
+      await writeAudit(req, {
+        action: `shift-${action}`,
+        queue,
+        meta: { counter: result.counter.name, from: result.previous, to: result.counter.state || "open" },
+      });
+    }
+    return res.status(200).json({ queue: toAdminQueueJSON(result.queue), board: await shiftBoard(req.user) });
   } catch (err) {
     return next(err);
   }

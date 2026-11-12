@@ -4,7 +4,7 @@ import { now as clockNow } from "./clock.js";
 import { leaveFieldsForJson } from "./leaveAlert.js";
 import { sessionFieldsForJson } from "./queueSession.js";
 import { signArrivalPass } from "./arrivalPass.js";
-import { resolveEtaServicePace } from "./recentServicePace.js";
+import { buildEstimate, estimateBasisJson, resolveSmartPace } from "./smartEstimate.js";
 import { servingFieldsForJson } from "./servingDeadline.js";
 import { countersForJson, ensureDefaultCounters, reconcileCounterServing, staffingFactor } from "./counters.js";
 import { isRecoverable, recoveryDeadline } from "./missedTurn.js";
@@ -51,16 +51,21 @@ export async function buildStatusPayload(queue, entry) {
   if (missingCounters || reconciled) await queue.save();
   const position = await computePosition(queue._id, entry, entry.status, queue);
   const averageServiceTime = queue.averageServiceTime;
-  const { pace: basePace, source: etaPaceSource } = await resolveEtaServicePace(queue);
+  const smart = await resolveSmartPace(queue);
+  const etaPaceSource = smart.source;
   const staffing = staffingFactor(queue);
   // Fewer counters open → each place in line takes longer.
-  const etaServiceTime =
-    staffing.factor === 1 ? basePace : Math.round(basePace * staffing.factor * 10) / 10;
-  let etaMinutes = position == null ? null : computeEtaMinutes(position, etaServiceTime);
+  const estimate = buildEstimate(smart, { position, staffingFactor: staffing.factor });
+  const etaServiceTime = estimate.pace;
+  let etaMinutes = estimate.etaMinutes;
+  let etaRange = estimate.range;
   // A booking is not called before its slot starts.
   if (etaMinutes != null && entry.appointmentAt) {
     const untilSlot = Math.ceil((new Date(entry.appointmentAt).getTime() - clockNow().getTime()) / 60_000);
-    if (untilSlot > etaMinutes) etaMinutes = untilSlot;
+    if (untilSlot > etaMinutes) {
+      etaMinutes = untilSlot;
+      etaRange = { low: untilSlot, high: untilSlot + Math.ceil(etaServiceTime), confidence: "high" };
+    }
   }
   const recoverable = isRecoverable(entry, queue);
   const until = recoverable ? recoveryDeadline(entry, queue) : null;
@@ -74,6 +79,9 @@ export async function buildStatusPayload(queue, entry) {
     averageServiceTime,
     etaServiceTime,
     etaPaceSource,
+    etaRange: etaRange ? { low: etaRange.low, high: etaRange.high } : null,
+    etaConfidence: etaRange ? etaRange.confidence : null,
+    etaBasis: estimateBasisJson(smart),
     countersOpen: staffing.open,
     countersTotal: staffing.total,
     status: entry.status,

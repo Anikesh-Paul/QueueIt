@@ -530,3 +530,25 @@ export function shiftAction(token, queueId, counterId, action) {
     body: { action },
   });
 }
+
+/** GET /api/queues/announcements — live notices (all, or only those for one queue). Public. */
+export function fetchNotices(queueId) {
+  return apiRequest(`/api/queues/announcements${queueId ? `?queueId=${encodeURIComponent(queueId)}` : ""}`);
+}
+
+/** GET /api/admin/announcements — live, scheduled and recent notices I can see. */
+export function fetchConsoleNotices(token) {
+  return apiRequest("/api/admin/announcements", { token });
+}
+
+export function postNotice(token, body) {
+  return apiRequest("/api/admin/announcements", { method: "POST", token, body });
+}
+
+export function editNotice(token, id, body) {
+  return apiRequest(`/api/admin/announcements/${id}`, { method: "PATCH", token, body });
+}
+
+export function endNotice(token, id) {
+  return apiRequest(`/api/admin/announcements/${id}/end`, { method: "POST", token });
+}

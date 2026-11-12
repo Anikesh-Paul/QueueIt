@@ -22,6 +22,7 @@ import { occupancyByQueueIds, queuesWithOccupancy, rejectIfQueueFull, releaseEnt
 import { attachEquivalentSuggestions } from "../services/equivalentQueues.js";
 import { attachQuietHints } from "../services/bestTime.js";
 import { toBoardJSON } from "../services/queueBoard.js";
+import { listLiveAnnouncements } from "../services/announcements.js";
 import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
 import { Appointment } from "../models/Appointment.js";
 import {
@@ -88,6 +89,21 @@ router.get("/", async (_req, res, next) => {
   }
 });
 
+
+/**
+ * GET /api/queues/announcements[?queueId=] — notices live right now. Public.
+ * With queueId: only the campus, venue and queue notices that apply to it.
+ */
+router.get("/announcements", async (req, res, next) => {
+  try {
+    const queueId = typeof req.query.queueId === "string" ? req.query.queueId : null;
+    if (queueId && !mongoose.isValidObjectId(queueId)) return res.status(200).json({ announcements: [] });
+    res.set("Cache-Control", "no-store");
+    return res.status(200).json({ announcements: await listLiveAnnouncements({ queueId }) });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /**
  * GET /api/queues/:queueId/board — public now-serving board (token numbers only).

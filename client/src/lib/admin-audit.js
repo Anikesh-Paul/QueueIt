@@ -18,6 +18,15 @@ const ACTION_LABELS = {
   "priority-request": "Requested priority",
   "appointment-book": "Booked a time",
   "appointment-checkin": "Checked in a booking",
+  "shift-start": "Started a shift",
+  "shift-break": "Went on a break",
+  "shift-back": "Came back from a break",
+  "shift-end": "Ended a shift",
+  "shift-open": "Opened a counter",
+  "shift-close": "Closed a counter",
+  "announcement-post": "Posted a notice",
+  "announcement-edit": "Edited a notice",
+  "announcement-end": "Ended a notice",
 };
 
 export function auditActionLabel(action) {
@@ -28,6 +37,8 @@ export function auditActionLabel(action) {
 export function auditMetaLine(event) {
   const meta = event?.meta || {};
   const parts = [];
+  if (meta.title) parts.push(`“${meta.title}”`);
+  if (meta.counter) parts.push(meta.counter);
   if (meta.tokenNumber != null) parts.push(`token ${meta.tokenNumber}`);
   if (meta.cleared != null) parts.push(`${meta.cleared} places cleared`);
   if (meta.email) parts.push(meta.email);

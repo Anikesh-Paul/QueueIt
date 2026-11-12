@@ -15,6 +15,7 @@ async function pages(request) {
     ["kiosk", `/kiosk/${cafeteria.id}`, null],
     ["admin console", `/admin/queues/${cafeteria.id}`, admin],
     ["analytics", "/admin/analytics", admin],
+    ["shift", "/admin/shift", admin],
     ["poster", `/admin/queues/${cafeteria.id}/poster`, admin],
   ];
 }

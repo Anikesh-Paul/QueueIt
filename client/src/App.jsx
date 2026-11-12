@@ -35,6 +35,9 @@ const AdminCatalogPage = lazy(() =>
 const PosterPage = lazy(() =>
   import("@/pages/poster-page").then((mod) => ({ default: mod.PosterPage }))
 );
+const AdminShiftPage = lazy(() =>
+  import("@/pages/admin-shift-page").then((mod) => ({ default: mod.AdminShiftPage }))
+);
 const CampusAnalyticsPage = lazy(() =>
   import("@/pages/campus-analytics-page").then((mod) => ({ default: mod.CampusAnalyticsPage }))
 );
@@ -131,6 +134,7 @@ const router = createBrowserRouter([
                     children: [
                       { path: "catalog", element: <AdminCatalogPage /> },
                       { path: "analytics", element: <CampusAnalyticsPage /> },
+                      { path: "shift", element: <AdminShiftPage /> },
                       { path: "queues/:queueId", element: <AdminConsolePage /> },
                       { path: "queues/:queueId/analytics", element: <AnalyticsPage /> },
                     ],

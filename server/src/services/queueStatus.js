@@ -6,7 +6,7 @@ import { sessionFieldsForJson } from "./queueSession.js";
 import { signArrivalPass } from "./arrivalPass.js";
 import { resolveEtaServicePace } from "./recentServicePace.js";
 import { servingFieldsForJson } from "./servingDeadline.js";
-import { countersForJson, ensureDefaultCounters, reconcileCounterServing } from "./counters.js";
+import { countersForJson, ensureDefaultCounters, reconcileCounterServing, staffingFactor } from "./counters.js";
 import { isRecoverable, recoveryDeadline } from "./missedTurn.js";
 import { positionInFairOrder, priorityFieldsForJson } from "./priorityLane.js";
 
@@ -51,7 +51,11 @@ export async function buildStatusPayload(queue, entry) {
   if (missingCounters || reconciled) await queue.save();
   const position = await computePosition(queue._id, entry, entry.status, queue);
   const averageServiceTime = queue.averageServiceTime;
-  const { pace: etaServiceTime, source: etaPaceSource } = await resolveEtaServicePace(queue);
+  const { pace: basePace, source: etaPaceSource } = await resolveEtaServicePace(queue);
+  const staffing = staffingFactor(queue);
+  // Fewer counters open → each place in line takes longer.
+  const etaServiceTime =
+    staffing.factor === 1 ? basePace : Math.round(basePace * staffing.factor * 10) / 10;
   let etaMinutes = position == null ? null : computeEtaMinutes(position, etaServiceTime);
   // A booking is not called before its slot starts.
   if (etaMinutes != null && entry.appointmentAt) {
@@ -70,6 +74,8 @@ export async function buildStatusPayload(queue, entry) {
     averageServiceTime,
     etaServiceTime,
     etaPaceSource,
+    countersOpen: staffing.open,
+    countersTotal: staffing.total,
     status: entry.status,
     arrivalPass: signArrivalPass(queue._id, entry.tokenNumber),
     missedTurn: entry.status === "skipped",

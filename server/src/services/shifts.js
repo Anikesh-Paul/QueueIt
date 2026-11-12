@@ -4,7 +4,7 @@ import { now as clockNow } from "./clock.js";
 import { counterState, countersForJson, ensureDefaultCounters, findCounter, staffingFactor } from "./counters.js";
 import { isGlobalAdmin, isStaff, staffQueueIds, staffVenueId } from "./staffAccess.js";
 import { emitQueueChanged } from "./realtime.js";
-import { resolveEtaServicePace } from "./recentServicePace.js";
+import { estimateBasisJson, resolveSmartPace } from "./smartEstimate.js";
 
 export const SHIFT_ACTIONS = ["start", "break", "back", "end", "open", "close"];
 
@@ -58,7 +58,8 @@ export async function shiftBoard(user) {
     queues: await Promise.all(queues.map(async (queue) => {
       ensureDefaultCounters(queue);
       const staffing = staffingFactor(queue);
-      const { pace } = await resolveEtaServicePace(queue);
+      const smart = await resolveSmartPace(queue);
+      const { pace } = smart;
       return {
         id: String(queue._id),
         name: queue.name,
@@ -71,6 +72,8 @@ export async function shiftBoard(user) {
         countersOpen: staffing.open,
         countersTotal: staffing.total,
         counters: countersForJson(queue),
+        /** Why the pace is what it is: today vs. this hour on past weeks. */
+        estimate: estimateBasisJson(smart),
       };
     })),
   };

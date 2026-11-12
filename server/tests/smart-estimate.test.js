@@ -182,4 +182,28 @@ describe("smart estimate (status payload)", () => {
       resetClock();
     }
   });
+
+  it("gives the catalog a wait range for someone joining now", async () => {
+    setNow("2026-11-11T05:00:00.000Z");
+    try {
+      await seedVenueAndQueues();
+      const queue = await Queue.findOne({ slug: "cafeteria" });
+      const lastWeek = Date.parse("2026-11-04T04:40:00.000Z");
+      await served(queue._id, [0, 5, 10, 15, 20, 25, 30].map((m) => new Date(lastWeek + m * MIN)));
+      const app = testApp();
+      await joinAndStatus(app, queue._id);
+      const list = await request(app).get("/api/queues");
+      const row = list.body.queues.find((q) => q.id === String(queue._id));
+      // One waiting ahead → second place at 5 min each.
+      assert.equal(row.waitEstimate.minutes, 10);
+      assert.equal(row.waitEstimate.source, "history");
+      assert.ok(row.waitEstimate.low < 10 && row.waitEstimate.high > 10);
+
+      await Queue.updateOne({ _id: queue._id }, { $set: { status: "paused" } });
+      const paused = await request(app).get("/api/queues");
+      assert.equal(paused.body.queues.find((q) => q.id === String(queue._id)).waitEstimate, null);
+    } finally {
+      resetClock();
+    }
+  });
 });

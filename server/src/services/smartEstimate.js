@@ -214,3 +214,43 @@ export function estimateBasisJson(smart) {
     weeks: HISTORY_WEEKS,
   };
 }
+
+/**
+ * Catalog hint: how long someone joining now would likely wait.
+ * Skipped for paused or closed lines (no honest number to give).
+ *
+ * @param {Array<object>} queueJsons catalog rows (from queuesWithOccupancy)
+ * @param {Array<import("mongoose").Document>} queueDocs matching queue documents
+ */
+export async function attachWaitEstimates(queueJsons, queueDocs, { at = clockNow(), staffing } = {}) {
+  const docsById = new Map((queueDocs || []).map((doc) => [String(doc._id), doc]));
+  const ids = (queueDocs || []).map((doc) => doc._id);
+  const waitingRows = ids.length
+    ? await QueueEntry.aggregate([
+        { $match: { queue: { $in: ids }, status: "waiting" } },
+        { $group: { _id: "$queue", n: { $sum: 1 } } },
+      ])
+    : [];
+  const waitingBy = new Map(waitingRows.map((row) => [String(row._id), row.n]));
+  return Promise.all(
+    (queueJsons || []).map(async (row) => {
+      const doc = docsById.get(String(row.id || row._id));
+      const live = doc && doc.status === "open" && doc.acceptingTokens !== false && !row.full;
+      if (!live) return { ...row, waitEstimate: null };
+      const smart = await resolveSmartPace(doc, { at });
+      const factor = staffing ? staffing(doc).factor : 1;
+      const position = (waitingBy.get(String(doc._id)) || 0) + 1;
+      const { etaMinutes, range } = buildEstimate(smart, { position, staffingFactor: factor });
+      return {
+        ...row,
+        waitEstimate: {
+          minutes: Math.round(etaMinutes),
+          low: range.low,
+          high: range.high,
+          confidence: range.confidence,
+          source: smart.source,
+        },
+      };
+    })
+  );
+}

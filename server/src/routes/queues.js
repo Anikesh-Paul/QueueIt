@@ -24,7 +24,8 @@ import { attachQuietHints } from "../services/bestTime.js";
 import { toBoardJSON } from "../services/queueBoard.js";
 import { listLiveAnnouncements } from "../services/announcements.js";
 import { findOrganization, listOrganizations, venueIdsForOrg } from "../services/organizations.js";
-import { ensureDefaultCounters, reconcileCounterServing } from "../services/counters.js";
+import { ensureDefaultCounters, reconcileCounterServing, staffingFactor } from "../services/counters.js";
+import { attachWaitEstimates } from "../services/smartEstimate.js";
 import { Appointment } from "../models/Appointment.js";
 import {
   BOOKING_ERRORS,
@@ -90,7 +91,11 @@ router.get("/", async (req, res, next) => {
     await reconcileCatalogServing(queues);
 
     return res.status(200).json({
-      queues: await attachQuietHints(attachEquivalentSuggestions(await queuesWithOccupancy(queues))),
+      queues: await attachWaitEstimates(
+        await attachQuietHints(attachEquivalentSuggestions(await queuesWithOccupancy(queues))),
+        queues,
+        { staffing: staffingFactor }
+      ),
     });
   } catch (err) {
     return next(err);

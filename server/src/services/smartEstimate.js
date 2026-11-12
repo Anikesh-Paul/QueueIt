@@ -24,7 +24,9 @@ export const HISTORY_ROW_LIMIT = 400;
 export const CONFIGURED_CV = 0.5;
 /** Never claim tighter than this relative spread per serve. */
 export const MIN_CV = 0.2;
-export const MAX_CV = 1.2;
+export const MAX_CV = 0.8;
+/** Widest relative spread we will show; past this the number stops being useful. */
+export const MAX_SPREAD = 0.45;
 
 const round1 = (value) => Math.round(value * 10) / 10;
 
@@ -112,7 +114,7 @@ export function estimateRange({ etaMinutes, position, cv, source, sampleSize = 0
     ? CONFIGURED_CV
     : Math.min(MAX_CV, Math.max(MIN_CV, Number.isFinite(cv) ? cv : CONFIGURED_CV));
   const n = Math.max(1, Number(position) || 1);
-  const spread = Math.min(0.6, Math.max(0.12, (1.28 * perServe) / Math.sqrt(n)));
+  const spread = Math.min(MAX_SPREAD, Math.max(0.12, (1.28 * perServe) / Math.sqrt(n)));
   let low = Math.max(0, Math.floor(eta * (1 - spread)));
   let high = Math.ceil(eta * (1 + spread));
   if (eta >= 4 && high - low < 2) {
@@ -176,11 +178,11 @@ export async function resolveSmartPace(queue, { at = clockNow() } = {}) {
     fetchRecentServedAt(queue._id, { from: campusDayStart(at) }),
     fetchHistoryServedAt(queue._id, at),
   ]);
-  const recent = computeRecentServicePace(todayTimes, configured);
+  const recent = computeRecentServicePace(todayTimes, configured, { maxGapMinutes: MAX_SERVE_GAP_MINUTES });
   const historyIntervals = historyBuckets.flatMap((bucket) => serveIntervals(bucket));
   const history = summarizeIntervals(historyIntervals);
   const blended = blendPace({ recent, history, configured });
-  const pooled = summarizeIntervals([...serveIntervals(todayTimes, { maxGapMinutes: Infinity }), ...historyIntervals]);
+  const pooled = summarizeIntervals([...serveIntervals(todayTimes), ...historyIntervals]);
   return {
     ...blended,
     cv: pooled.cv,
@@ -237,9 +239,14 @@ export async function attachWaitEstimates(queueJsons, queueDocs, { at = clockNow
       const doc = docsById.get(String(row.id || row._id));
       const live = doc && doc.status === "open" && doc.acceptingTokens !== false && !row.full;
       if (!live) return { ...row, waitEstimate: null };
+      const waiting = waitingBy.get(String(doc._id)) || 0;
+      if (waiting === 0) {
+        // Nobody ahead: you are next to a counter as soon as one frees up.
+        return { ...row, waitEstimate: { minutes: 0, low: 0, high: 0, confidence: "high", source: "empty" } };
+      }
       const smart = await resolveSmartPace(doc, { at });
       const factor = staffing ? staffing(doc).factor : 1;
-      const position = (waitingBy.get(String(doc._id)) || 0) + 1;
+      const position = waiting + 1;
       const { etaMinutes, range } = buildEstimate(smart, { position, staffingFactor: factor });
       return {
         ...row,

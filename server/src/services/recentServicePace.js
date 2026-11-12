@@ -25,9 +25,10 @@ export function campusDayStart(at = clockNow()) {
  *
  * @param {Array<Date|string|number>} servedAtSorted
  * @param {number} configuredAverage
+ * @param {{ maxGapMinutes?: number }} [options] gaps longer than this are lulls, not service
  * @returns {{ pace: number, source: "recent"|"configured", sampleSize: number, intervalCount: number }}
  */
-export function computeRecentServicePace(servedAtSorted, configuredAverage) {
+export function computeRecentServicePace(servedAtSorted, configuredAverage, { maxGapMinutes = Infinity } = {}) {
   const configured = Number(configuredAverage);
   const fallback = Number.isFinite(configured) && configured > 0 ? configured : 3;
   const times = (Array.isArray(servedAtSorted) ? servedAtSorted : [])
@@ -38,7 +39,7 @@ export function computeRecentServicePace(servedAtSorted, configuredAverage) {
   const intervals = [];
   for (let i = 1; i < times.length; i += 1) {
     const minutes = (times[i].getTime() - times[i - 1].getTime()) / 60_000;
-    if (minutes > 0) intervals.push(minutes);
+    if (minutes > 0 && minutes <= maxGapMinutes) intervals.push(minutes);
   }
 
   if (intervals.length < MIN_SERVE_INTERVALS) {

@@ -199,6 +199,9 @@ describe("smart estimate (status payload)", () => {
       assert.equal(row.waitEstimate.source, "history");
       assert.ok(row.waitEstimate.low < 10 && row.waitEstimate.high > 10);
 
+      const gym = list.body.queues.find((q) => q.slug === "gym" || q.name === "Gym");
+      if (gym) assert.deepEqual(gym.waitEstimate, { minutes: 0, low: 0, high: 0, confidence: "high", source: "empty" });
+
       await Queue.updateOne({ _id: queue._id }, { $set: { status: "paused" } });
       const paused = await request(app).get("/api/queues");
       assert.equal(paused.body.queues.find((q) => q.id === String(queue._id)).waitEstimate, null);

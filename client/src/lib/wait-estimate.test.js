@@ -22,6 +22,7 @@ describe("wait estimate copy", () => {
   it("phrases the catalog line", () => {
     assert.equal(catalogWaitLabel({ low: 4, high: 9 }), "Wait about 4–9 min");
     assert.equal(catalogWaitLabel({ low: 1, high: 1 }), "Little or no wait");
+    assert.equal(catalogWaitLabel({ low: 0, high: 0, source: "empty" }), "Little or no wait");
     assert.equal(catalogWaitLabel(null), null);
   });
 

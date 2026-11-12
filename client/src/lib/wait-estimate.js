@@ -25,7 +25,7 @@ export function formatWaitRange(range, locale = "en") {
 /** Catalog line for someone joining now. */
 export function catalogWaitLabel(waitEstimate, locale = "en") {
   if (!waitEstimate) return null;
-  if (Number(waitEstimate.high) <= 1) return t(locale, "estimate.catalogNone");
+  if (Number(waitEstimate.high) <= 1 || waitEstimate.source === "empty") return t(locale, "estimate.catalogNone");
   const range = formatWaitRange(waitEstimate, locale);
   return range ? t(locale, "estimate.catalog", { range }) : null;
 }

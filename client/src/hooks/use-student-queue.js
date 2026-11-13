@@ -9,11 +9,33 @@ import {
 } from "@/api";
 import { resolveStatusPollMs } from "@/lib/poll-interval";
 import { SOFT_UPGRADE_POST_LEAVE_KEY } from "@/context/session-keys";
+import {
+  actionErrorMessage,
+  clearStatusSnapshot,
+  isOfflineError,
+  loadStatusSnapshot,
+  offlineActionMessage,
+  saveStatusSnapshot,
+  snapshotIdentity,
+} from "@/lib/offline";
+
+function safeStorage() {
+  try {
+    return typeof window !== "undefined" ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
+function browserIsOffline() {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
 
 /**
  * Student queue surface: catalog, live status, memberships, history, join/leave.
  */
 export function useStudentQueue({
+  locale = "en",
   token,
   user,
   guestCredential,
@@ -70,6 +92,7 @@ export function useStudentQueue({
     setStatusOffline(false);
     setLeaveError("");
     setLeaveBusy(false);
+    clearStatusSnapshot(safeStorage());
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
@@ -97,8 +120,9 @@ export function useStudentQueue({
     clearLiveStatus();
   }, [clearLiveStatus]);
 
-  const applyMemberships = useCallback((memberships, preferredQueueId) => {
+  const applyMemberships = useCallback((memberships, preferredQueueId, { asOf, offline = false } = {}) => {
     const list = Array.isArray(memberships) ? memberships : [];
+    setStatusOffline(offline);
     setActiveMemberships(list);
     if (list.length === 0) {
       setLiveStatus(null);
@@ -111,17 +135,42 @@ export function useStudentQueue({
       list[0];
     setLiveStatus(preferred);
     setStatusQueueId(preferred.queue.id);
-    setStatusLastUpdatedAt(Date.now());
+    setStatusLastUpdatedAt(asOf ?? Date.now());
     setStatusError("");
     return true;
   }, []);
+
+  /** Offline: show the last place in line this device saw (same person only). */
+  const restoreFromSnapshot = useCallback(
+    (sessionToken, guestCred, preferredQueueId) => {
+      const snapshot = loadStatusSnapshot(
+        safeStorage(),
+        snapshotIdentity({ token: sessionToken, guestCredential: guestCred })
+      );
+      if (!snapshot) return false;
+      return applyMemberships(snapshot.memberships, preferredQueueId, {
+        asOf: snapshot.savedAt,
+        offline: true,
+      });
+    },
+    [applyMemberships]
+  );
 
   const restoreActiveMembership = useCallback(async (sessionToken, catalog, guestCred, preferredQueueId) => {
     if (!sessionToken && !guestCred) return false;
     try {
       const data = await fetchActiveMemberships(sessionToken, guestCred);
+      if (data?._fromOfflineCache) {
+        return applyMemberships(data.memberships, preferredQueueId, {
+          asOf: data._cachedAt,
+          offline: true,
+        });
+      }
       return applyMemberships(data.memberships, preferredQueueId);
-    } catch {
+    } catch (err) {
+      if (isOfflineError(err)) {
+        return restoreFromSnapshot(sessionToken, guestCred, preferredQueueId);
+      }
       // Fallback: probe the catalog one queue at a time (legacy / older API).
       if (!Array.isArray(catalog)) return false;
       const found = [];
@@ -135,7 +184,7 @@ export function useStudentQueue({
       }
       return applyMemberships(found, preferredQueueId);
     }
-  }, [applyMemberships]);
+  }, [applyMemberships, restoreFromSnapshot]);
 
   const loadQueues = useCallback(
     async (sessionToken, { restoreStatus = false, guestCred } = {}) => {
@@ -150,7 +199,12 @@ export function useStudentQueue({
         }
       } catch (err) {
         setQueues([]);
-        setQueuesError(err.message || "Could not load queues");
+        if (isOfflineError(err)) {
+          setQueuesError(offlineActionMessage("generic", locale));
+          if (restoreStatus) restoreFromSnapshot(sessionToken, guestCred);
+        } else {
+          setQueuesError(err.message || "Could not load queues");
+        }
       } finally {
         setQueuesLoading(false);
         if (restoreStatus || (!sessionToken && !guestCred)) {
@@ -158,7 +212,7 @@ export function useStudentQueue({
         }
       }
     },
-    [restoreActiveMembership]
+    [restoreActiveMembership, restoreFromSnapshot, locale]
   );
 
   const refreshStatus = useCallback(
@@ -174,6 +228,8 @@ export function useStudentQueue({
         setStatusOffline(fromCache);
         if (!fromCache && statusQueueIdRef.current === queueId) {
           setStatusLastUpdatedAt(Date.now());
+        } else if (fromCache && data._cachedAt && statusQueueIdRef.current === queueId) {
+          setStatusLastUpdatedAt((prev) => Math.max(prev ?? 0, data._cachedAt));
         }
         setActiveMemberships((list) => {
           const rest = list.filter((row) => row.queue?.id !== queueId);
@@ -196,6 +252,11 @@ export function useStudentQueue({
               setStatusLastUpdatedAt(Date.now());
             }
           }
+          return;
+        }
+        if (isOfflineError(err)) {
+          // Keep the last known place in line; the page shows the offline banner.
+          setStatusOffline(true);
           return;
         }
         setStatusError(err.message || "Could not refresh status");
@@ -269,6 +330,10 @@ export function useStudentQueue({
       // JWT User/Admin, existing Guest credential, or mint on first Guest join.
       const auth = joinerAuth();
       if (user?.role === "admin" || user?.role === "staff") return false;
+      if (browserIsOffline()) {
+        setJoinError(offlineActionMessage("join", locale));
+        return false;
+      }
       setJoinError("");
       setJoinBusy(true);
       try {
@@ -297,13 +362,13 @@ export function useStudentQueue({
             // fall through to message
           }
         }
-        setJoinError(err.message || "Could not join queue");
+        setJoinError(actionErrorMessage(err, "join", locale, "Could not join queue"));
         return false;
       } finally {
         setJoinBusy(false);
       }
     },
-    [joinerAuth, user?.role, refreshStatus, persistGuestCredential]
+    [joinerAuth, user?.role, refreshStatus, persistGuestCredential, locale]
   );
 
   /** Adopt a status payload from another entry path (e.g. booking check-in). */
@@ -324,6 +389,10 @@ export function useStudentQueue({
   const leave = useCallback(async () => {
     const auth = joinerAuth();
     if ((!auth.token && !auth.guestCredential) || !statusQueueId) return false;
+    if (browserIsOffline()) {
+      setLeaveError(offlineActionMessage("leave", locale));
+      return false;
+    }
     setLeaveError("");
     setLeaveBusy(true);
     try {
@@ -363,12 +432,39 @@ export function useStudentQueue({
         }
         return true;
       }
-      setLeaveError(err.message || "Could not leave queue");
+      setLeaveError(actionErrorMessage(err, "leave", locale, "Could not leave queue"));
       return false;
     } finally {
       setLeaveBusy(false);
     }
-  }, [joinerAuth, statusQueueId, activeMemberships, clearLiveStatus]);
+  }, [joinerAuth, statusQueueId, activeMemberships, clearLiveStatus, locale]);
+
+  // Keep a last-known snapshot for offline reloads (only fresh, network data).
+  useEffect(() => {
+    if (!membershipsReady || statusOffline || activeMemberships.length === 0) return;
+    saveStatusSnapshot(
+      safeStorage(),
+      snapshotIdentity({ token, guestCredential }),
+      activeMemberships,
+      statusLastUpdatedAt ?? Date.now()
+    );
+  }, [membershipsReady, statusOffline, activeMemberships, statusLastUpdatedAt, token, guestCredential]);
+
+  // Back online: resync the place in line straight away instead of waiting for the next poll.
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    function onOnline() {
+      const auth = joinerAuth();
+      if (!auth.token && !auth.guestCredential) return;
+      const current = statusQueueIdRef.current;
+      if (current) {
+        refreshStatus(auth.token, current, { silent: true, guestCred: auth.guestCredential });
+      }
+      restoreActiveMembership(auth.token, null, auth.guestCredential, current);
+    }
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [joinerAuth, refreshStatus, restoreActiveMembership]);
 
   const selectMembership = useCallback(
     async (queueId) => {

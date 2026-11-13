@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import { AppProvider, useApp } from "@/context/app-context";
 import { I18nProvider, useI18n } from "@/context/i18n-context";
+import { UpdatePrompt } from "@/components/pwa/update-prompt";
 import { ThemeProvider } from "@/context/theme-context";
 import { AppShell } from "@/components/shell/app-shell";
 import { Wordmark } from "@/components/brand/wordmark";
@@ -188,6 +189,7 @@ export default function App() {
       <I18nProvider>
         <AppProvider>
           <AppRoot />
+          <UpdatePrompt />
         </AppProvider>
       </I18nProvider>
     </ThemeProvider>

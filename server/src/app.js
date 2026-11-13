@@ -111,6 +111,12 @@ export function createApp(options = {}) {
     });
   });
 
+  // Sign-in and staff responses are private: no browser, proxy or service
+  // worker may keep a copy (the student app's offline cache skips them too).
+  app.use(["/api/auth", "/api/admin"], (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
   app.use("/api/auth", authRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/queues", queueRoutes);

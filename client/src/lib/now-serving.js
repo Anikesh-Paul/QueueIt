@@ -57,7 +57,8 @@ export function formatCatalogServing({ counters, nowServing, locale = "en" } = {
     if (row.live === (board.label === nowLabel) || row.value === "—") {
       return `${name}${row.value}`.trim();
     }
-    const label = locale === "hi" ? row.label : row.label.toLowerCase();
+    // Only English capitalises; Devanagari and Bengali have no case.
+    const label = locale === "en" ? row.label.toLowerCase() : row.label;
     return `${name}${label} ${row.value}`.trim();
   });
   return `${board.label} ${parts.join(", ")}`;

@@ -1,4 +1,5 @@
 import { CAMPUS_TIME_ZONE, formatCampusClockTime } from "./campus-time.js";
+import { intlLocale } from "./i18n.js";
 
 export const TITLE_MAX = 80;
 export const BODY_MAX = 280;
@@ -54,13 +55,13 @@ function campusDay(ms) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: CAMPUS_TIME_ZONE }).format(new Date(ms));
 }
 
-/** "until 6:00 PM IST" today, or "until Sat 14 Nov, 6:00 PM IST" on a later day. */
+/** "until 6:00 PM IST" today, or "until Sat, 14 Nov, 6:00 PM IST" (Indian date order) on a later day. */
 export function untilLabel(endsAt, nowMs = Date.now(), locale = "en") {
   const end = new Date(endsAt).getTime();
   if (!Number.isFinite(end)) return "";
   const time = formatCampusClockTime(endsAt, locale);
   if (campusDay(end) === campusDay(nowMs)) return time;
-  const day = new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-GB", {
+  const day = new Intl.DateTimeFormat(intlLocale(locale), {
     timeZone: CAMPUS_TIME_ZONE,
     weekday: "short",
     day: "numeric",

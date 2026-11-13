@@ -50,12 +50,13 @@ function downloadText(filename, text) {
 
 /** Shown once after enrolling or making new codes. */
 function BackupCodes({ codes, email, onDone }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   return (
     <div data-testid="backup-codes" className="mt-4">
-      <p className="text-sm font-semibold text-foreground">Save your backup codes</p>
+      <p className="text-sm font-semibold text-foreground">{t("twoStep.saveTitle")}</p>
       <p className="mt-1 text-sm text-text-secondary">
-        If you lose your phone, each of these codes signs you in once. This is the only time they are shown.
+        {t("twoStep.saveBody")}
       </p>
       <ol className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-border bg-background p-3 font-mono text-sm text-foreground">
         {codes.map((code) => (
@@ -77,17 +78,17 @@ function BackupCodes({ codes, email, onDone }) {
             }
           }}
         >
-          <Copy aria-hidden="true" /> {copied ? "Copied" : "Copy"}
+          <Copy aria-hidden="true" /> {copied ? t("twoStep.copied") : t("twoStep.copy")}
         </Button>
         <Button
           variant="secondary"
           size="sm"
           onClick={() => downloadText("queueit-backup-codes.txt", backupCodesFile(codes, { email }))}
         >
-          <Download aria-hidden="true" /> Download
+          <Download aria-hidden="true" /> {t("twoStep.download")}
         </Button>
         <Button size="sm" onClick={onDone} data-testid="backup-codes-done">
-          I’ve saved them
+          {t("twoStep.saved")}
         </Button>
       </div>
     </div>
@@ -95,6 +96,7 @@ function BackupCodes({ codes, email, onDone }) {
 }
 
 function CodeField({ id, label, value, onChange, testId, allowBackup = false }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={id} className="text-label text-foreground">
@@ -107,7 +109,7 @@ function CodeField({ id, label, value, onChange, testId, allowBackup = false }) 
         autoComplete="one-time-code"
         inputMode={allowBackup ? "text" : "numeric"}
         maxLength={allowBackup ? 11 : 7}
-        placeholder={allowBackup ? "123456 or xxxxx-xxxxx" : "123456"}
+        placeholder={allowBackup ? t("twoStep.placeholderBackup") : "123456"}
         className={`${FIELD} font-mono tracking-[0.15em]`}
         data-testid={testId}
       />
@@ -117,6 +119,7 @@ function CodeField({ id, label, value, onChange, testId, allowBackup = false }) 
 
 /** Two-step sign-in management for admin and staff accounts. */
 function TwoFactorCard({ token, user }) {
+  const { t, locale } = useI18n();
   const [status, setStatus] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [stage, setStage] = useState("idle"); // idle | password | scan | codes | disable | regen
@@ -133,9 +136,9 @@ function TwoFactorCard({ token, user }) {
       setStatus(data.twoFactor);
       setLoadError("");
     } catch (err) {
-      setLoadError(err.message || "Could not load two-step sign-in");
+      setLoadError(err.message || t("twoStep.loadFailed"));
     }
-  }, [token]);
+  }, [token, t]);
 
   useEffect(() => {
     load();
@@ -155,14 +158,14 @@ function TwoFactorCard({ token, user }) {
     try {
       await fn();
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      setError(err.message || t("common.somethingWrong"));
     } finally {
       setBusy(false);
     }
   }
 
   if (loadError) return <Alert variant="destructive">{loadError}</Alert>;
-  if (!status) return <p className="text-sm text-text-muted">Loading…</p>;
+  if (!status) return <p className="text-sm text-text-muted">{t("common.loading")}</p>;
   const enabled = status.enabled;
 
   return (
@@ -170,37 +173,38 @@ function TwoFactorCard({ token, user }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 id="two-step-heading" className="font-heading text-lg font-semibold text-foreground">
-            Two-step sign-in
+            {t("auth.codeTitle")}
           </h2>
           <p className="mt-1 text-sm text-text-secondary">
-            After your password, QueueIt asks for a 6-digit code from an authenticator app such as Google
-            Authenticator, Microsoft Authenticator or 1Password.
+            {t("twoStep.intro")}
           </p>
         </div>
         <Badge variant={enabled ? "default" : "secondary"} data-testid="two-step-state">
-          {enabled ? "On" : "Off"}
+          {enabled ? t("twoStep.on") : t("twoStep.off")}
         </Badge>
       </div>
 
       {enabled && stage !== "codes" ? (
         <p className="mt-3 text-sm text-text-secondary" data-testid="two-step-summary">
-          {status.enabledAt ? `On since ${formatCampusDateTime(status.enabledAt)}. ` : ""}
+          {status.enabledAt ? `${t("twoStep.onSince", { when: formatCampusDateTime(status.enabledAt, locale) })} ` : ""}
           {status.backupCodesRemaining != null
-            ? `${status.backupCodesRemaining} backup code${status.backupCodesRemaining === 1 ? "" : "s"} left.`
+            ? status.backupCodesRemaining === 1
+              ? t("twoStep.codesLeftOne")
+              : t("twoStep.codesLeft", { n: status.backupCodesRemaining })
             : ""}
         </p>
       ) : null}
 
       {stage === "idle" && !enabled ? (
         <Button className="mt-4" onClick={() => reset("password")} data-testid="two-step-start">
-          <ShieldCheck aria-hidden="true" /> Set up two-step sign-in
+          <ShieldCheck aria-hidden="true" /> {t("twoStep.setUp")}
         </Button>
       ) : null}
 
       {stage === "idle" && enabled ? (
         <div className="mt-4 flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => reset("regen")} data-testid="two-step-regen">
-            <KeyRound aria-hidden="true" /> New backup codes
+            <KeyRound aria-hidden="true" /> {t("twoStep.newCodes")}
           </Button>
           <Button
             variant="outline"
@@ -208,7 +212,7 @@ function TwoFactorCard({ token, user }) {
             onClick={() => reset("disable")}
             data-testid="two-step-disable"
           >
-            <ShieldOff aria-hidden="true" /> Turn off
+            <ShieldOff aria-hidden="true" /> {t("twoStep.turnOff")}
           </Button>
         </div>
       ) : null}
@@ -228,7 +232,7 @@ function TwoFactorCard({ token, user }) {
         >
           <div className="flex flex-col gap-2">
             <Label htmlFor="two-step-password" className="text-label text-foreground">
-              Confirm your password
+              {t("twoStep.confirmPassword")}
             </Label>
             <Input
               id="two-step-password"
@@ -244,10 +248,10 @@ function TwoFactorCard({ token, user }) {
           {error ? <Alert variant="destructive">{error}</Alert> : null}
           <div className="flex gap-2">
             <Button type="submit" disabled={busy || !password} data-testid="two-step-continue">
-              Continue
+              {t("twoStep.continue")}
             </Button>
             <Button type="button" variant="ghost" onClick={() => reset()}>
-              Cancel
+              {t("security.cancel")}
             </Button>
           </div>
         </form>
@@ -268,30 +272,30 @@ function TwoFactorCard({ token, user }) {
           }}
         >
           <ol className="list-decimal space-y-1 pl-5 text-sm text-text-secondary">
-            <li>Open your authenticator app and add an account.</li>
-            <li>Scan this QR code, or type the key by hand.</li>
-            <li>Enter the 6-digit code the app shows.</li>
+            <li>{t("twoStep.step1")}</li>
+            <li>{t("twoStep.step2")}</li>
+            <li>{t("twoStep.step3")}</li>
           </ol>
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
             <div className="rounded-lg border border-border bg-white p-3" data-testid="two-step-qr">
-              <QRCodeSVG value={setup.otpauthUrl} size={168} level="M" title="QueueIt two-step sign-in QR code" />
+              <QRCodeSVG value={setup.otpauthUrl} size={168} level="M" title={t("twoStep.qrTitle")} />
             </div>
             <div className="min-w-0">
-              <p className="text-label text-text-muted">Key</p>
+              <p className="text-label text-text-muted">{t("twoStep.key")}</p>
               <p className="mt-1 break-all font-mono text-sm text-foreground" data-testid="two-step-secret">
                 {groupSecret(setup.secret)}
               </p>
-              <p className="mt-1 text-xs text-text-muted">Time-based, 6 digits, every 30 seconds.</p>
+              <p className="mt-1 text-xs text-text-muted">{t("twoStep.keyHint")}</p>
             </div>
           </div>
-          <CodeField id="two-step-confirm" label="6-digit code" value={code} onChange={setCode} testId="two-step-confirm-code" />
+          <CodeField id="two-step-confirm" label={t("twoStep.sixDigit")} value={code} onChange={setCode} testId="two-step-confirm-code" />
           {error ? <Alert variant="destructive">{error}</Alert> : null}
           <div className="flex gap-2">
             <Button type="submit" disabled={busy || !isAuthenticatorCode(code)} data-testid="two-step-enable">
-              Turn on
+              {t("twoStep.turnOn")}
             </Button>
             <Button type="button" variant="ghost" onClick={() => reset()}>
-              Cancel
+              {t("security.cancel")}
             </Button>
           </div>
         </form>
@@ -330,12 +334,12 @@ function TwoFactorCard({ token, user }) {
         >
           <p className="text-sm text-text-secondary">
             {stage === "disable"
-              ? "To turn off two-step sign-in, enter a current code from your app or one of your backup codes."
-              : "Enter a current code from your app. Your old backup codes will stop working."}
+              ? t("twoStep.disableIntro")
+              : t("twoStep.regenIntro")}
           </p>
           <CodeField
             id="two-step-current"
-            label="Current code"
+            label={t("twoStep.currentCode")}
             value={code}
             onChange={setCode}
             testId="two-step-current-code"
@@ -349,10 +353,10 @@ function TwoFactorCard({ token, user }) {
               disabled={busy || !code.trim()}
               data-testid="two-step-confirm-action"
             >
-              {stage === "disable" ? "Turn off two-step sign-in" : "Make new codes"}
+              {stage === "disable" ? t("twoStep.disableCta") : t("twoStep.regenCta")}
             </Button>
             <Button type="button" variant="ghost" onClick={() => reset()}>
-              Cancel
+              {t("security.cancel")}
             </Button>
           </div>
         </form>

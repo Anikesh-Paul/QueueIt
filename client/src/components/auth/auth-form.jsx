@@ -242,7 +242,7 @@ export function AuthForm({ mode }) {
         )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="email" className="text-label text-foreground">
-            Email
+            {t("auth.email")}
           </Label>
           <Input
             id="email"
@@ -259,7 +259,7 @@ export function AuthForm({ mode }) {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="password" className="text-label text-foreground">
-            Password
+            {t("auth.password")}
           </Label>
           <Input
             id="password"

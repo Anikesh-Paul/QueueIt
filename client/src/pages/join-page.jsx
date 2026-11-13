@@ -142,7 +142,7 @@ export function JoinPage() {
       ) : null}
 
       {validId && queuesLoading && !queue ? (
-        <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading queue">
+        <div className="flex flex-col gap-3" aria-busy="true" aria-label={t("join.loading")}>
           <Skeleton className="h-28 rounded-lg" />
           <Skeleton className="h-11 rounded-lg" />
         </div>

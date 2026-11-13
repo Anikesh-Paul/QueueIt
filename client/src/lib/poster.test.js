@@ -35,3 +35,10 @@ test("display link strips protocol and query", () => {
   assert.equal(displayLink("https://queueit-seven.vercel.app/join/abc?src=qr"), "queueit-seven.vercel.app/join/abc");
   assert.equal(displayLink(""), "");
 });
+
+test("day names follow the poster's language", () => {
+  assert.equal(formatDays(null, "hi"), "रोज़ाना");
+  assert.equal(formatDays([1, 2, 3, 4, 5], "hi"), "सोम–शुक्र");
+  assert.equal(formatDays([0, 6], "bn"), "শনি–রবি");
+  assert.equal(formatDays([1, 3, 5], "bn"), "সোম, বুধ, শুক্র");
+});

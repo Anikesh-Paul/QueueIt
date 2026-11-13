@@ -8,13 +8,14 @@ export function tokens() {
 }
 
 /** Start the page already signed in (and optionally in a theme). */
-export async function signIn(page, token, { theme } = {}) {
+export async function signIn(page, token, { theme, locale } = {}) {
   await page.addInitScript(
-    ([t, th]) => {
+    ([t, th, loc]) => {
       if (t) window.localStorage.setItem("queueit_token", t);
       if (th) window.localStorage.setItem("queueit_theme", th);
+      if (loc) window.localStorage.setItem("queueit_locale", loc);
     },
-    [token || null, theme || null]
+    [token || null, theme || null, locale || null]
   );
 }
 

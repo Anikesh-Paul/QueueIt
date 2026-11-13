@@ -1,7 +1,5 @@
 import { t } from "./i18n.js";
 
-const WEEKDAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const WEEKDAYS_HI = ["रविवार", "सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार"];
 
 /** Campus (Asia/Kolkata) weekday 0–6 for a timestamp. */
 export function campusWeekday(ms = Date.now()) {
@@ -34,7 +32,7 @@ export function catalogWaitLabel(waitEstimate, locale = "en") {
 export function estimateBasisLine(basis, { locale = "en", nowMs = Date.now() } = {}) {
   if (!basis?.source) return null;
   const day = campusWeekday(nowMs);
-  const weekday = (locale === "hi" ? WEEKDAYS_HI : WEEKDAYS_EN)[day] ?? "";
+  const weekday = day >= 0 ? t(locale, `days.long.${day}`) : "";
   const vars = { weeks: basis.weeks || 4, weekday };
   switch (basis.source) {
     case "blend":

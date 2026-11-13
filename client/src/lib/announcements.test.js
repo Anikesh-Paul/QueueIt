@@ -26,7 +26,7 @@ describe("announcements helpers", () => {
   it("formats end times and console inputs in campus time", () => {
     const now = Date.parse("2026-11-12T04:30:00Z");
     assert.equal(untilLabel("2026-11-12T12:30:00Z", now), "6:00 PM IST");
-    assert.equal(untilLabel("2026-11-14T12:30:00Z", now), "Sat 14 Nov, 6:00 PM IST");
+    assert.equal(untilLabel("2026-11-14T12:30:00Z", now), "Sat, 14 Nov, 6:00 PM IST");
     assert.equal(toCampusInput("2026-11-12T18:29:00Z"), "2026-11-12T23:59");
     assert.equal(audienceLabel({ scope: "venue", venueName: "Campus Hub" }), "Everyone at Campus Hub");
     assert.equal(audienceLabel({ scope: "queue", queueName: "Gym" }), "Gym line");

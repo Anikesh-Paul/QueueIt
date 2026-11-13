@@ -6,12 +6,15 @@ import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { useApp } from "@/context/app-context";
+import { useI18n } from "@/context/i18n-context";
+import { LanguageToggle } from "@/components/shell/language-toggle";
 import { fetchLiveView } from "@/api";
 import { isGlobalAdmin, isOrgAdmin } from "@/lib/staff-access";
 import {
   ROTATE_OPTIONS,
   counterStateLabel,
   focusedQueue,
+  formatCount,
   formatAgo,
   formatCampusClock,
   formatWait,
@@ -28,12 +31,12 @@ import { cn } from "@/lib/utils";
 const selectClass =
   "h-9 rounded-md border border-input bg-card px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40";
 
-function scopeLabel(user, data) {
+function scopeLabel(user, data, t) {
   if (data?.venue?.name) return data.venue.name;
-  if (user?.role === "staff") return "Your venue";
-  if (isOrgAdmin(user)) return "Your organizations";
-  if (isGlobalAdmin(user)) return "All organizations";
-  return "Your queues";
+  if (user?.role === "staff") return t("live.scope.staff");
+  if (isOrgAdmin(user)) return t("live.scope.org");
+  if (isGlobalAdmin(user)) return t("live.scope.global");
+  return t("live.scope.queues");
 }
 
 function Tile({ label, value, hint, testId, tv, tone }) {
@@ -56,6 +59,7 @@ function Tile({ label, value, hint, testId, tv, tone }) {
 }
 
 function StateBadge({ state }) {
+  const { locale } = useI18n();
   return (
     <span
       className={cn(
@@ -67,12 +71,15 @@ function StateBadge({ state }) {
         aria-hidden="true"
         className={cn("size-1.5 rounded-full", state === "open" ? "bg-primary" : state === "break" ? "bg-warning" : "bg-text-muted")}
       />
-      {counterStateLabel(state)}
+      {counterStateLabel(state, locale)}
     </span>
   );
 }
 
 function CounterThroughput({ counters, tv, testId }) {
+  const { t } = useI18n();
+  // Bold the number wherever the language puts it (e.g. "{n} served" puts it first).
+  const [servedBefore, servedAfter = ""] = t("live.servedCount").split("{n}");
   const max = Math.max(0, ...counters.map((c) => c.servedToday));
   return (
     <ul className={cn("flex flex-col", tv ? "gap-4" : "gap-3")} data-testid={testId}>
@@ -84,20 +91,24 @@ function CounterThroughput({ counters, tv, testId }) {
               <StateBadge state={c.state} />
             </div>
             <span className={cn("tabular-nums text-text-muted", tv ? "text-lg" : "text-sm")}>
-              <span className="font-semibold text-foreground" data-testid="live-counter-served">{c.servedToday}</span> served
+              <span>
+                {servedBefore}
+                <span className="font-semibold text-foreground" data-testid="live-counter-served">{c.servedToday}</span>
+                {servedAfter}
+              </span>
               {" · "}
-              {c.servedLastHour} in last hour
+              {t("live.inLastHour", { n: c.servedLastHour })}
             </span>
           </div>
           <div
             className={cn("mt-1.5 overflow-hidden rounded-full bg-secondary", tv ? "h-3" : "h-2")}
             role="img"
-            aria-label={`${c.name}: ${c.servedToday} served today`}
+            aria-label={t("live.counterBar", { name: c.name, n: c.servedToday })}
           >
             <div className="h-full rounded-full bg-primary" style={{ width: `${throughputPercent(c.servedToday, max)}%` }} />
           </div>
           <p className={cn("mt-1 text-text-muted", tv ? "text-base" : "text-xs")}>
-            {c.nowServing != null ? `Now serving #${c.nowServing}` : "Free"}
+            {c.nowServing != null ? t("live.nowServingToken", { token: c.nowServing }) : t("live.free")}
             {c.staffedByName ? ` · ${c.staffedByName}` : ""}
           </p>
         </li>
@@ -106,12 +117,13 @@ function CounterThroughput({ counters, tv, testId }) {
   );
 }
 
-function queueStatusText(queue) {
-  if (queue.status === "paused") return "Paused";
-  return queue.acceptingTokens ? "Taking tokens" : "Closed to new tokens";
+function queueStatusText(queue, t) {
+  if (queue.status === "paused") return t("live.status.paused");
+  return queue.acceptingTokens ? t("live.status.taking") : t("live.status.closed");
 }
 
 function QueueCard({ queue, tv }) {
+  const { t, locale } = useI18n();
   return (
     <section
       className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:p-5"
@@ -124,11 +136,11 @@ function QueueCard({ queue, tv }) {
           <h2 id={`live-q-${queue.id}`} className={cn("truncate font-semibold text-foreground", tv ? "text-2xl" : "text-lg")}>{queue.name}</h2>
           <p className={cn("truncate text-text-muted", tv ? "text-sm" : "text-xs")}>
             {queue.venue ? `${queue.venue} · ` : ""}
-            {queueStatusText(queue)}
+            {queueStatusText(queue, t)}
           </p>
         </div>
         <p className={cn("text-text-muted", tv ? "text-base" : "text-sm")}>
-          Now serving{" "}
+          {t("live.nowServing")}{" "}
           <span className={cn("font-metric font-semibold tabular-nums text-foreground", tv ? "text-3xl" : "text-xl")}>
             {queue.nowServing != null ? `#${queue.nowServing}` : "—"}
           </span>
@@ -136,10 +148,10 @@ function QueueCard({ queue, tv }) {
       </header>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
         {[
-          ["Served", queue.servedToday],
-          ["Avg wait", formatWait(queue.averageWaitMinutes)],
-          ["Waiting", queue.waitingCount],
-          ["No-shows", queue.noShowsToday],
+          [t("live.served"), formatCount(queue.servedToday, locale)],
+          [t("live.avgWait"), formatWait(queue.averageWaitMinutes, locale)],
+          [t("live.waiting"), formatCount(queue.waitingCount, locale)],
+          [t("live.noShows"), formatCount(queue.noShowsToday, locale)],
         ].map(([label, value]) => (
           <div key={label} className="min-w-0">
             <dt className={cn("text-text-muted", tv ? "text-sm" : "text-xs")}>{label}</dt>
@@ -149,7 +161,7 @@ function QueueCard({ queue, tv }) {
       </dl>
       <div>
         <h3 className="mb-2 text-xs font-medium text-text-muted">
-          Counters · {queue.openCounters} of {queue.totalCounters} open
+          {t("live.countersOpen", { open: queue.openCounters, total: queue.totalCounters })}
         </h3>
         <CounterThroughput counters={queue.counters} testId="live-queue-counters" />
       </div>
@@ -158,6 +170,7 @@ function QueueCard({ queue, tv }) {
 }
 
 function FocusView({ queue, tv }) {
+  const { t, locale } = useI18n();
   return (
     <section className="flex flex-col gap-5" data-testid="live-focus" data-name={queue.name} aria-labelledby="live-focus-title">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
@@ -167,31 +180,31 @@ function FocusView({ queue, tv }) {
           </h2>
           <p className={cn("text-text-muted", tv ? "text-xl" : "text-sm")}>
             {queue.venue ? `${queue.venue} · ` : ""}
-            {queueStatusText(queue)}
+            {queueStatusText(queue, t)}
           </p>
         </div>
         <p className={cn("text-text-muted", tv ? "text-2xl" : "text-base")}>
-          Now serving{" "}
+          {t("live.nowServing")}{" "}
           <span className={cn("font-metric font-semibold tabular-nums text-foreground", tv ? "text-6xl" : "text-4xl")} data-testid="live-focus-now">
             {queue.nowServing != null ? `#${queue.nowServing}` : "—"}
           </span>
         </p>
       </header>
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Tile tv={tv} label="Served today" value={queue.servedToday} hint={`${queue.servedLastHour} in the last hour`} testId="live-focus-served" />
-        <Tile tv={tv} label="Average wait" value={formatWait(queue.averageWaitMinutes)} hint="Join to call" />
-        <Tile tv={tv} label="Waiting now" value={queue.waitingCount} testId="live-focus-waiting" />
-        <Tile tv={tv} label="No-shows today" value={queue.noShowsToday} tone={queue.noShowsToday ? "warn" : undefined} />
+        <Tile tv={tv} label={t("live.servedToday")} value={formatCount(queue.servedToday, locale)} hint={t("live.lastHourHint", { n: queue.servedLastHour })} testId="live-focus-served" />
+        <Tile tv={tv} label={t("live.averageWait")} value={formatWait(queue.averageWaitMinutes, locale)} hint={t("live.joinToCall")} />
+        <Tile tv={tv} label={t("live.waitingNow")} value={formatCount(queue.waitingCount, locale)} testId="live-focus-waiting" />
+        <Tile tv={tv} label={t("live.noShowsToday")} value={formatCount(queue.noShowsToday, locale)} tone={queue.noShowsToday ? "warn" : undefined} />
         <Tile
           tv={tv}
-          label="Busiest counter"
+          label={t("live.busiest")}
           value={queue.busiestCounter?.name || "—"}
-          hint={queue.busiestCounter ? `${queue.busiestCounter.servedToday} served` : "No serves yet"}
+          hint={queue.busiestCounter ? t("live.servedCount", { n: queue.busiestCounter.servedToday }) : t("live.noServes")}
         />
       </dl>
       <section className="rounded-lg border border-border bg-card p-4 sm:p-6" aria-labelledby="live-focus-counters">
         <h3 id="live-focus-counters" className={cn("mb-4 font-semibold text-foreground", tv ? "text-2xl" : "text-base")}>
-          Counters · {queue.openCounters} of {queue.totalCounters} open
+          {t("live.countersOpen", { open: queue.openCounters, total: queue.totalCounters })}
         </h3>
         <CounterThroughput counters={queue.counters} tv={tv} testId="live-focus-counters-list" />
       </section>
@@ -206,6 +219,7 @@ function FocusView({ queue, tv }) {
  */
 export function LiveViewPage() {
   const { token, user } = useApp();
+  const { t, locale } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const settings = useMemo(() => parseLiveParams(searchParams), [searchParams]);
   const { queueId, rotateSeconds, highContrast, tv } = settings;
@@ -300,11 +314,11 @@ export function LiveViewPage() {
   }, [tv, update]);
 
   useEffect(() => {
-    document.title = "Live view · QueueIt";
+    document.title = t("live.docTitle");
     return () => {
       document.title = "QueueIt";
     };
-  }, []);
+  }, [t]);
 
   function enterTv() {
     update({ tv: true });
@@ -329,34 +343,34 @@ export function LiveViewPage() {
       <header className={cn("flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-border px-4 sm:px-6", tv ? "py-4" : "py-3")}>
         <div className="flex min-w-0 items-baseline gap-3">
           <h1 className={cn("font-semibold tracking-[-0.02em] text-foreground", tv ? "text-3xl" : "text-xl")} data-testid="live-heading">
-            Live view
+            {t("live.title")}
           </h1>
           <p className={cn("truncate text-text-muted", tv ? "text-lg" : "text-sm")} data-testid="live-scope">
-            {scopeLabel(user, data)} · Today
+            {scopeLabel(user, data, t)} · {t("live.today")}
           </p>
         </div>
         <div className="flex items-center gap-4">
           <p className={cn("font-metric tabular-nums text-foreground", tv ? "text-3xl" : "text-lg")} data-testid="live-clock">
-            {formatCampusClock(new Date(now))} <span className={cn("text-text-muted", tv ? "text-lg" : "text-xs")}>IST</span>
+            {formatCampusClock(new Date(now), locale)} <span className={cn("text-text-muted", tv ? "text-lg" : "text-xs")}>IST</span>
           </p>
           <p className={cn("flex items-center gap-1.5 text-text-muted", tv ? "text-base" : "text-xs")} data-testid="live-updated">
             <span
               aria-hidden="true"
               className={cn("size-2 rounded-full", error || stale ? "bg-warning" : "bg-primary motion-safe:animate-pulse")}
             />
-            {formatAgo(lastOk, now)}
+            {formatAgo(lastOk, now, locale)}
           </p>
           {tv ? (
             <Button variant="outline" size="sm" onClick={exitTv} data-testid="live-exit-tv">
               <Minimize2 aria-hidden="true" />
-              Exit TV mode
+              {t("live.exitTv")}
             </Button>
           ) : null}
         </div>
         {!tv ? (
           <div className="flex w-full flex-wrap items-center gap-2" data-testid="live-controls">
             <label className="flex items-center gap-2 text-sm text-text-muted">
-              Show
+              {t("live.show")}
               <select
                 className={selectClass}
                 value={queueId || ""}
@@ -366,7 +380,7 @@ export function LiveViewPage() {
                 }}
                 data-testid="live-queue-select"
               >
-                <option value="">All queues</option>
+                <option value="">{t("live.allQueues")}</option>
                 {queues.map((q) => (
                   <option key={q.id} value={q.id}>
                     {q.name}
@@ -375,7 +389,7 @@ export function LiveViewPage() {
               </select>
             </label>
             <label className="flex items-center gap-2 text-sm text-text-muted">
-              Rotate
+              {t("live.rotate")}
               <select
                 className={selectClass}
                 value={rotateSeconds}
@@ -388,7 +402,7 @@ export function LiveViewPage() {
               >
                 {ROTATE_OPTIONS.map((s) => (
                   <option key={s} value={s}>
-                    {s ? `Every ${s}s` : "Off"}
+                    {s ? t("live.rotateEvery", { n: s }) : t("live.rotateOff")}
                   </option>
                 ))}
               </select>
@@ -401,17 +415,18 @@ export function LiveViewPage() {
               data-testid="live-contrast"
             >
               <Contrast aria-hidden="true" />
-              High contrast
+              {t("live.highContrast")}
             </Button>
             <Button size="lg" onClick={enterTv} data-testid="live-enter-tv">
               <Tv aria-hidden="true" />
-              TV mode
+              {t("live.tvMode")}
             </Button>
             <div className="ml-auto flex items-center gap-2">
+              <LanguageToggle />
               <ThemeToggle />
               <Button variant="ghost" size="lg" asChild>
                 <Link to="/admin/catalog" data-testid="live-back">
-                  Back to console
+                  {t("live.back")}
                 </Link>
               </Button>
             </div>
@@ -422,15 +437,16 @@ export function LiveViewPage() {
       <main id="main-content" className={cn("flex flex-1 flex-col gap-5 px-4 py-5 sm:px-6", tv && "gap-6 py-6")}>
         {error && data ? (
           <p role="status" className="rounded-md border border-warning-line bg-warning-soft px-4 py-2 text-sm text-warning-ink" data-testid="live-stale">
-            Can’t reach the server. Showing the last numbers ({formatAgo(lastOk, now).toLowerCase()}); retrying automatically.
+            {t("live.stale", { ago: formatAgo(lastOk, now, locale) })}
           </p>
         ) : null}
 
         {!data && error ? (
           <ErrorState
             testId="live-error"
-            title={error.status === 403 ? "You don’t have access to the live view" : "Couldn’t load the live view"}
-            message={error.status === 403 ? "Ask an admin to give you access to a venue." : "Check your connection. We’ll keep trying."}
+            title={error.status === 403 ? t("live.noAccessTitle") : t("live.loadFailedTitle")}
+            message={error.status === 403 ? t("live.noAccessBody") : t("live.loadFailedBody")}
+            retryLabel={t("error.retry")}
             detail={error.message}
             onRetry={load}
           />
@@ -439,22 +455,22 @@ export function LiveViewPage() {
         {!data && !error ? (
           <p className="py-24 text-center text-text-muted" aria-live="polite" data-testid="live-loading">
             <RefreshCw className="mr-2 inline size-4 motion-safe:animate-spin" aria-hidden="true" />
-            Loading today’s numbers…
+            {t("live.loading")}
           </p>
         ) : null}
 
         {data && queues.length === 0 ? (
-          <EmptyState testId="live-empty" title="No queues to show" hint="Queues you can manage will appear here with today’s numbers." />
+          <EmptyState testId="live-empty" title={t("live.emptyTitle")} hint={t("live.emptyHint")} />
         ) : null}
 
         {pinnedMissing ? (
           <EmptyState
             testId="live-missing"
-            title="That queue isn’t available"
-            hint="It may be archived or outside your organizations."
+            title={t("live.missingTitle")}
+            hint={t("live.missingHint")}
             action={
               <Button variant="outline" onClick={() => update({ queueId: null })}>
-                Show all queues
+                {t("live.showAll")}
               </Button>
             }
           />
@@ -465,7 +481,7 @@ export function LiveViewPage() {
             {rotating.length ? (
               <p className={cn("flex items-center gap-2 text-text-muted", tv ? "text-lg" : "text-sm")} data-testid="live-rotation">
                 <span>
-                  Queue {(rotationIndex % rotating.length) + 1} of {rotating.length} · changes every {rotateSeconds}s
+                  {t("live.rotation", { i: (rotationIndex % rotating.length) + 1, n: rotating.length, s: rotateSeconds })}
                 </span>
                 <span className="flex gap-1" aria-hidden="true">
                   {rotating.map((q, i) => (
@@ -481,16 +497,16 @@ export function LiveViewPage() {
         {data && queues.length > 0 && !focused && !pinnedMissing ? (
           <>
             <dl className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-testid="live-totals">
-              <Tile tv={tv} label="Served today" value={totals.servedToday} hint={`${totals.servedLastHour} in the last hour`} testId="live-served" />
-              <Tile tv={tv} label="Average wait" value={formatWait(totals.averageWaitMinutes)} hint="Join to call" testId="live-wait" />
-              <Tile tv={tv} label="Waiting now" value={totals.waitingCount} hint={`${totals.openQueues} of ${queues.length} queues open`} testId="live-waiting" />
-              <Tile tv={tv} label="No-shows today" value={totals.noShowsToday} tone={totals.noShowsToday ? "warn" : undefined} testId="live-noshows" />
-              <Tile tv={tv} label="Open counters" value={`${totals.openCounters}/${totals.totalCounters}`} testId="live-open-counters" />
+              <Tile tv={tv} label={t("live.servedToday")} value={formatCount(totals.servedToday, locale)} hint={t("live.lastHourHint", { n: totals.servedLastHour })} testId="live-served" />
+              <Tile tv={tv} label={t("live.averageWait")} value={formatWait(totals.averageWaitMinutes, locale)} hint={t("live.joinToCall")} testId="live-wait" />
+              <Tile tv={tv} label={t("live.waitingNow")} value={formatCount(totals.waitingCount, locale)} hint={t("live.queuesOpen", { open: totals.openQueues, total: queues.length })} testId="live-waiting" />
+              <Tile tv={tv} label={t("live.noShowsToday")} value={formatCount(totals.noShowsToday, locale)} tone={totals.noShowsToday ? "warn" : undefined} testId="live-noshows" />
+              <Tile tv={tv} label={t("live.openCounters")} value={`${totals.openCounters}/${totals.totalCounters}`} testId="live-open-counters" />
               <Tile
                 tv={tv}
-                label="Busiest counter"
+                label={t("live.busiest")}
                 value={busiest ? busiest.name : "—"}
-                hint={busiest ? `${busiest.queueName} · ${busiest.servedToday} served` : "No serves yet today"}
+                hint={busiest ? t("live.busiestHint", { queue: busiest.queueName, n: busiest.servedToday }) : t("live.noServesToday")}
                 testId="live-busiest"
               />
             </dl>

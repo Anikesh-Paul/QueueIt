@@ -1,3 +1,5 @@
+import { formatNumber, intlLocale, t } from "./i18n.js";
+
 /**
  * Live staff view helpers: URL settings, polling cadence, rotation and labels.
  * The view polls GET /api/admin/live (works on Vercel without a socket).
@@ -50,29 +52,34 @@ export function isStale(lastOkMs, nowMs, refreshSeconds = DEFAULT_REFRESH_SECOND
   return nowMs - lastOkMs > Math.max(5, refreshSeconds) * 3000;
 }
 
-export function formatAgo(lastOkMs, nowMs) {
-  if (!lastOkMs) return "Not updated yet";
+export function formatAgo(lastOkMs, nowMs, locale = "en") {
+  if (!lastOkMs) return t(locale, "live.notUpdated");
   const seconds = Math.max(0, Math.round((nowMs - lastOkMs) / 1000));
-  if (seconds < 5) return "Updated just now";
-  if (seconds < 60) return `Updated ${seconds}s ago`;
+  if (seconds < 5) return t(locale, "live.updatedNow");
+  if (seconds < 60) return t(locale, "live.updatedSeconds", { n: seconds });
   const minutes = Math.round(seconds / 60);
-  return `Updated ${minutes} min ago`;
+  return t(locale, "live.updatedMinutes", { n: minutes });
 }
 
-export function formatWait(minutes) {
+export function formatWait(minutes, locale = "en") {
   if (minutes == null || Number.isNaN(Number(minutes))) return "—";
   const value = Number(minutes);
-  if (value < 1) return "<1 min";
-  if (value < 60) return `${Math.round(value)} min`;
+  if (value < 1) return t(locale, "live.lessThanMinute");
+  if (value < 60) return t(locale, "live.minutes", { n: Math.round(value) });
   const h = Math.floor(value / 60);
   const m = Math.round(value % 60);
-  return m ? `${h} h ${m} min` : `${h} h`;
+  return m ? t(locale, "live.hoursMinutes", { h, m }) : t(locale, "live.hours", { h });
 }
 
-export function counterStateLabel(state) {
-  if (state === "break") return "On break";
-  if (state === "closed") return "Closed";
-  return "Open";
+export function counterStateLabel(state, locale = "en") {
+  if (state === "break") return t(locale, "live.counter.break");
+  if (state === "closed") return t(locale, "live.counter.closed");
+  return t(locale, "live.counter.open");
+}
+
+/** Whole numbers with Indian grouping (12,34,567). */
+export function formatCount(value, locale = "en") {
+  return formatNumber(locale, value);
 }
 
 /** Width for a throughput bar, never 0 for a non-zero value. */
@@ -104,8 +111,8 @@ export function focusedQueue(queues, { queueId, rotateSeconds, rotationIndex = 0
 }
 
 /** Campus (IST) wall clock for the header, e.g. "3:05 PM". */
-export function formatCampusClock(date) {
-  return new Intl.DateTimeFormat("en-IN", {
+export function formatCampusClock(date, locale = "en") {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     timeZone: "Asia/Kolkata",
     hour: "numeric",
     minute: "2-digit",

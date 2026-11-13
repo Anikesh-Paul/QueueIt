@@ -37,6 +37,11 @@ describe("wait estimate copy", () => {
     assert.match(estimateBasisLine({ source: "history", weeks: 4 }, { nowMs: WED_IST }), /today has only just started/);
     assert.match(estimateBasisLine({ source: "configured" }), /rough guide/i);
     assert.equal(estimateBasisLine(null), null);
+    assert.equal(
+      estimateBasisLine({ source: "blend", weeks: 4 }, { nowMs: WED_IST, locale: "bn" }),
+      "আজকের গতি আর গত 4 সপ্তাহের প্রতি বুধবার এই সময়ের হিসাব ধরে।"
+    );
+    assert.match(estimateBasisLine({ source: "history", weeks: 4 }, { nowMs: WED_IST, locale: "hi" }), /पिछले 4 बुधवार/);
   });
 
   it("labels confidence and the staff readout", () => {

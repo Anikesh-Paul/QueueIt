@@ -6,6 +6,8 @@ import { useStudentQueue } from "@/hooks/use-student-queue";
 import { useAdminConsoleState } from "@/hooks/use-admin-console";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { clearOfflineStatusCache } from "@/lib/register-sw";
+import { isOfflineError, loadCachedUser, saveCachedUser } from "@/lib/offline";
+import { useI18n } from "@/context/i18n-context";
 
 export {
   TOKEN_KEY,
@@ -37,6 +39,7 @@ export function AppProvider({ children }) {
     () => typeof document !== "undefined" && document.hidden
   );
   const realtimeRef = useRef(null);
+  const [bootAttempt, setBootAttempt] = useState(0);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   useEffect(() => {
@@ -47,7 +50,9 @@ export function AppProvider({ children }) {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
+  const { locale } = useI18n();
   const student = useStudentQueue({
+    locale,
     token,
     user,
     guestCredential,
@@ -107,11 +112,22 @@ export function AppProvider({ children }) {
           const data = await fetchMe(token);
           if (cancelled) return;
           setUser(data.user);
+          saveCachedUser(window.localStorage, token, data.user);
           if (!cancelled) {
             await loadQueues(token, { restoreStatus: true });
           }
-        } catch {
-          if (!cancelled) {
+        } catch (err) {
+          if (cancelled) return;
+          if (isOfflineError(err)) {
+            // No signal is not a sign-out: open with the last known profile and
+            // place in line, and try again when the connection returns.
+            const cached = loadCachedUser(window.localStorage, token);
+            if (cached) {
+              setUser(cached);
+              await loadQueues(token, { restoreStatus: true });
+            }
+            window.addEventListener("online", () => setBootAttempt((n) => n + 1), { once: true });
+          } else {
             logout();
           }
         } finally {
@@ -143,7 +159,7 @@ export function AppProvider({ children }) {
     };
     // student.loadQueues / logout identities are stable enough for boot; token
     // and guest flags are the intentional triggers (same as the previous monolith).
-  }, [token, guestMode, guestCredential, logout, loadQueues, setUser, setBooting]);
+  }, [token, guestMode, guestCredential, logout, loadQueues, setUser, setBooting, bootAttempt]);
 
   // Realtime lifecycle: Socket.IO is JWT-only (F16 Guest credential out).
   // Guest path relies on polling honesty as the live baseline.

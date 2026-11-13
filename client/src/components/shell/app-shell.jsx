@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { useI18n } from "@/context/i18n-context";
 import { SkipToContent } from "@/components/shell/skip-to-content";
 import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
+import { InstallAppPrompt } from "@/components/pwa/install-prompt";
 
 function ShellNavLink({ to, end, children, testId }) {
   const exact = end ?? shellNavEnd(to);
@@ -183,6 +184,7 @@ export function AppShell() {
       <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 outline-none">
         <Outlet />
       </main>
+      {!isAdmin ? <InstallAppPrompt /> : null}
     </div>
     </QueueNotifyProvider>
   );

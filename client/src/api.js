@@ -15,11 +15,20 @@ export async function apiRequest(path, options = {}) {
     headers["X-Guest-Credential"] = guestCredential;
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (cause) {
+    // No network (or the API is unreachable): a typed error the UI can explain.
+    const err = new Error("You’re offline. Reconnect and try again.");
+    err.offline = true;
+    err.cause = cause;
+    throw err;
+  }
 
   let data = null;
   const text = await res.text();
@@ -48,6 +57,10 @@ export async function apiRequest(path, options = {}) {
       value: true,
       enumerable: false,
     });
+    const cachedAt = Date.parse(res.headers.get("X-QueueIt-Cached-At") || "");
+    if (Number.isFinite(cachedAt)) {
+      Object.defineProperty(data, "_cachedAt", { value: cachedAt, enumerable: false });
+    }
   }
 
   return data;

@@ -37,6 +37,8 @@ import { LeaveNowBanner, LeaveTimeCard } from "@/components/status/leave-time-ca
 import { NoticeList } from "@/components/notices/notice-list";
 import { useNotices } from "@/hooks/use-notices";
 import { liveLeave } from "@/lib/leave-alert";
+import { WifiOff } from "lucide-react";
+import { actionErrorMessage, formatAsOf } from "@/lib/offline";
 
 /**
  * Live status — signature student surface.
@@ -215,7 +217,7 @@ export function StatusPage() {
       await acknowledgeArrival(token, statusQueueId, guestCredential);
       await refreshStatus?.();
     } catch (err) {
-      setHereError(err.message || t("status.checkInFailed"));
+      setHereError(actionErrorMessage(err, "generic", locale, t("status.checkInFailed")));
     } finally {
       setHereBusy(false);
     }
@@ -229,7 +231,7 @@ export function StatusPage() {
       await requestPriority(token, statusQueueId, priorityReason, guestCredential);
       await refreshStatus?.();
     } catch (err) {
-      setPriorityError(err.message || t("status.priorityRequestFailed"));
+      setPriorityError(actionErrorMessage(err, "generic", locale, t("status.priorityRequestFailed")));
     } finally {
       setPriorityBusy(false);
     }
@@ -243,7 +245,7 @@ export function StatusPage() {
       await rejoinQueue(token, statusQueueId, guestCredential);
       await refreshStatus?.();
     } catch (err) {
-      setRejoinError(err.message || t("status.rejoinFailed"));
+      setRejoinError(actionErrorMessage(err, "join", locale, t("status.rejoinFailed")));
     } finally {
       setRejoinBusy(false);
     }
@@ -354,13 +356,23 @@ export function StatusPage() {
 
       <ShellContent tier="student">
         {offline ? (
-          <p
+          <div
             data-testid="status-offline"
-            className="mb-4 rounded-lg border border-border bg-secondary px-3.5 py-2.5 text-sm text-text-secondary"
+            role="status"
             aria-live="polite"
+            className="mb-4 flex items-start gap-3 rounded-lg border border-warning-line bg-warning-soft px-3.5 py-3 text-sm text-warning-ink"
           >
-            {t("status.offlineBanner")}
-          </p>
+            <WifiOff aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-semibold">{t("status.offlineTitle")}</p>
+              <p>{t("status.offlineBanner")}</p>
+              {formatAsOf(statusLastUpdatedAt, locale) ? (
+                <p data-testid="status-offline-as-of" className="mt-0.5 font-medium">
+                  {t("status.offlineAsOf", { time: formatAsOf(statusLastUpdatedAt, locale) })}
+                </p>
+              ) : null}
+            </div>
+          </div>
         ) : null}
         <header className="mb-4">
           <h1

@@ -1,12 +1,20 @@
 {
+  "id": "/",
   "name": "QueueIt",
   "short_name": "QueueIt",
   "description": "Campus virtual queues — join a line, watch your place, and show up when it's your turn.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f4f1ea",
   "theme_color": "#1b4332",
+  "categories": [
+    "education",
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "/favicon.svg",
@@ -37,6 +45,32 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My place in line",
+      "short_name": "In line",
+      "url": "/status",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Browse queues",
+      "short_name": "Queues",
+      "url": "/queues",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

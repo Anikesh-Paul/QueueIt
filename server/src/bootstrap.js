@@ -28,5 +28,15 @@ export async function prepareApp() {
     globalThis.__queueitSeeded = true;
   }
 
-  return createApp();
+  return createApp(appOptionsFromEnv());
+}
+
+/**
+ * Test-only knob: AUTH_RATE_LIMIT_MAX raises the per-IP sign-in/register limit
+ * (the e2e suite signs in more than 20 times from one IP). Unset in production,
+ * so the default limit applies.
+ */
+export function appOptionsFromEnv(env = process.env) {
+  const max = Number.parseInt(env.AUTH_RATE_LIMIT_MAX ?? "", 10);
+  return Number.isInteger(max) && max > 0 ? { authRateLimit: { max } } : {};
 }

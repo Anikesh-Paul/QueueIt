@@ -40,6 +40,9 @@ const PosterPage = lazy(() =>
 const AdminAuditPage = lazy(() =>
   import("@/pages/admin-audit-page").then((mod) => ({ default: mod.AdminAuditPage }))
 );
+const AdminAccessPage = lazy(() =>
+  import("@/pages/admin-access-page").then((mod) => ({ default: mod.AdminAccessPage }))
+);
 const AdminNoticesPage = lazy(() =>
   import("@/pages/admin-notices-page").then((mod) => ({ default: mod.AdminNoticesPage }))
 );
@@ -158,6 +161,7 @@ const router = createBrowserRouter([
                       { path: "shift", element: <AdminShiftPage /> },
                       { path: "notices", element: <AdminNoticesPage /> },
                       { path: "audit", element: <AdminAuditPage /> },
+                      { path: "access", element: <AdminAccessPage /> },
                       { path: "queues/:queueId", element: <AdminConsolePage /> },
                       { path: "queues/:queueId/analytics", element: <AnalyticsPage /> },
                     ],

@@ -67,7 +67,7 @@ export function UserChip({ user, className, softUpgrade = false, href = null }) 
       >
         {label}
       </span>
-      {showRoleBadge ? <RoleBadge role={role} /> : null}
+      {showRoleBadge ? <RoleBadge role={role} label={user.roleLabel} /> : null}
     </>
   );
 
@@ -145,15 +145,15 @@ export function UserChip({ user, className, softUpgrade = false, href = null }) 
  * Role chip — forest for User, warm amber for Admin, neutral mist for Guest (identity, not error).
  * Title case labels: User / Admin / Guest. Class hooks stay for e2e (`.badge--user` etc.).
  */
-export function RoleBadge({ role, className }) {
+export function RoleBadge({ role, className, label: override = null }) {
   const { t } = useI18n();
   const normalized = normalizeIdentityRole(role);
-  const label =
-    normalized === "guest"
+  const label = override ||
+    (normalized === "guest"
       ? t("role.guest")
       : normalized === "user"
         ? t("role.user")
-        : ROLE_LABELS[normalized] || ROLE_LABELS.user;
+        : ROLE_LABELS[normalized] || ROLE_LABELS.user);
 
   return (
     <BadgePrimitive

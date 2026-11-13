@@ -1,12 +1,10 @@
 /**
  * Campus (or venue-scoped) analytics rollup and CSV export.
  */
-import mongoose from "mongoose";
 import { Queue } from "../models/Queue.js";
-import { Venue } from "../models/Venue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { dateRangeMatch, resolveAnalyticsRange } from "./analyticsRange.js";
-import { isGlobalAdmin, isStaff, staffQueueIds, staffVenueId, VENUE_FORBIDDEN } from "./staffAccess.js";
+import { resolveVenueFilter, staffQueueIds } from "./staffAccess.js";
 
 function roundWaitMinutes(value) {
   return Math.round(value * 10) / 10;
@@ -26,33 +24,14 @@ export async function collectCampusAnalytics(user, query = {}) {
   const range = resolveAnalyticsRange(query);
   if (!range.ok) return { ok: false, status: 400, error: range.error };
 
-  let venueFilter = {};
-  let venueJson = null;
   const requested = query.venueId != null && String(query.venueId).trim() !== ""
     ? String(query.venueId).trim()
     : null;
 
-  if (isStaff(user)) {
-    const assigned = staffVenueId(user);
-    if (!assigned) return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-    if (requested && requested !== assigned) {
-      return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-    }
-    const venue = await Venue.findById(assigned);
-    if (!venue) return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-    venueFilter = { venue: venue._id };
-    venueJson = venue.toPublicJSON();
-  } else if (!isGlobalAdmin(user)) {
-    return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-  } else if (requested) {
-    if (!mongoose.isValidObjectId(requested)) {
-      return { ok: false, status: 404, error: "Venue not found" };
-    }
-    const venue = await Venue.findById(requested);
-    if (!venue) return { ok: false, status: 404, error: "Venue not found" };
-    venueFilter = { venue: venue._id };
-    venueJson = venue.toPublicJSON();
-  }
+  const scoped = await resolveVenueFilter(user, requested);
+  if (!scoped.ok) return scoped;
+  const venueFilter = scoped.filter;
+  const venueJson = scoped.venue ? scoped.venue.toPublicJSON() : null;
 
   let queues = await Queue.find({ ...venueFilter, archivedAt: null })
     .populate("venue")

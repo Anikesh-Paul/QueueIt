@@ -417,6 +417,30 @@ export function updateStaffQueues(token, staffId, { queueIds }) {
   });
 }
 
+/** Global admins: every admin and staff account with its organization scope. */
+export function fetchConsolePeople(token) {
+  return apiRequest("/api/admin/people", { token });
+}
+
+/** Global admins: limit an admin to organizations ([] = all organizations). */
+export function setAdminOrganizations(token, userId, organizationIds) {
+  return apiRequest(`/api/admin/people/${userId}/organizations`, {
+    method: "PATCH",
+    token,
+    body: { organizationIds },
+  });
+}
+
+/** Global admins: create an organization admin. */
+export function inviteOrgAdmin(token, payload) {
+  return apiRequest("/api/admin/admins", { method: "POST", token, body: payload });
+}
+
+/** Move a staff member to another venue (and so organization). */
+export function moveStaff(token, staffId, venueId) {
+  return apiRequest(`/api/admin/staff/${staffId}`, { method: "PATCH", token, body: { venueId } });
+}
+
 export function updateVenue(token, venueId, { name, organizationId }) {
   const body = {};
   if (name !== undefined) body.name = name;

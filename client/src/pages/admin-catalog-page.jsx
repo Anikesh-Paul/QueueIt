@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ShellContent } from "@/components/shell/shell-content";
 import { useApp } from "@/context/app-context";
 import { OrganizationsPanel } from "@/components/admin/organizations-panel";
+import { isGlobalAdmin, isOrgAdmin } from "@/lib/staff-access";
 import {
   createAdminQueue,
   createOrganization,
@@ -49,6 +50,10 @@ export function AdminCatalogPage() {
   const [staffEdits, setStaffEdits] = useState({});
   const [staffInvite, setStaffInvite] = useState(null);
   const [drafts, setDrafts] = useState({});
+
+  const globalAdmin = isGlobalAdmin(user);
+  // Organization admins only get their organizations back from the server.
+  const newVenueOrgId = orgs.some((org) => org.id === venueOrgId) ? venueOrgId : orgs[0]?.id || "default";
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -100,7 +105,7 @@ export function AdminCatalogPage() {
     const name = venueName.trim();
     if (!name) return;
     const ok = await run(() =>
-      createVenue(token, { name, organizationId: orgs.length > 1 && venueOrgId !== "default" ? venueOrgId : undefined })
+      createVenue(token, { name, organizationId: orgs.length > 1 || !globalAdmin ? newVenueOrgId : undefined })
     );
     if (ok) setVenueName("");
   }
@@ -281,7 +286,13 @@ export function AdminCatalogPage() {
 
       {error ? <Alert variant="destructive" className="mb-4">{error}</Alert> : null}
 
-      {!loading && user?.role === "admin" && orgs.length ? (
+      {!loading && isOrgAdmin(user) ? (
+        <p className="mb-4 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-text-secondary" data-testid="catalog-scope">
+          You manage {orgs.length ? orgs.map((org) => org.name).join(", ") : "no organizations yet"}. Ask a global admin to change this.
+        </p>
+      ) : null}
+
+      {!loading && globalAdmin && orgs.length ? (
         <OrganizationsPanel
           orgs={orgs}
           busy={busy}
@@ -325,7 +336,7 @@ export function AdminCatalogPage() {
                 >
                   Save name
                 </Button>
-                {user?.role === "admin" && orgs.length > 1 ? (
+                {globalAdmin && orgs.length > 1 ? (
                   <div className="w-full sm:w-52">
                     <Label htmlFor={`venue-org-${venue.id}`}>Organization</Label>
                     <select
@@ -750,7 +761,7 @@ export function AdminCatalogPage() {
                   <Label htmlFor="new-venue-org">Organization</Label>
                   <select
                     id="new-venue-org"
-                    value={venueOrgId}
+                    value={newVenueOrgId}
                     onChange={(event) => setVenueOrgId(event.target.value)}
                     disabled={busy}
                     data-testid="catalog-new-venue-org"

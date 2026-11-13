@@ -1,5 +1,7 @@
 import { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { ErrorState } from "@/components/ui/error-state";
+import { Button } from "@/components/ui/button";
 import { useAdminConsole } from "@/context/app-context";
 import { ShellContent } from "@/components/shell/shell-content";
 import { AdminConsoleToolbar } from "@/components/admin/admin-console-toolbar";
@@ -29,6 +31,7 @@ export function AdminConsolePage() {
     waitingList,
     waitingLoading,
     waitingError,
+    waitingDenied,
     adminActionBusy,
     adminActionError,
     selectedEntryId,
@@ -66,6 +69,27 @@ export function AdminConsolePage() {
   const acceptingTokens = adminQueueMeta?.acceptingTokens !== false;
   const queueName = adminQueueMeta?.name || "Queue";
   const empty = waitingList.length === 0;
+
+  // Another venue's or organization's queue: one clear message instead of a
+  // console full of refused panels. The server refuses every action anyway.
+  if (waitingDenied && !adminQueueMeta) {
+    return (
+      <ShellContent tier="admin" className="max-w-2xl">
+        <h1 data-testid="admin-heading" className="mb-4 font-heading text-headline leading-tight text-foreground">
+          Admin console
+        </h1>
+        <ErrorState
+          testId="admin-no-access"
+          title="You can't manage this queue"
+          message={waitingError}
+          detail="It belongs to a venue or organization you haven't been given. Ask a global admin if you need it."
+        />
+        <Button asChild variant="secondary" size="sm" className="mt-4">
+          <Link to="/admin/catalog">Back to your catalog</Link>
+        </Button>
+      </ShellContent>
+    );
+  }
 
   return (
     <>

@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { Guest } from "../models/Guest.js";
-import { isConsoleUser } from "../services/staffAccess.js";
+import { isConsoleUser, loadAccessScope } from "../services/staffAccess.js";
 
 /** Header carrying the device-bound Guest credential (implementer choice). */
 export const GUEST_CREDENTIAL_HEADER = "x-guest-credential";
@@ -106,6 +106,8 @@ async function attachUserFromBearer(req, res) {
     return { ok: false };
   }
 
+  // Organization admins: resolve their venues once for this request.
+  await loadAccessScope(user);
   req.user = user;
   return { ok: true, attached: true };
 }

@@ -3,7 +3,7 @@ import { AdminAudit } from "../models/AdminAudit.js";
 import { Queue } from "../models/Queue.js";
 import { Venue } from "../models/Venue.js";
 import { campusLocalToUtc, parseCampusDate } from "./serviceWindows.js";
-import { canAccessQueue, isStaff, staffQueueIds, staffVenueId, QUEUE_FORBIDDEN, VENUE_FORBIDDEN } from "./staffAccess.js";
+import { canAccessQueue, isStaff, scopedVenueIds, staffQueueIds, staffVenueId, QUEUE_FORBIDDEN, VENUE_FORBIDDEN } from "./staffAccess.js";
 
 export const AUDIT_PAGE_DEFAULT = 20;
 export const AUDIT_PAGE_MAX = 50;
@@ -16,7 +16,7 @@ export const AUDIT_CATEGORIES = {
     "queue-update", "queue-create", "queue-archive", "queue-restore", "service-windows",
     "venue-create", "venue-rename", "venue-move", "org-create", "org-rename", "counter-add", "counter-rename", "counter-remove",
   ],
-  staff: ["staff-invite", "staff-access", "shift-start", "shift-break", "shift-back", "shift-end", "shift-open", "shift-close"],
+  staff: ["staff-invite", "staff-access", "staff-move", "admin-invite", "admin-scope", "shift-start", "shift-break", "shift-back", "shift-end", "shift-open", "shift-close"],
   notices: ["announcement-post", "announcement-edit", "announcement-end"],
   security: ["2fa-enabled", "2fa-disabled", "2fa-backup-codes", "sign-out-all", "login-lockout"],
   bookings: ["appointment-book", "appointment-checkin", "priority-set", "priority-approve", "priority-reject", "priority-request"],
@@ -119,6 +119,10 @@ async function buildAuditFilter(user, query = {}) {
   if (isStaff(user) && !staffVenueId(user)) {
     return { ok: false, status: 403, error: VENUE_FORBIDDEN };
   }
+  // null = global admin; otherwise the venues this person may read about.
+  // Entries with no venue (sign-in security, organization changes, admin
+  // assignments) are only visible to global admins.
+  const limit = scopedVenueIds(user);
 
   let venueId = query.venueId ? String(query.venueId) : null;
   const queueId = query.queueId ? String(query.queueId) : null;
@@ -133,7 +137,7 @@ async function buildAuditFilter(user, query = {}) {
     const queue = await Queue.findById(queueId).select("venue name");
     if (!queue) return { ok: false, status: 404, error: "Queue not found" };
     const qVenue = queue.venue?.toString?.();
-    if (isStaff(user) && staffVenueId(user) !== qVenue) {
+    if (limit && !limit.includes(qVenue)) {
       return { ok: false, status: 403, error: VENUE_FORBIDDEN };
     }
     if (isStaff(user) && !canAccessQueue(user, queue)) {
@@ -145,17 +149,15 @@ async function buildAuditFilter(user, query = {}) {
     venueId = venueId || qVenue;
   }
 
-  if (isStaff(user)) {
-    const assigned = staffVenueId(user);
-    if (venueId && venueId !== assigned) {
-      return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-    }
-    venueId = assigned;
+  if (limit && venueId && !limit.includes(venueId)) {
+    return { ok: false, status: 403, error: VENUE_FORBIDDEN };
   }
+  if (isStaff(user)) venueId = staffVenueId(user);
 
   const filter = {};
   if (queueId) filter["queue.id"] = queueId;
   if (venueId) filter["venue.id"] = venueId;
+  else if (limit) filter["venue.id"] = { $in: limit };
   const allowedQueues = staffQueueIds(user);
   if (allowedQueues && !queueId) {
     filter["queue.id"] = { $in: allowedQueues };

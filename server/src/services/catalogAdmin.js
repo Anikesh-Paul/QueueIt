@@ -4,7 +4,7 @@ import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { normalizeServiceWindows, validateServiceWindows } from "./serviceWindows.js";
 import { normalizeMaxWaiting, rejectIfCapBelowOccupancy } from "./capacity.js";
-import { isStaff, staffQueueIds, staffVenueId } from "./staffAccess.js";
+import { scopedVenueIds, staffQueueIds } from "./staffAccess.js";
 import { DEFAULT_NO_SHOW_MINUTES } from "./servingDeadline.js";
 import {
   DEFAULT_NO_SHOW_MODE,
@@ -217,8 +217,10 @@ export function toAdminCatalogQueueJSON(queue, venue) {
 }
 
 export async function listAdminCatalog(user) {
-  const venueFilter = isStaff(user) && staffVenueId(user) ? { _id: staffVenueId(user) } : {};
-  const queueFilter = isStaff(user) && staffVenueId(user) ? { venue: staffVenueId(user) } : {};
+  // Staff see their venue, organization admins their organizations' venues.
+  const limit = scopedVenueIds(user);
+  const venueFilter = limit ? { _id: { $in: limit } } : {};
+  const queueFilter = limit ? { venue: { $in: limit } } : {};
   const allowedQueues = staffQueueIds(user);
   if (allowedQueues) queueFilter._id = { $in: allowedQueues };
   const venues = await Venue.find(venueFilter).sort({ name: 1 }).exec();

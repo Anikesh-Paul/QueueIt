@@ -97,23 +97,55 @@ export async function inviteStaff({ name, email, venueId, temporaryPassword, que
   };
 }
 
-export async function listStaffAccounts() {
-  const staff = await User.find({ role: "staff" }).sort({ name: 1, email: 1 });
+/**
+ * Staff accounts, optionally limited to some venues (organization admins).
+ * `venueIds` null = everyone.
+ */
+export async function listStaffAccounts({ venueIds = null } = {}) {
+  const filter = { role: "staff" };
+  if (venueIds) filter.staffVenue = { $in: venueIds };
+  const staff = await User.find(filter).sort({ name: 1, email: 1 });
   return staff.map((user) => user.toPublicJSON());
 }
 
-export async function updateStaffQueues({ staffId, queueIds }) {
-  if (!staffId || !mongoose.isValidObjectId(staffId)) {
-    return { ok: false, status: 404, error: "Staff member not found" };
-  }
+/** Load a staff member the caller may manage; outside the scope is a 404. */
+async function loadManagedStaff(staffId, venueIds) {
+  if (!staffId || !mongoose.isValidObjectId(staffId)) return null;
   const staff = await User.findById(staffId);
-  if (!staff || staff.role !== "staff") {
-    return { ok: false, status: 404, error: "Staff member not found" };
+  if (!staff || staff.role !== "staff") return null;
+  if (venueIds && !venueIds.includes(String(staff.staffVenue))) return null;
+  return staff;
+}
+
+/**
+ * Update a staff member's queue allow-list and/or move them to another venue
+ * (which may be in another organization). Moving clears the allow-list unless
+ * a new one is given. `venueIds` null = global admin.
+ */
+export async function updateStaffQueues({ staffId, queueIds, venueId, venueIds = null }) {
+  const staff = await loadManagedStaff(staffId, venueIds);
+  if (!staff) return { ok: false, status: 404, error: "Staff member not found" };
+  // Old clients send only queueIds; an empty body resets to the whole venue.
+  if (venueId === undefined && queueIds === undefined) queueIds = null;
+  let moved = null;
+  if (venueId !== undefined && String(venueId) !== String(staff.staffVenue)) {
+    if (!venueId || !mongoose.isValidObjectId(venueId)) return { ok: false, status: 400, error: "Pick a venue" };
+    if (venueIds && !venueIds.includes(String(venueId))) {
+      return { ok: false, status: 403, error: "You don't have access to this venue" };
+    }
+    const venue = await Venue.findById(venueId);
+    if (!venue) return { ok: false, status: 404, error: "Venue not found" };
+    const previous = staff.staffVenue ? await Venue.findById(staff.staffVenue).select("name organization") : null;
+    moved = { from: previous, to: venue };
+    staff.staffVenue = venue._id;
+    if (queueIds === undefined) staff.staffQueues = [];
   }
-  const allowed = await resolveStaffQueueAllowList(staff.staffVenue, queueIds);
-  if (!allowed.ok) return allowed;
-  staff.staffQueues = allowed.ids;
+  if (queueIds !== undefined) {
+    const allowed = await resolveStaffQueueAllowList(staff.staffVenue, queueIds);
+    if (!allowed.ok) return allowed;
+    staff.staffQueues = allowed.ids;
+  }
   await staff.save();
-  return { ok: true, user: staff };
+  return { ok: true, user: staff, moved };
 }
 

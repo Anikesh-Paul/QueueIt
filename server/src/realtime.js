@@ -5,7 +5,7 @@ import { getJwtSecret, isLiveSession } from "./middleware/auth.js";
 import { Queue } from "./models/Queue.js";
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "./models/QueueEntry.js";
 import { User } from "./models/User.js";
-import { canAccessQueue, canAccessVenue, isConsoleUser } from "./services/staffAccess.js";
+import { canAccessQueue, canAccessVenue, isConsoleUser, loadAccessScope } from "./services/staffAccess.js";
 import { attachRealtime, roomForQueue } from "./services/realtime.js";
 
 /**
@@ -80,14 +80,15 @@ export function createRealtimeServer(httpServer, options = {}) {
 
         const user = socket.data.user;
         if (isConsoleUser({ role: user.role })) {
-          if (user.role === "staff") {
-            const staff = await User.findById(user.sub);
-            if (!staff || !canAccessQueue(staff, queue)) {
-              const error = !staff || !canAccessVenue(staff, queue.venue)
-                ? "You don't have access to this venue"
-                : "You don't have access to this queue";
-              return ack?.({ ok: false, error });
-            }
+          // Admins and staff are scoped by the database record, not the
+          // token: an organization admin only joins rooms inside their orgs.
+          const member = await User.findById(user.sub);
+          if (member) await loadAccessScope(member);
+          if (!member || !isConsoleUser(member) || !canAccessQueue(member, queue)) {
+            const error = !member || !canAccessVenue(member, queue.venue)
+              ? "You don't have access to this venue"
+              : "You don't have access to this queue";
+            return ack?.({ ok: false, error });
           }
         } else {
           const entry = await QueueEntry.findOne({

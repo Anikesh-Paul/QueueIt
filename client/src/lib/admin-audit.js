@@ -31,6 +31,9 @@ const ACTION_LABELS = {
   "announcement-end": "Ended a notice",
   "walk-in": "Added a walk-in",
   "staff-access": "Changed staff access",
+  "staff-move": "Moved staff to another venue",
+  "admin-invite": "Added an organization admin",
+  "admin-scope": "Changed an admin's organizations",
   "venue-create": "Added a venue",
   "venue-rename": "Renamed a venue",
   "venue-move": "Moved a venue to another organization",
@@ -91,6 +94,8 @@ export function auditMetaLine(event) {
   if (meta.from && meta.to && typeof meta.from === "string" && !/^(open|break|closed)$/.test(meta.from)) {
     parts.push(`${meta.from} → ${meta.to}`);
   }
+  if (meta.fromOrg && meta.toOrg) parts.push(`${meta.fromOrg} → ${meta.toOrg}`);
+  if (event?.action === "admin-invite" && meta.to) parts.push(meta.to);
   if (meta.name && !meta.from) parts.push(meta.name);
   if (meta.person) parts.push(meta.person);
   if (meta.noShows != null) parts.push(`${meta.noShows} no-shows in ${meta.windowDays || 30} days`);

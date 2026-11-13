@@ -35,6 +35,8 @@ export function useAdminConsoleState({
   const [waitingList, setWaitingList] = useState([]);
   const [waitingLoading, setWaitingLoading] = useState(false);
   const [waitingError, setWaitingError] = useState("");
+  // The server refused this queue (another venue or organization).
+  const [waitingDenied, setWaitingDenied] = useState(false);
   const [adminActionBusy, setAdminActionBusy] = useState(false);
   const [adminActionError, setAdminActionError] = useState("");
   const [selectedEntryId, setSelectedEntryId] = useState(null);
@@ -51,6 +53,7 @@ export function useAdminConsoleState({
     setAdminQueueMeta(null);
     setWaitingList([]);
     setWaitingError("");
+    setWaitingDenied(false);
     setWaitingLoading(false);
     setAdminActionError("");
     setAdminActionBusy(false);
@@ -70,9 +73,11 @@ export function useAdminConsoleState({
         setAdminQueueMeta(data.queue || null);
         setWaitingList(Array.isArray(data.waiting) ? data.waiting : []);
         setWaitingError("");
+        setWaitingDenied(false);
         setAdminQueueId(queueId);
       } catch (err) {
         setWaitingError(err.message || "Could not load waiting list");
+        if (err.status === 403 || err.status === 404) setWaitingDenied(true);
       } finally {
         if (!silent) setWaitingLoading(false);
       }
@@ -318,6 +323,7 @@ export function useAdminConsoleState({
     waitingList,
     waitingLoading,
     waitingError,
+    waitingDenied,
     adminActionBusy,
     adminActionError,
     selectedEntryId,

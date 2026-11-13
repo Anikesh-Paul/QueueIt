@@ -120,8 +120,13 @@ export function ResetPasswordPage() {
         password,
         guestCredential: guestCredential || null,
       });
-      persistSession(data.token, data.user);
       clearOfflineStatusCache();
+      if (data.twoFactorRequired && data.challenge) {
+        // New password set; two-step accounts still finish with a code.
+        navigate("/login", { replace: true, state: { twoFactorChallenge: data.challenge } });
+        return;
+      }
+      persistSession(data.token, data.user);
       navigate("/", { replace: true });
     } catch (err) {
       setError(err.message || t("auth.requestFailed"));

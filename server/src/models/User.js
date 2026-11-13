@@ -42,6 +42,24 @@ const userSchema = new mongoose.Schema(
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Queue" }],
       default: [],
     },
+    /**
+     * Bumped by "Sign out of all devices" and password resets. Session JWTs
+     * carry it as `tv`; a mismatch is rejected. Missing on older documents →
+     * treated as 0, which matches tokens issued before this field existed.
+     */
+    tokenVersion: { type: Number, default: 0 },
+    /** Two-step sign-in (TOTP). Off unless the person enrolls. */
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorEnabledAt: { type: Date, default: null },
+    /** AES-GCM sealed base32 seed (see services/secretBox.js). */
+    twoFactorSecret: { type: String, default: null, select: false },
+    /** Seed shown during enrollment, until the first code confirms it. */
+    twoFactorPendingSecret: { type: String, default: null, select: false },
+    twoFactorPendingAt: { type: Date, default: null, select: false },
+    /** SHA-256 hashes of unused one-time backup codes. */
+    twoFactorBackupCodes: { type: [String], default: [], select: false },
+    /** Last accepted TOTP step — a code can only be used once. */
+    twoFactorLastStep: { type: Number, default: null, select: false },
   },
   { timestamps: true }
 );
@@ -75,6 +93,7 @@ userSchema.methods.toPublicJSON = function toPublicJSON() {
       this.role === "staff"
         ? (this.staffQueues || []).map((id) => id.toString())
         : null,
+    twoFactorEnabled: Boolean(this.twoFactorEnabled),
   };
 };
 

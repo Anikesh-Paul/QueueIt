@@ -105,6 +105,36 @@ export function resetPassword({ token, password, guestCredential }) {
   });
 }
 
+/** POST /api/auth/login/2fa — second step: { challenge, code } → session. */
+export function loginTwoFactor({ challenge, code }) {
+  return apiRequest("/api/auth/login/2fa", { method: "POST", body: { challenge, code } });
+}
+
+export function fetchTwoFactorStatus(token) {
+  return apiRequest("/api/auth/2fa", { token });
+}
+
+export function startTwoFactorSetup(token, password) {
+  return apiRequest("/api/auth/2fa/setup", { method: "POST", token, body: { password } });
+}
+
+export function enableTwoFactor(token, code) {
+  return apiRequest("/api/auth/2fa/enable", { method: "POST", token, body: { code } });
+}
+
+export function disableTwoFactor(token, code) {
+  return apiRequest("/api/auth/2fa/disable", { method: "POST", token, body: { code } });
+}
+
+export function regenerateBackupCodes(token, code) {
+  return apiRequest("/api/auth/2fa/backup-codes", { method: "POST", token, body: { code } });
+}
+
+/** POST /api/auth/logout-all — every session for this account stops working. */
+export function logoutAllDevices(token) {
+  return apiRequest("/api/auth/logout-all", { method: "POST", token });
+}
+
 export function fetchMe(token) {
   return apiRequest("/api/auth/me", { token });
 }

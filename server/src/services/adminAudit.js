@@ -18,6 +18,7 @@ export const AUDIT_CATEGORIES = {
   ],
   staff: ["staff-invite", "staff-access", "shift-start", "shift-break", "shift-back", "shift-end", "shift-open", "shift-close"],
   notices: ["announcement-post", "announcement-edit", "announcement-end"],
+  security: ["2fa-enabled", "2fa-disabled", "2fa-backup-codes", "sign-out-all", "login-lockout"],
   bookings: ["appointment-book", "appointment-checkin", "priority-set", "priority-approve", "priority-reject", "priority-request"],
 };
 

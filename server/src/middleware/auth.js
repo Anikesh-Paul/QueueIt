@@ -15,6 +15,49 @@ export function getJwtSecret() {
   return secret;
 }
 
+/** Session generation on the user (missing on older documents → 0). */
+export function tokenVersionOf(user) {
+  const v = Number(user?.tokenVersion);
+  return Number.isInteger(v) && v >= 0 ? v : 0;
+}
+
+/**
+ * A verified JWT payload is a usable session for this user: not a two-step
+ * challenge, and issued for the current token version ("sign out of all
+ * devices" and password resets bump it). Tokens from before versioning have
+ * no `tv` and count as version 0.
+ */
+export function isLiveSession(payload, user) {
+  if (!payload || !user) return false;
+  if (payload.typ) return false;
+  const tv = payload.tv == null ? 0 : Number(payload.tv);
+  return tv === tokenVersionOf(user);
+}
+
+export const SESSION_ENDED = "Invalid or expired token";
+export const CHALLENGE_TTL = "5m";
+
+/** Short-lived proof that the password step passed; only /login/2fa accepts it. */
+export function signTwoFactorChallenge(user) {
+  return jwt.sign(
+    { sub: user._id.toString(), typ: "2fa", tv: tokenVersionOf(user) },
+    getJwtSecret(),
+    { expiresIn: CHALLENGE_TTL, audience: "queueit-2fa" }
+  );
+}
+
+/** @returns {{ sub: string, tv: number } | null} */
+export function verifyTwoFactorChallenge(token) {
+  if (typeof token !== "string" || !token) return null;
+  try {
+    const payload = jwt.verify(token, getJwtSecret(), { audience: "queueit-2fa" });
+    if (payload.typ !== "2fa" || !payload.sub) return null;
+    return { sub: String(payload.sub), tv: Number(payload.tv) || 0 };
+  } catch {
+    return null;
+  }
+}
+
 /** Sign a session token for the given user document. */
 export function signToken(user) {
   const expiresIn = process.env.JWT_EXPIRES_IN || "7d";
@@ -23,6 +66,7 @@ export function signToken(user) {
       sub: user._id.toString(),
       role: user.role,
       email: user.email,
+      tv: tokenVersionOf(user),
       ...(user.role === "staff" && user.staffVenue
         ? { venueId: user.staffVenue.toString() }
         : {}),
@@ -57,8 +101,8 @@ async function attachUserFromBearer(req, res) {
   }
 
   const user = await User.findById(payload.sub);
-  if (!user) {
-    res.status(401).json({ error: "Invalid or expired token" });
+  if (!user || !isLiveSession(payload, user)) {
+    res.status(401).json({ error: SESSION_ENDED });
     return { ok: false };
   }
 

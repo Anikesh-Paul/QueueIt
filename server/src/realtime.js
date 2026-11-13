@@ -1,7 +1,7 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import { getJwtSecret } from "./middleware/auth.js";
+import { getJwtSecret, isLiveSession } from "./middleware/auth.js";
 import { Queue } from "./models/Queue.js";
 import { QueueEntry, ACTIVE_ENTRY_STATUSES } from "./models/QueueEntry.js";
 import { User } from "./models/User.js";
@@ -50,9 +50,19 @@ export function createRealtimeServer(httpServer, options = {}) {
     } catch {
       return next(new Error("Invalid or expired token"));
     }
+    if (payload.typ) return next(new Error("Invalid or expired token"));
 
-    socket.data.user = { sub: payload.sub, role: payload.role };
-    return next();
+    // Signed out everywhere (token version bumped) → refuse the socket too.
+    User.findById(payload.sub)
+      .select("tokenVersion")
+      .then((user) => {
+        if (!user || !isLiveSession(payload, user)) {
+          return next(new Error("Invalid or expired token"));
+        }
+        socket.data.user = { sub: payload.sub, role: payload.role };
+        return next();
+      })
+      .catch(() => next(new Error("Invalid or expired token")));
   });
 
   io.on("connection", (socket) => {

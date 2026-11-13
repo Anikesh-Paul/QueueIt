@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Badge as BadgePrimitive } from "@/components/ui/badge";
 import { SoftUpgradePrompt } from "@/components/shell/soft-upgrade-prompt";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,7 @@ const ROLE_LABELS = {
  * Guest: opens soft-upgrade chip menu (locked copy). User/Admin: static chip.
  * Callers pass `{ name, role }` where role is `user` | `admin` | `staff` | `guest`.
  */
-export function UserChip({ user, className, softUpgrade = false }) {
+export function UserChip({ user, className, softUpgrade = false, href = null }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const rootRef = useRef(null);
   const menuId = useId();
@@ -69,6 +70,25 @@ export function UserChip({ user, className, softUpgrade = false }) {
       {showRoleBadge ? <RoleBadge role={role} /> : null}
     </>
   );
+
+  if (!isGuestChip && href) {
+    return (
+      <Link
+        to={href}
+        data-testid="identity-chip"
+        data-role={role}
+        title={t("security.link")}
+        className={cn(
+          "inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-card",
+          "outline-none transition-colors hover:border-primary/40 focus-visible:ring-3 focus-visible:ring-ring/50",
+          className
+        )}
+      >
+        {chipBody}
+        <span className="sr-only">{` — ${t("security.link")}`}</span>
+      </Link>
+    );
+  }
 
   if (!isGuestChip) {
     return (

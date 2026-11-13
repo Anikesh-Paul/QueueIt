@@ -171,6 +171,7 @@ Copy the examples to `.env` locally. **Never commit `.env` or real secrets.**
 | `JWT_SECRET` | Required. Strong random signing secret |
 | `JWT_EXPIRES_IN` | Optional token lifetime (`jsonwebtoken` format, default `7d`) |
 | `ARRIVAL_PASS_SECRET` | Optional HMAC key for signed arrival passes; falls back to `JWT_SECRET` |
+| `TOTP_ENCRYPTION_KEY` | Optional key that encrypts two-step sign-in secrets at rest; when unset a key is derived from `JWT_SECRET`. Changing either later means enrolled admins sign in with a backup code and enroll again |
 | `ALLOW_UNSIGNED_ARRIVAL` | Optional. Set to `1` / `true` to accept legacy unsigned `QIT:` passes and typed token numbers at verify. Default off |
 | `CLIENT_ORIGIN` | Exact frontend origin(s), comma-separated if needed |
 | `SEED_ON_BOOT` | `true` to upsert demo accounts and the starter catalog on process start |
@@ -191,7 +192,16 @@ Copy the examples to `.env` locally. **Never commit `.env` or real secrets.**
 
 CORS rejects browser calls if `CLIENT_ORIGIN` does not match the site origin exactly (scheme + host + port).
 
-The API also applies Helmet security headers, a 16kb JSON body cap, and per-IP rate limits on `POST /api/auth/login`, `POST /api/auth/register`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, and `POST /api/queues/:id/join`. Register and login reject invalid emails, passwords outside 8–128 characters (register also enforces a minimum of 8), and names longer than 80 characters. Do not set `trust proxy` unless the process is behind a known reverse proxy; rate limits are keyed by the direct client IP.
+### Sign-in security
+
+- **Two-step sign-in (admin and staff, opt-in).** Under *Account security* (click your name in the top bar) an admin or staff member confirms their password, scans a QR code with any authenticator app (TOTP, 6 digits, 30 s), confirms one code, and gets 10 one-time backup codes. Sign-in then asks for a code after the password; each code works once. Turning it off or making new backup codes needs a current code. Seeds are AES-256-GCM encrypted at rest; backup codes are stored only as hashes. Nobody is enrolled by default, so existing logins keep working, and a password reset never skips the code step.
+- **Sign out of all devices.** Every account can end all its sessions at once. Session tokens carry a token version; bumping it rejects every older token (REST and Socket.IO). Password resets bump it too. Older user records without the field count as version 0, so existing tokens stay valid until someone uses it.
+- **Lockout.** Failed sign-ins (password or code) are counted per account and per IP in MongoDB, so the limit holds across serverless instances: 5 failures in 15 min lock the account for 15 min, 30 lock the IP. A locked attempt gets the same "Too many attempts, try again later" as the rate limiter, and unknown emails behave exactly like real ones (same errors, same bcrypt cost), so neither reveals whether an account exists. Counters store only hashes and expire on their own. On top of that, each instance rate-limits failed sign-ins per IP (10 per 15 min) and the shared auth limiter still caps register/login/reset traffic.
+- **Password reset links** are random 256-bit tokens stored as SHA-256 hashes, expire after `PASSWORD_RESET_EXPIRES_MINUTES` (default 60), work once, and requesting a new one retires the old one. Using one signs out every other session and clears any lockout.
+- **Audit log.** Turning two-step sign-in on or off, new backup codes, sign-out of all devices and lockouts appear under *Sign-in and security* in the audit log (global admins).
+- **Headers.** The API sends Helmet defaults plus a deny-all CSP (it only serves JSON), `no-referrer`, and `Cache-Control: no-store` on auth and admin routes. The web app (`client/vercel.json`) sends a CSP that allows only its own scripts (plus a hash for the inline theme script in `index.html` — update it if that script changes; a unit test checks it), its own service worker and manifest, and the API at `https://queueit-api.vercel.app` (change `connect-src` if `VITE_API_URL` changes), plus `X-Frame-Options: DENY`, `nosniff`, a strict referrer policy and a Permissions-Policy that only allows the camera for QR scanning.
+
+The API also applies a 16kb JSON body cap and per-IP rate limits on `POST /api/auth/login`, `POST /api/auth/register`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, and `POST /api/queues/:id/join`. Register and login reject invalid emails, passwords outside 8–128 characters (register also enforces a minimum of 8), and names longer than 80 characters. Do not set `trust proxy` unless the process is behind a known reverse proxy; rate limits are keyed by the direct client IP.
 
 Guest credentials are minted as high-entropy secrets and returned once to the device. Mongo stores only a SHA-256 hash. The browser keeps the raw guest credential and JWT in `localStorage`, which is convenient on this device but means any XSS can steal the session. Prefer fixing XSS over treating `localStorage` as a vault; moving to httpOnly cookie sessions would be a separate migration.
 

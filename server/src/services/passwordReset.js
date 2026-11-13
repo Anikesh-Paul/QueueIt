@@ -4,6 +4,7 @@ import { PasswordReset } from "../models/PasswordReset.js";
 import { sendPasswordReset } from "./mailer.js";
 import { publicClientOrigin } from "../corsOrigin.js";
 import { passwordError } from "./authValidation.js";
+import { clearAccountFailures } from "./loginThrottle.js";
 
 export const RESET_NOTICE = "If an account exists for that email, we sent a reset link.";
 export const RESET_INVALID = "This reset link is invalid or has expired.";
@@ -79,6 +80,10 @@ export async function consumePasswordReset({ token, password }) {
   const user = await User.findById(doc.user).select("+passwordHash");
   if (!user) return { ok: false, status: 400, error: RESET_INVALID };
   user.passwordHash = await User.hashPassword(password);
+  // A new password signs out every existing session and clears any lockout.
+  user.tokenVersion = (Number(user.tokenVersion) || 0) + 1;
   await user.save();
+  await PasswordReset.updateMany({ user: user._id, usedAt: null }, { $set: { usedAt: new Date() } });
+  await clearAccountFailures(user.email);
   return { ok: true, user };
 }

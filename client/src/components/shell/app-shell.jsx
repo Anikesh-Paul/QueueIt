@@ -60,49 +60,49 @@ function ShellNavItems({ isAdmin, globalAdmin, inQueue, openAdminQueueId, t }) {
       )}
       {isAdmin && (
         <ShellNavLink to="/admin/catalog" testId="nav-catalog">
-          Catalog
+          {t("nav.catalog")}
         </ShellNavLink>
       )}
       {isAdmin && (
         <ShellNavLink to="/admin/analytics" testId="nav-campus-analytics">
-          Campus
+          {t("nav.campus")}
         </ShellNavLink>
       )}
       {isAdmin && (
         <ShellNavLink to="/admin/live" testId="nav-live">
-          Live
+          {t("nav.live")}
         </ShellNavLink>
       )}
       {isAdmin && (
         <ShellNavLink to="/admin/shift" testId="nav-shift">
-          Shift
+          {t("nav.shift")}
         </ShellNavLink>
       )}
       {isAdmin && (
         <ShellNavLink to="/admin/notices" testId="nav-notices">
-          Notices
+          {t("nav.notices")}
         </ShellNavLink>
       )}
       {isAdmin && (
         <ShellNavLink to="/admin/audit" testId="nav-audit">
-          Audit
+          {t("nav.audit")}
         </ShellNavLink>
       )}
       {globalAdmin && (
         <ShellNavLink to="/admin/access" testId="nav-access">
-          Access
+          {t("nav.access")}
         </ShellNavLink>
       )}
       {isAdmin && openAdminQueueId && (
         <>
           <ShellNavLink to={`/admin/queues/${openAdminQueueId}`} testId="nav-admin">
-            Admin
+            {t("nav.admin")}
           </ShellNavLink>
           <ShellNavLink
             to={`/admin/queues/${openAdminQueueId}/analytics`}
             testId="nav-analytics"
           >
-            Analytics
+            {t("nav.analytics")}
           </ShellNavLink>
         </>
       )}
@@ -133,8 +133,8 @@ export function AppShell() {
         roleLabel:
           user.role === "admin" && !isGlobalAdmin(user) ? (
             <>
-              <span className="min-[420px]:hidden">Admin</span>
-              <span className="hidden min-[420px]:inline">Org admin</span>
+              <span className="min-[420px]:hidden">{t("role.admin")}</span>
+              <span className="hidden min-[420px]:inline">{t("role.orgAdmin")}</span>
             </>
           ) : null,
       }

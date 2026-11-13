@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_LOCALE,
+  htmlLang,
   normalizeLocale,
   resolveInitialLocale,
   t as translate,
@@ -14,7 +15,7 @@ export function I18nProvider({ children }) {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    document.documentElement.lang = locale === "hi" ? "hi" : "en";
+    document.documentElement.lang = htmlLang(locale);
   }, [locale]);
 
   const setLocale = useCallback((next) => {

@@ -286,7 +286,7 @@ export function StatusPage() {
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary"
               >
                 <span className="size-1.5 rounded-full bg-text-muted" />
-                Closed for new tokens
+                {t("status.closedForNew")}
               </span>
             ) : null}
             {paused ? (
@@ -296,7 +296,7 @@ export function StatusPage() {
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning-ink"
               >
                 <span className="size-1.5 rounded-full bg-attention" />
-                Paused
+                {t("status.paused")}
               </span>
             ) : offline ? (
               <span
@@ -304,7 +304,7 @@ export function StatusPage() {
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary"
               >
                 <span className="size-1.5 rounded-full bg-text-muted" />
-                Offline
+                {t("status.offline")}
               </span>
             ) : !closed && connection.showLiveBadge ? (
               <span
@@ -556,7 +556,7 @@ export function StatusPage() {
                         data-testid="eta-paused"
                         className="text-sm font-medium tracking-normal text-text-muted"
                       >
-                        Paused
+                        {t("status.paused")}
                       </span>
                     ) : null}
                   </span>

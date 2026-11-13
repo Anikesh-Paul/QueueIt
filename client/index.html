@@ -28,6 +28,21 @@
             if (meta) meta.setAttribute("content", "#141412");
           }
         } catch (e) {}
+        // Language before first paint (mirrors src/lib/i18n.js): saved choice, else the browser's.
+        try {
+          var locales = ["en", "hi", "bn"];
+          var pick = function (tag) {
+            tag = String(tag || "").toLowerCase();
+            for (var i = 0; i < locales.length; i++) {
+              if (tag === locales[i] || tag.indexOf(locales[i] + "-") === 0) return locales[i];
+            }
+            return null;
+          };
+          var lang = pick(localStorage.getItem("queueit_locale"));
+          var prefs = navigator.languages || [navigator.language];
+          for (var j = 0; !lang && j < prefs.length; j++) lang = pick(prefs[j]);
+          document.documentElement.lang = lang || "en";
+        } catch (e) {}
       })();
     </script>
   </head>

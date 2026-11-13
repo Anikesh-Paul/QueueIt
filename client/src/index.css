@@ -10,6 +10,15 @@
 @import "@fontsource/source-sans-3/500.css";
 @import "@fontsource/source-sans-3/600.css";
 @import "@fontsource/source-sans-3/700.css";
+/* Hindi and Bengali: each face is split by unicode-range, so a file downloads only when that script is on screen. */
+@import "@fontsource/noto-sans-devanagari/400.css";
+@import "@fontsource/noto-sans-devanagari/500.css";
+@import "@fontsource/noto-sans-devanagari/600.css";
+@import "@fontsource/noto-sans-devanagari/700.css";
+@import "@fontsource/noto-sans-bengali/400.css";
+@import "@fontsource/noto-sans-bengali/500.css";
+@import "@fontsource/noto-sans-bengali/600.css";
+@import "@fontsource/noto-sans-bengali/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -38,8 +47,8 @@ body {
 
 @theme inline {
   /* Two-role type: display = Fraunces Soft (hero only); sans/heading/metric = Source Sans 3 */
-  --font-display: "Fraunces Variable", "Fraunces", "Source Serif 4", Georgia, "Times New Roman", serif;
-  --font-sans: "Source Sans 3", "Source Sans Pro", system-ui, sans-serif;
+  --font-display: "Fraunces Variable", "Fraunces", "Noto Sans Devanagari", "Noto Sans Bengali", "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-sans: "Source Sans 3", "Source Sans Pro", "Noto Sans Devanagari", "Noto Sans Bengali", system-ui, sans-serif;
   --font-heading: var(--font-sans);
   --font-metric: var(--font-sans);
 
@@ -386,4 +395,24 @@ html.theme-transition * {
   --text-secondary: #f5f5f5;
   --text-muted: #e5e5e5;
   color-scheme: dark;
+}
+
+/*
+ * Devanagari and Bengali: matras and conjuncts sit above and below the line,
+ * so give them a little more leading, and drop the negative tracking used on
+ * Latin headings (it makes the headstroke break apart).
+ */
+:lang(hi) body,
+:lang(bn) body {
+  line-height: 1.6;
+}
+:lang(hi) [class*="tracking-"],
+:lang(bn) [class*="tracking-"] {
+  letter-spacing: normal;
+}
+:lang(hi) .leading-none,
+:lang(bn) .leading-none,
+:lang(hi) .leading-tight,
+:lang(bn) .leading-tight {
+  line-height: 1.25;
 }

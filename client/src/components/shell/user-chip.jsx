@@ -153,7 +153,11 @@ export function RoleBadge({ role, className, label: override = null }) {
       ? t("role.guest")
       : normalized === "user"
         ? t("role.user")
-        : ROLE_LABELS[normalized] || ROLE_LABELS.user);
+        : normalized === "admin"
+          ? t("role.admin")
+          : normalized === "staff"
+            ? t("role.staff")
+            : ROLE_LABELS[normalized] || ROLE_LABELS.user);
 
   return (
     <BadgePrimitive

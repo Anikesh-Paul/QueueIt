@@ -422,7 +422,7 @@ export function QueuesPage() {
               data-testid="open-catalog"
               className="w-full sm:w-auto"
             >
-              Manage catalog
+              {t("queues.manageCatalog")}
             </Button>
             {canManageQueue(selected) ? (
             <Button

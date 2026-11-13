@@ -5,6 +5,7 @@ import {
   focusedQueue,
   formatAgo,
   formatCampusClock,
+  formatCount,
   formatWait,
   isStale,
   liveParamsToSearch,
@@ -78,4 +79,12 @@ test("rotation cycles queues unless a queue is pinned", () => {
 
 test("campus clock is IST", () => {
   assert.equal(formatCampusClock(new Date("2026-11-14T09:35:00Z")), "3:05 PM");
+});
+
+test("live view numbers and labels in Hindi and Bengali", () => {
+  assert.equal(formatWait(90, "hi"), "1 घंटे 30 मिनट");
+  assert.equal(formatWait(12, "bn"), "12 মিনিট");
+  assert.equal(counterStateLabel("break", "bn"), "বিরতিতে");
+  assert.equal(formatCount(125000, "bn"), "1,25,000");
+  assert.equal(formatAgo(1000, 31_000, "hi"), "30 सेकंड पहले अपडेट हुआ");
 });

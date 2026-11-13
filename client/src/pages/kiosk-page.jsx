@@ -5,6 +5,8 @@ import { useOrganizations } from "@/hooks/use-organizations";
 import { placeLabel } from "@/lib/organizations";
 import { useParams } from "react-router-dom";
 import { Wordmark } from "@/components/brand/wordmark";
+import { LanguageToggle } from "@/components/shell/language-toggle";
+import { useI18n } from "@/context/i18n-context";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { QRCodeSVG } from "qrcode.react";
@@ -22,6 +24,7 @@ const POLL_MS = 3000;
  */
 export function KioskPage() {
   const { queueId } = useParams();
+  const { t, locale } = useI18n();
   const [board, setBoard] = useState(null);
   const [error, setError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -36,7 +39,7 @@ export function KioskPage() {
       setError(null);
       setUpdatedAt(new Date());
     } catch (err) {
-      setError(err.message || "Could not load the display board.");
+      setError(err.message || "load-failed");
     }
   }, [queueId]);
 
@@ -72,17 +75,18 @@ export function KioskPage() {
     }
   }
 
-  const presented = presentServingBoard(board?.counters || []);
+  const presented = presentServingBoard(board?.counters || [], null, locale);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const scanUrl = qrJoinUrl(origin, queueId);
   const showScan = Boolean(board && scanUrl && board.acceptingTokens !== false && board.guestJoin !== false);
-  const statusLabel = !board
+  const statusId = !board
     ? ""
     : board.acceptingTokens === false
-      ? "Closed"
+      ? "closed"
       : board.status === "paused"
-        ? "Paused"
-        : "Open";
+        ? "paused"
+        : "open";
+  const statusLabel = statusId ? t(`state.${statusId}`) : "";
 
   return (
     <div
@@ -92,6 +96,7 @@ export function KioskPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <Wordmark />
         <div className="flex flex-wrap items-center gap-2">
+          <LanguageToggle />
           <ThemeToggle />
           <Button
             type="button"
@@ -100,18 +105,18 @@ export function KioskPage() {
             onClick={openFullScreen}
             data-testid="kiosk-fullscreen"
           >
-            Open full screen
+            {t("kiosk.fullScreen")}
           </Button>
         </div>
       </header>
 
       {error && !board ? (
         <p className="mt-16 text-center text-lg text-text-secondary" data-testid="kiosk-error">
-          {error}
+          {error === "load-failed" ? t("kiosk.loadFailed") : error}
         </p>
       ) : !board ? (
         <p className="mt-16 text-center text-lg text-text-muted" data-testid="kiosk-loading">
-          Loading board…
+          {t("kiosk.loading")}
         </p>
       ) : (
         <main
@@ -120,7 +125,7 @@ export function KioskPage() {
         >
           <div className="text-center">
             <p className="text-sm font-medium uppercase tracking-wide text-text-muted">
-              {placeLabel(board.venue?.name, orgs, board.venue?.organizationId) || "Campus"}
+              {placeLabel(board.venue?.name, orgs, board.venue?.organizationId) || t("common.campus")}
             </p>
             <h1
               className="mt-1 font-display text-4xl font-semibold tracking-[-0.03em] text-foreground sm:text-6xl"
@@ -133,14 +138,14 @@ export function KioskPage() {
                 data-testid="kiosk-status"
                 className={cn(
                   "rounded-full px-3 py-0.5 text-sm font-semibold",
-                  statusLabel === "Closed" && "bg-secondary text-text-secondary",
-                  statusLabel === "Paused" && "bg-warning-soft text-warning-ink",
-                  statusLabel === "Open" && "bg-primary-muted text-primary"
+                  statusId === "closed" && "bg-secondary text-text-secondary",
+                  statusId === "paused" && "bg-warning-soft text-warning-ink",
+                  statusId === "open" && "bg-primary-muted text-primary"
                 )}
               >
                 {statusLabel}
               </span>
-              <span data-testid="kiosk-waiting">{formatWaitingOccupancy({ waitingCount: board.waitingCount })}</span>
+              <span data-testid="kiosk-waiting">{formatWaitingOccupancy({ waitingCount: board.waitingCount, locale })}</span>
             </p>
           </div>
 
@@ -180,7 +185,7 @@ export function KioskPage() {
           {showScan ? (
             <section
               data-testid="kiosk-scan-to-join"
-              aria-label={`Scan to join ${board.name}`}
+              aria-label={t("kiosk.scanLabel", { name: board.name })}
               className="flex w-full max-w-xl flex-col items-center gap-5 rounded-xl border border-border bg-card px-6 py-5 shadow-card sm:flex-row"
             >
               <div className="shrink-0 rounded-lg bg-white p-2.5">
@@ -191,21 +196,21 @@ export function KioskPage() {
                   marginSize={0}
                   className="block size-32"
                   role="img"
-                  aria-label={`QR code to join ${board.name}`}
+                  aria-label={t("kiosk.qrLabel", { name: board.name })}
                 />
               </div>
               <div className="text-center sm:text-left">
-                <p className="font-display text-2xl font-semibold tracking-[-0.01em] text-foreground">Scan to join</p>
+                <p className="font-display text-2xl font-semibold tracking-[-0.01em] text-foreground">{t("kiosk.scanTitle")}</p>
                 <p className="mt-1 text-base text-text-secondary">
-                  Point your phone camera at the code. No app or account needed, and you&apos;ll get your token on your phone.
+                  {t("kiosk.scanBody")}
                 </p>
               </div>
             </section>
           ) : null}
 
           <p className="text-center text-xs text-text-muted">
-            Token numbers only. This board refreshes every few seconds.
-            {updatedAt ? " Use full screen on a TV or tablet at the counter." : ""}
+            {t("kiosk.footer")}
+            {updatedAt ? ` ${t("kiosk.footerTv")}` : ""}
           </p>
         </main>
       )}

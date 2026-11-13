@@ -66,9 +66,10 @@ The production API is a Vercel serverless function, so the live app uses short p
 
 ## Dynamic queueing
 
-- **Call + no-show timer** — calling someone starts a deadline (default 5 minutes, 1–30, admin-editable). **Fixed** mode always uses that window. **Dynamic** mode scales with recent arrival times, queue length, and counter pace, then clamps to admin min/max. Staff see the computed window. Serving or skipping is still manual.
+- **Call + no-show timer** — calling someone starts a deadline (default 5 minutes, 1–30, admin-editable). **Fixed** mode always uses that window. **Dynamic** mode scales with recent arrival times, queue length, and counter pace, then clamps to admin min/max. Staff see the computed window. By default staff call the next person themselves; turn on **Call the next person after a no-show** per queue to have it happen when the grace period runs out (only while that counter is open).
 - **I'm here** — a called student can check in from the status page. That flags the serving row for staff and **stops the no-show auto-skip** for that call. Staff can still serve or skip. The action is idempotent.
 - **Missed-turn recovery** — a skipped (no-show) student can rejoin **once** within a per-queue window (default **15 minutes**). They are reinserted **N places behind** the current serving point (default **2**) without jumping people already in those places. A second miss is final, and anyone who manually left cannot recover. Staff see a **Returning** tag; the audit log records the rejoin.
+- **No-show tracking** — the student's page says why they were skipped (grace period ran out, or staff skipped them) and how many turns they've missed. Anyone with **3 or more no-shows in 30 days** gets a **Frequent no-show** tag on their ticket in the staff console, a one-time `no-show-flag` entry in the audit log, and a row in the analytics **Frequent no-shows** table. Automatic no-shows are logged too, and analytics splits out the timed-out ones.
 
 ![Missed-turn recovery with a timed rejoin action](docs/screenshots/status-rejoin-desktop.webp)
 

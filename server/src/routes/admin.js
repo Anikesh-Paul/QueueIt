@@ -18,6 +18,12 @@ import {
   priorityFieldsForJson,
 } from "../services/priorityLane.js";
 import { noShowConfigForJson, resolveNoShowWindow } from "../services/noShowWindow.js";
+import {
+  FREQUENT_NO_SHOW_THRESHOLD,
+  NO_SHOW_WINDOW_DAYS,
+  noShowCountsForEntries,
+  noShowFieldsFromCounts,
+} from "../services/noShowTracker.js";
 import { exportAdminAuditCsv, listAdminAudit, listAuditActors, recordAdminAudit } from "../services/adminAudit.js";
 import { inviteStaff, listStaffAccounts, updateStaffQueues } from "../services/staffInvite.js";
 import {
@@ -113,7 +119,7 @@ function toAdminQueueJSON(queue) {
  * Guest rows: token-first + isGuest (no name/email; not walk-in).
  * Walk-ins remain isWalkIn with walkInName — never labeled Guest.
  */
-function toWaitingRow(entry, position, { paused = false, queue = null } = {}) {
+function toWaitingRow(entry, position, { paused = false, queue = null, noShowCounts = null } = {}) {
   const isWalkIn = Boolean(entry.isWalkIn);
   const isGuest = Boolean(entry.guest) && !isWalkIn;
   let user;
@@ -159,6 +165,7 @@ function toWaitingRow(entry, position, { paused = false, queue = null } = {}) {
     appointmentAt: entry.appointmentAt ? new Date(entry.appointmentAt).toISOString() : null,
     ...priorityFieldsForJson(entry),
     ...servingFieldsForJson(entry, { paused, queue }),
+    ...noShowFieldsFromCounts(entry, noShowCounts),
   };
 }
 
@@ -181,7 +188,7 @@ async function loadQueueOr404(queueId, res, user) {
   }
   // Lazy auto-close when past bound session end; also skip expired no-shows.
   await ensureQueueSessionState(queue);
-  await expireNoShowCalls({ queueId: queue._id });
+  await expireNoShowCalls({ queueId: queue._id, queue });
   await expireMissedAppointments(queue);
   if (ensureDefaultCounters(queue)) {
     await queue.save();
@@ -241,10 +248,11 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
       await queue.save();
     }
 
+    const noShowCounts = await noShowCountsForEntries(entries);
     let waiterPosition = 0;
     const waiting = entries.map((entry) => {
       const position = entry.status === "serving" ? 0 : (waiterPosition += 1);
-      return toWaitingRow(entry, position, { paused, queue });
+      return toWaitingRow(entry, position, { paused, queue, noShowCounts });
     });
 
     const noShowWindow = await resolveNoShowWindow(queue, {
@@ -253,6 +261,7 @@ router.get("/queues/:queueId/waiting-list", requireAuth, requireAdmin, async (re
     return res.status(200).json({
       queue: { ...toAdminQueueJSON(queue), noShowWindow },
       waiting,
+      noShowPolicy: { threshold: FREQUENT_NO_SHOW_THRESHOLD, windowDays: NO_SHOW_WINDOW_DAYS },
     });
   } catch (err) {
     return next(err);
@@ -1323,6 +1332,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       noShowMode: req.body?.noShowMode,
       noShowMinMinutes: req.body?.noShowMinMinutes,
       noShowMaxMinutes: req.body?.noShowMaxMinutes,
+      noShowAutoCall: req.body?.noShowAutoCall,
       recoveryMinutes: req.body?.recoveryMinutes,
       recoveryPlaces: req.body?.recoveryPlaces,
       priorityEveryK: req.body?.priorityEveryK,

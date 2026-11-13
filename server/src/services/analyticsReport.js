@@ -11,6 +11,7 @@ import { Venue } from "../models/Venue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { now as clockNow } from "./clock.js";
 import { feedbackSummary } from "./feedback.js";
+import { FREQUENT_NO_SHOW_THRESHOLD, NO_SHOW_WINDOW_DAYS, listFrequentNoShows } from "./noShowTracker.js";
 import {
   canAccessQueue,
   isGlobalAdmin,
@@ -190,6 +191,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
             queue: 1,
             status: 1,
             eventAt: 1,
+            skipReason: 1,
             waitMs: {
               $cond: [
                 { $eq: ["$status", "served"] },
@@ -202,10 +204,10 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       ])
     : [];
 
-  const daily = new Map(range.days.map((d) => [d, { date: d, served: 0, noShows: 0, left: 0, waitSum: 0 }]));
+  const daily = new Map(range.days.map((d) => [d, { date: d, served: 0, noShows: 0, timedOut: 0, left: 0, waitSum: 0 }]));
   const hourly = Array.from({ length: 24 }, (_, hour) => ({ hour, served: 0 }));
   const perQueue = new Map(
-    scope.queues.map((q) => [String(q._id), { served: 0, noShows: 0, left: 0, waits: [] }])
+    scope.queues.map((q) => [String(q._id), { served: 0, noShows: 0, timedOut: 0, left: 0, waits: [] }])
   );
   const allWaits = [];
 
@@ -226,6 +228,10 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
     } else if (row.status === "skipped") {
       day.noShows += 1;
       q.noShows += 1;
+      if (row.skipReason === "no-show") {
+        day.timedOut += 1;
+        q.timedOut += 1;
+      }
     } else {
       day.left += 1;
       q.left += 1;
@@ -235,6 +241,8 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
   const served = allWaits.length;
   const noShows = [...perQueue.values()].reduce((s, q) => s + q.noShows, 0);
   const left = [...perQueue.values()].reduce((s, q) => s + q.left, 0);
+  const timedOut = [...perQueue.values()].reduce((s, q) => s + q.timedOut, 0);
+  const frequentNoShows = await listFrequentNoShows(queueIds, at);
   const waitSum = allWaits.reduce((s, w) => s + w, 0);
   const peak = hourly.reduce((best, h) => (h.served > best.served ? h : best), { hour: null, served: 0 });
   const busiestDay = [...daily.values()].reduce((best, d) => (d.served > best.served ? d : best), { date: null, served: 0 });
@@ -252,6 +260,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       venue: queue.venue?.name ?? null,
       served: s.served,
       noShows: s.noShows,
+      timedOutNoShows: s.timedOut,
       left: s.left,
       noShowRate: noShowRate(s.served, s.noShows),
       averageWaitMinutes: s.served ? round1(qWait / s.served) : null,
@@ -272,6 +281,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       totals: {
         served,
         noShows,
+        timedOutNoShows: timedOut,
         left,
         noShowRate: noShowRate(served, noShows),
         averageWaitMinutes: served ? round1(waitSum / served) : null,
@@ -286,6 +296,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
         date: d.date,
         served: d.served,
         noShows: d.noShows,
+        timedOutNoShows: d.timedOut,
         left: d.left,
         averageWaitMinutes: d.served ? round1(d.waitSum / d.served) : null,
       })),
@@ -294,6 +305,8 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       counters: ratings.counters
         .map((row) => ({ ...row, queue: queueNames.get(row.queueId) || null }))
         .sort((a, b) => (a.queue || "").localeCompare(b.queue || "") || a.counter.localeCompare(b.counter)),
+      noShowPolicy: { threshold: FREQUENT_NO_SHOW_THRESHOLD, windowDays: NO_SHOW_WINDOW_DAYS },
+      frequentNoShows,
       comments: ratings.comments.map((row) => ({ ...row, queue: queueNames.get(row.queueId) || null })),
     },
   };

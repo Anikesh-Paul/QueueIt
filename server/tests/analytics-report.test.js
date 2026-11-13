@@ -179,10 +179,10 @@ describe("GET /api/admin/analytics/report", () => {
     const d11 = body.daily.find((d) => d.date === "2026-11-11");
     const d12 = body.daily.find((d) => d.date === "2026-11-12");
     const d06 = body.daily.find((d) => d.date === "2026-11-06");
-    assert.deepEqual(d11, { date: "2026-11-11", served: 2, noShows: 1, left: 0, averageWaitMinutes: 6 });
+    assert.deepEqual(d11, { date: "2026-11-11", served: 2, noShows: 1, timedOutNoShows: 0, left: 0, averageWaitMinutes: 6 });
     assert.equal(d12.served, 1);
     assert.equal(d12.left, 1);
-    assert.deepEqual(d06, { date: "2026-11-06", served: 0, noShows: 0, left: 0, averageWaitMinutes: null });
+    assert.deepEqual(d06, { date: "2026-11-06", served: 0, noShows: 0, timedOutNoShows: 0, left: 0, averageWaitMinutes: null });
     assert.equal(body.hourly[10].served, 2);
     assert.equal(body.hourly[0].served, 1);
 

@@ -12,6 +12,8 @@ const ACTION_LABELS = {
   "staff-invite": "Invited staff",
   "queue-update": "Updated queue settings",
   rejoin: "Recovered a missed turn",
+  "no-show": "Marked a no-show (grace period ran out)",
+  "no-show-flag": "Flagged a frequent no-show",
   "priority-set": "Marked a token as priority",
   "priority-approve": "Approved a priority request",
   "priority-reject": "Declined a priority request",
@@ -63,6 +65,7 @@ const FIELD_LABELS = {
   slotGraceMinutes: "slot grace",
   noShowMinutes: "no-show window",
   noShowMode: "no-show mode",
+  noShowAutoCall: "auto-call after no-show",
   priorityEveryK: "priority lane",
   recoveryMinutes: "missed-turn recovery",
   equivalentGroup: "equivalent lines",
@@ -83,6 +86,9 @@ export function auditMetaLine(event) {
     parts.push(`${meta.from} → ${meta.to}`);
   }
   if (meta.name && !meta.from) parts.push(meta.name);
+  if (meta.person) parts.push(meta.person);
+  if (meta.noShows != null) parts.push(`${meta.noShows} no-shows in ${meta.windowDays || 30} days`);
+  if (meta.graceMinutes != null) parts.push(`after ${meta.graceMinutes} min`);
   if (meta.scope && typeof meta.scope === "string" && !["campus", "venue", "queue"].includes(meta.scope)) parts.push(meta.scope);
   if (meta.fields) {
     const names = String(meta.fields)

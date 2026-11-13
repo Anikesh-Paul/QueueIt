@@ -11,7 +11,7 @@ export const AUDIT_EXPORT_MAX = 5000;
 
 /** Action groups for the audit log filter. Anything unlisted lands in "other". */
 export const AUDIT_CATEGORIES = {
-  operations: ["serve", "call", "skip", "walk-in", "reset", "pause", "resume", "stop-accepting", "start-accepting", "rejoin"],
+  operations: ["serve", "call", "skip", "walk-in", "reset", "pause", "resume", "stop-accepting", "start-accepting", "rejoin", "no-show", "no-show-flag"],
   settings: [
     "queue-update", "queue-create", "queue-archive", "queue-restore", "service-windows",
     "venue-create", "venue-rename", "venue-move", "org-create", "org-rename", "counter-add", "counter-rename", "counter-remove",

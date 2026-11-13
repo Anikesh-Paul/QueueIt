@@ -372,6 +372,12 @@ export async function updateQueue(queue, patch = {}) {
     const bounds = applyNoShowBounds(queue, minBound, maxBound);
     if (bounds.error) return { ok: false, status: 400, error: bounds.error };
   }
+  if (patch.noShowAutoCall !== undefined) {
+    if (typeof patch.noShowAutoCall !== "boolean") {
+      return { ok: false, status: 400, error: "Auto-call next must be true or false" };
+    }
+    queue.noShowAutoCall = patch.noShowAutoCall;
+  }
   if (patch.recoveryMinutes !== undefined) {
     const recovery = cleanRecoveryMinutes(patch.recoveryMinutes);
     if (recovery.error) return { ok: false, status: 400, error: recovery.error };

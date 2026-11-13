@@ -45,3 +45,15 @@ describe("audit log page helpers", async () => {
     assert.equal(auditQueryString({ category: "settings", actorId: "", from: "2026-11-01" }, { limit: 30 }), "category=settings&from=2026-11-01&limit=30");
   });
 });
+
+describe("no-show audit rows", () => {
+  it("labels automatic no-shows and frequent no-show flags", () => {
+    assert.equal(auditActionLabel("no-show"), "Marked a no-show (grace period ran out)");
+    assert.equal(auditActionLabel("no-show-flag"), "Flagged a frequent no-show");
+    assert.equal(
+      auditMetaLine({ action: "no-show-flag", meta: { person: "Late Larry (late@example.com)", tokenNumber: 4, noShows: 3, windowDays: 30 } }),
+      "Late Larry (late@example.com) · 3 no-shows in 30 days · token 4"
+    );
+    assert.equal(auditMetaLine({ action: "no-show", meta: { tokenNumber: 7, graceMinutes: 5 } }), "after 5 min · token 7");
+  });
+});

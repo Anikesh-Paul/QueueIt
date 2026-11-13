@@ -86,7 +86,7 @@ router.get("/", async (req, res, next) => {
 
     for (const q of queues) {
       await ensureQueueSessionState(q);
-      await expireNoShowCalls({ queueId: q._id });
+      await expireNoShowCalls({ queueId: q._id, queue: q });
     }
     await reconcileCatalogServing(queues);
 
@@ -144,7 +144,7 @@ router.get("/:queueId/board", async (req, res, next) => {
       return res.status(404).json({ error: "Queue not found" });
     }
     await ensureQueueSessionState(queue);
-    await expireNoShowCalls({ queueId: queue._id });
+    await expireNoShowCalls({ queueId: queue._id, queue });
     await reconcileCatalogServing([queue]);
     const occupancy = await occupancyByQueueIds([queue._id]);
     const waitingCount = occupancy.get(String(queue._id)) || 0;
@@ -277,7 +277,7 @@ router.get("/active", attachJoiner, requireJoiner, async (req, res, next) => {
       const queue = entry.queue;
       if (!queue) continue;
       await ensureQueueSessionState(queue);
-      await expireNoShowCalls({ queueId: queue._id });
+      await expireNoShowCalls({ queueId: queue._id, queue });
       memberships.push(await buildStatusPayload(queue, entry));
       seen.add(queue._id.toString());
     }
@@ -501,7 +501,7 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
 
     // Lazy auto-close at bound session end before join gate.
     await ensureQueueSessionState(queue);
-    await expireNoShowCalls({ queueId: queue._id });
+    await expireNoShowCalls({ queueId: queue._id, queue });
 
     // Closed: refuse new app tokens. Paused still allows join. Walk-in is admin-only.
     if (queue.acceptingTokens === false) {
@@ -749,7 +749,7 @@ router.post("/:queueId/rejoin", attachJoiner, requireJoiner, async (req, res, ne
       return res.status(404).json({ error: "Not a missed turn" });
     }
     await ensureQueueSessionState(queue);
-    await expireNoShowCalls({ queueId: queue._id });
+    await expireNoShowCalls({ queueId: queue._id, queue });
 
     const result = await recoverMissedTurn({
       queue,
@@ -824,7 +824,7 @@ router.get("/:queueId/status", attachJoiner, requireJoiner, async (req, res, nex
     }
 
     await ensureQueueSessionState(queue);
-    await expireNoShowCalls({ queueId: queue._id });
+    await expireNoShowCalls({ queueId: queue._id, queue });
 
     let entry = await findJoinerActiveEntry(queue._id, req);
     if (!entry) {

@@ -23,6 +23,8 @@ async function pages(request) {
     ["account security (admin)", "/security", admin],
     ["account security (student)", "/security", student],
     ["poster", `/admin/queues/${cafeteria.id}/poster`, admin],
+    ["live view", "/admin/live", admin],
+    ["live view (TV, high contrast)", `/admin/live?queue=${cafeteria.id}&contrast=high&tv=1`, admin],
   ];
 }
 

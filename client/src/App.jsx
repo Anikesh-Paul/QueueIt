@@ -52,6 +52,9 @@ const AdminShiftPage = lazy(() =>
 const SecurityPage = lazy(() =>
   import("@/pages/security-page").then((mod) => ({ default: mod.SecurityPage }))
 );
+const LiveViewPage = lazy(() =>
+  import("@/pages/live-view-page").then((mod) => ({ default: mod.LiveViewPage }))
+);
 const CampusAnalyticsPage = lazy(() =>
   import("@/pages/campus-analytics-page").then((mod) => ({ default: mod.CampusAnalyticsPage }))
 );
@@ -118,6 +121,17 @@ const router = createBrowserRouter([
               {
                 element: <AdminRouteOutlet />,
                 children: [{ index: true, element: <PosterPage /> }],
+              },
+            ],
+          },
+          {
+            // Live staff view: full-screen wall dashboard, no app shell.
+            path: "admin/live",
+            element: <RequireAdmin />,
+            children: [
+              {
+                element: <AdminRouteOutlet />,
+                children: [{ index: true, element: <LiveViewPage /> }],
               },
             ],
           },

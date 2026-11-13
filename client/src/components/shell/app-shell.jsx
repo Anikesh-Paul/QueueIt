@@ -157,7 +157,7 @@ export function AppShell() {
             <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
               <ThemeToggle />
               <LanguageToggle />
-              <UserChip user={identity} softUpgrade={guestSoftUpgrade} />
+              <UserChip user={identity} softUpgrade={guestSoftUpgrade} href={user ? "/security" : null} />
               {showLogout ? (
                 <Button
                   variant="ghost"

@@ -13,12 +13,27 @@ export const JSON_BODY_LIMIT = "16kb";
 const DEFAULT_AUTH_RATE = { windowMs: 15 * 60 * 1000, max: 20 };
 const DEFAULT_JOIN_RATE = { windowMs: 15 * 60 * 1000, max: 30 };
 const DEFAULT_FEEDBACK_RATE = { windowMs: 15 * 60 * 1000, max: 10 };
+/** Failed sign-ins per IP per instance (successes don't count). */
+const DEFAULT_LOGIN_FAILURE_RATE = { windowMs: 15 * 60 * 1000, max: 10 };
+/** Two-step management (setup / disable / backup codes / sign-out-all). */
+const DEFAULT_ACCOUNT_SECURITY_RATE = { windowMs: 15 * 60 * 1000, max: 10 };
+
+/**
+ * The API only ever returns JSON, so its CSP forbids everything; the web app's
+ * own CSP lives in client/vercel.json.
+ */
+export const API_CSP_DIRECTIVES = {
+  "default-src": ["'none'"],
+  "frame-ancestors": ["'none'"],
+  "base-uri": ["'none'"],
+  "form-action": ["'none'"],
+};
 
 function tooManyAttempts(req, res, _next, options) {
   res.status(options.statusCode).json({ error: "Too many attempts, try again later" });
 }
 
-function buildLimiter(kind, defaults, override) {
+function buildLimiter(kind, defaults, override, extra = {}) {
   const windowMs = override?.windowMs ?? defaults.windowMs;
   const max = override?.max ?? defaults.max;
   return rateLimit({
@@ -27,6 +42,7 @@ function buildLimiter(kind, defaults, override) {
     standardHeaders: true,
     legacyHeaders: false,
     handler: tooManyAttempts,
+    ...extra,
   });
 }
 
@@ -65,6 +81,8 @@ export function trustProxySetting(env = process.env) {
 export function createApp(options = {}) {
   const app = express();
   app.set("trust proxy", options.trustProxy ?? trustProxySetting());
+  // Account/IP lockout (DB-backed). On unless a caller (tests) turns it off.
+  app.locals.loginLockout = options.loginLockout !== false;
   const clientOrigin =
     options.clientOrigin !== undefined
       ? options.clientOrigin
@@ -76,6 +94,8 @@ export function createApp(options = {}) {
       // frontend (Vite / Vercel) from reading API responses. CORS still
       // governs which origins may call the API.
       crossOriginResourcePolicy: { policy: "cross-origin" },
+      contentSecurityPolicy: { useDefaults: false, directives: API_CSP_DIRECTIVES },
+      referrerPolicy: { policy: "no-referrer" },
     })
   );
   app.use(
@@ -94,6 +114,14 @@ export function createApp(options = {}) {
     app.post("/api/queues/feedback", feedbackLimiter);
     app.post("/api/auth/register", authLimiter);
     app.post("/api/auth/login", authLimiter);
+    const loginFailureLimiter = buildLimiter("login-failures", DEFAULT_LOGIN_FAILURE_RATE, options.loginFailureRateLimit, {
+      skipSuccessfulRequests: true,
+    });
+    app.post(["/api/auth/login", "/api/auth/login/2fa"], loginFailureLimiter);
+    const accountSecurityLimiter = buildLimiter("account-security", DEFAULT_ACCOUNT_SECURITY_RATE, options.accountSecurityRateLimit, {
+      skipSuccessfulRequests: true,
+    });
+    app.post(["/api/auth/2fa/setup", "/api/auth/2fa/enable", "/api/auth/2fa/disable", "/api/auth/2fa/backup-codes"], accountSecurityLimiter);
     app.post("/api/auth/forgot-password", authLimiter);
     app.post("/api/auth/reset-password", authLimiter);
     app.use("/api/queues", (req, res, next) => {

@@ -12,6 +12,7 @@ import {
   RequireAdmin,
   RequireLoggedOut,
   RequireShellAccess,
+  RequireSignedIn,
   RequireUser,
 } from "@/routes/guards";
 import { QueuesPage } from "@/pages/queues-page";
@@ -44,6 +45,9 @@ const AdminNoticesPage = lazy(() =>
 );
 const AdminShiftPage = lazy(() =>
   import("@/pages/admin-shift-page").then((mod) => ({ default: mod.AdminShiftPage }))
+);
+const SecurityPage = lazy(() =>
+  import("@/pages/security-page").then((mod) => ({ default: mod.SecurityPage }))
 );
 const CampusAnalyticsPage = lazy(() =>
   import("@/pages/campus-analytics-page").then((mod) => ({ default: mod.CampusAnalyticsPage }))
@@ -124,6 +128,16 @@ const router = createBrowserRouter([
             children: [
               { index: true, element: <HomeRedirect /> },
               { path: "queues", element: <QueuesPage /> },
+              {
+                path: "security",
+                element: <RequireSignedIn />,
+                children: [
+                  {
+                    element: <AdminRouteOutlet />,
+                    children: [{ index: true, element: <SecurityPage /> }],
+                  },
+                ],
+              },
               {
                 element: <RequireUser />,
                 children: [

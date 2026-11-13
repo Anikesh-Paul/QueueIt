@@ -42,6 +42,11 @@ const ACTION_LABELS = {
   "counter-add": "Added a counter",
   "counter-rename": "Renamed a counter",
   "counter-remove": "Removed a counter",
+  "2fa-enabled": "Turned on two-step sign-in",
+  "2fa-disabled": "Turned off two-step sign-in",
+  "2fa-backup-codes": "Made new backup codes",
+  "sign-out-all": "Signed out of all devices",
+  "login-lockout": "Sign-in locked after failed attempts",
 };
 
 /** Filter groups; must match AUDIT_CATEGORIES on the server. */
@@ -51,6 +56,7 @@ export const AUDIT_CATEGORIES = [
   { id: "staff", label: "Staff and shifts" },
   { id: "notices", label: "Notices" },
   { id: "bookings", label: "Bookings and priority" },
+  { id: "security", label: "Sign-in and security" },
 ];
 
 const FIELD_LABELS = {
@@ -89,7 +95,12 @@ export function auditMetaLine(event) {
   if (meta.person) parts.push(meta.person);
   if (meta.noShows != null) parts.push(`${meta.noShows} no-shows in ${meta.windowDays || 30} days`);
   if (meta.graceMinutes != null) parts.push(`after ${meta.graceMinutes} min`);
-  if (meta.scope && typeof meta.scope === "string" && !["campus", "venue", "queue"].includes(meta.scope)) parts.push(meta.scope);
+  if (meta.scope === "account" || meta.scope === "ip") {
+    if (meta.ip) parts.push(`IP ${meta.ip}`);
+    if (meta.failures != null) parts.push(`${meta.failures} failed ${meta.stage === "two-step" ? "codes" : "attempts"}`);
+    if (meta.minutes != null) parts.push(`locked ${meta.minutes} min`);
+  } else if (meta.scope && typeof meta.scope === "string" && !["campus", "venue", "queue"].includes(meta.scope)) parts.push(meta.scope);
+  if (meta.with === "backup") parts.push("used a backup code");
   if (meta.fields) {
     const names = String(meta.fields)
       .split(/,\s*/)

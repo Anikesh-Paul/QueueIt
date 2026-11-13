@@ -45,11 +45,12 @@ export async function teardownTestDb() {
  * pass options.rateLimit / authRateLimit / joinRateLimit to exercise them.
  */
 export function testApp(options = {}) {
-  const { rateLimit, authRateLimit, joinRateLimit, ...rest } = options;
+  const { rateLimit, authRateLimit, joinRateLimit, loginLockout = false, ...rest } = options;
   const enable =
     rateLimit === true || authRateLimit != null || joinRateLimit != null;
   return createApp({
     ...rest,
+    loginLockout,
     authRateLimit,
     joinRateLimit,
     rateLimit: rateLimit === false || !enable ? false : rateLimit,

@@ -10,7 +10,23 @@ import { collectQueueBusyness } from "../services/bestTime.js";
 import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
 import { buildAnalyticsReport, formatAnalyticsReportCsv } from "../services/analyticsReport.js";
 import { emitQueueChanged } from "../services/realtime.js";
-import { forbidUnlessQueueAccess, forbidUnlessVenueAccess, isGlobalAdmin, staffQueueIds } from "../services/staffAccess.js";
+import {
+  adminOrgIds,
+  canAccessOrg,
+  canAccessVenue,
+  forbidUnlessQueueAccess,
+  forbidUnlessVenueAccess,
+  isAdminRole,
+  isGlobalAdmin,
+  isOrgAdmin,
+  isStaff,
+  scopedVenueIds,
+  staffQueueIds,
+  staffVenueId,
+  ORG_FORBIDDEN,
+  VENUE_FORBIDDEN,
+} from "../services/staffAccess.js";
+import { ScopeError, inviteAdmin, listConsolePeople, orgNames, setAdminOrganizations } from "../services/adminScope.js";
 import {
   decidePriorityRequest,
   fairCallOrder,
@@ -51,6 +67,7 @@ import {
   findOrganization,
   listOrganizations,
   moveVenue,
+  orgIdOfVenue,
   renameOrganization,
 } from "../services/organizations.js";
 import {
@@ -91,8 +108,23 @@ router.get("/ping", requireAuth, requireAdmin, (req, res) => {
   res.status(200).json({
     ok: true,
     role: req.user.role,
+    scope: isGlobalAdmin(req.user) ? "global" : isOrgAdmin(req.user) ? "organizations" : "venue",
   });
 });
+
+/** Global-admin-only gate. Sends 403 and returns true when not allowed. */
+function forbidUnlessGlobal(req, res, error) {
+  if (isGlobalAdmin(req.user)) return false;
+  res.status(403).json({ error });
+  return true;
+}
+
+/** Admin (global or organization) gate for staff management. */
+function forbidUnlessAdmin(req, res, error) {
+  if (isAdminRole(req.user)) return false;
+  res.status(403).json({ error });
+  return true;
+}
 
 /** Public queue summary for admin control responses. */
 function toAdminQueueJSON(queue) {
@@ -1178,8 +1210,10 @@ router.get("/catalog", requireAuth, requireAdmin, async (req, res, next) => {
  */
 router.post("/staff", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    if (!isGlobalAdmin(req.user)) {
-      return res.status(403).json({ error: "Only a global admin can invite staff" });
+    if (forbidUnlessAdmin(req, res, "Only an admin can invite staff")) return;
+    // Organization admins can only invite into their own venues.
+    if (req.body?.venueId && mongoose.isValidObjectId(req.body.venueId) && !canAccessVenue(req.user, req.body.venueId)) {
+      return res.status(403).json({ error: VENUE_FORBIDDEN });
     }
     const result = await inviteStaff({
       name: req.body?.name,
@@ -1189,7 +1223,7 @@ router.post("/staff", requireAuth, requireAdmin, async (req, res, next) => {
       queueIds: req.body?.queueIds,
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
-    await writeAudit(req, { action: "staff-invite", venue: { _id: result.user.staffVenue, name: null }, meta: { email: result.user.email } });
+    await writeAudit(req, { action: "staff-invite", venue: { _id: result.user.staffVenue, name: result.venue?.name ?? null }, meta: { email: result.user.email } });
     return res.status(201).json({
       staff: result.user.toPublicJSON(),
       temporaryPassword: result.temporaryPassword,
@@ -1203,47 +1237,137 @@ router.post("/staff", requireAuth, requireAdmin, async (req, res, next) => {
 
 router.get("/staff", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    if (!isGlobalAdmin(req.user)) {
-      return res.status(403).json({ error: "Only a global admin can list staff" });
-    }
-    return res.status(200).json({ staff: await listStaffAccounts() });
+    if (forbidUnlessAdmin(req, res, "Only an admin can list staff")) return;
+    return res.status(200).json({ staff: await listStaffAccounts({ venueIds: scopedVenueIds(req.user) }) });
   } catch (err) {
     return next(err);
   }
 });
 
+/**
+ * PATCH /api/admin/staff/:staffId { queueIds?, venueId? }
+ * Queue allow-list and/or a move to another venue (and so organization).
+ * Organization admins only reach staff and venues inside their organizations.
+ */
 router.patch("/staff/:staffId", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    if (!isGlobalAdmin(req.user)) {
-      return res.status(403).json({ error: "Only a global admin can update staff" });
-    }
+    if (forbidUnlessAdmin(req, res, "Only an admin can update staff")) return;
     const result = await updateStaffQueues({
       staffId: req.params.staffId,
       queueIds: req.body?.queueIds,
+      venueId: req.body?.venueId,
+      venueIds: scopedVenueIds(req.user),
     });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
-    const staffVenue = result.user.staffVenue ? await Venue.findById(result.user.staffVenue).select("name") : null;
-    const allowed = (result.user.staffQueues || []).length;
-    await writeAudit(req, {
-      action: "staff-access",
-      venue: staffVenue,
-      meta: { email: result.user.email, scope: allowed ? `${allowed} queue${allowed === 1 ? "" : "s"}` : "whole venue" },
-    });
+    const staffVenue = result.user.staffVenue ? await Venue.findById(result.user.staffVenue).select("name organization") : null;
+    if (result.moved) {
+      const fromOrg = result.moved.from ? orgIdOfVenue(result.moved.from) : null;
+      const toOrg = orgIdOfVenue(result.moved.to);
+      const names = await orgNames([fromOrg, toOrg].filter(Boolean));
+      await writeAudit(req, {
+        action: "staff-move",
+        venue: staffVenue,
+        meta: {
+          email: result.user.email,
+          from: result.moved.from?.name || "No venue",
+          to: result.moved.to.name,
+          ...(fromOrg !== toOrg ? { fromOrg: names.get(fromOrg) || null, toOrg: names.get(toOrg) || null } : {}),
+        },
+      });
+    }
+    if (req.body?.queueIds !== undefined || !result.moved) {
+      const allowed = (result.user.staffQueues || []).length;
+      await writeAudit(req, {
+        action: "staff-access",
+        venue: staffVenue,
+        meta: { email: result.user.email, scope: allowed ? `${allowed} queue${allowed === 1 ? "" : "s"}` : "whole venue" },
+      });
+    }
     return res.status(200).json({ staff: result.user.toPublicJSON() });
   } catch (err) {
     return next(err);
   }
 });
 
+/**
+ * GET /api/admin/people — every admin and staff account with its
+ * organization scope. Global admins only.
+ */
+router.get("/people", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (forbidUnlessGlobal(req, res, "Only a global admin can manage access")) return;
+    return res.status(200).json({ people: await listConsolePeople() });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * PATCH /api/admin/people/:userId/organizations { organizationIds: [] }
+ * Limit an admin to some organizations; [] makes them global again.
+ */
+router.patch("/people/:userId/organizations", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (forbidUnlessGlobal(req, res, "Only a global admin can manage access")) return;
+    const result = await setAdminOrganizations({
+      actor: req.user,
+      userId: req.params.userId,
+      organizationIds: req.body?.organizationIds,
+    });
+    if (result.changed) {
+      await writeAudit(req, {
+        action: "admin-scope",
+        meta: { email: result.user.email, name: result.user.name, from: result.from, to: result.to },
+      });
+    }
+    return res.status(200).json({ admin: result.user.toPublicJSON() });
+  } catch (err) {
+    if (err instanceof ScopeError) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/admin/admins { name, email, organizationIds, temporaryPassword? }
+ * Create an organization admin. Global admins only.
+ */
+router.post("/admins", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (forbidUnlessGlobal(req, res, "Only a global admin can add admins")) return;
+    const result = await inviteAdmin({
+      name: req.body?.name,
+      email: req.body?.email,
+      temporaryPassword: req.body?.temporaryPassword,
+      organizationIds: req.body?.organizationIds,
+    });
+    await writeAudit(req, { action: "admin-invite", meta: { email: result.user.email, to: result.scope } });
+    return res.status(201).json({
+      admin: result.user.toPublicJSON(),
+      temporaryPassword: result.temporaryPassword,
+      resetSent: result.resetSent,
+    });
+  } catch (err) {
+    if (err instanceof ScopeError) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+});
+
 router.post("/venues", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    if (!isGlobalAdmin(req.user)) {
-      return res.status(403).json({ error: "You don't have access to this venue" });
+    if (!isAdminRole(req.user)) {
+      return res.status(403).json({ error: VENUE_FORBIDDEN });
     }
     let organization = null;
-    if (req.body?.organizationId) {
-      const org = await findOrganization(req.body.organizationId);
-      if (!org) return res.status(404).json({ error: "Organization not found" });
+    // Organization admins add venues to one of their organizations (their
+    // only one by default); global admins anywhere.
+    const scopedOrgs = adminOrgIds(req.user);
+    const requestedOrg = req.body?.organizationId || (scopedOrgs?.length === 1 ? scopedOrgs[0] : null);
+    if (scopedOrgs && !requestedOrg) return res.status(400).json({ error: "Pick an organization" });
+    if (requestedOrg) {
+      const org = await findOrganization(requestedOrg);
+      if (!org || !canAccessOrg(req.user, org.id)) {
+        return res.status(org || scopedOrgs ? 403 : 404).json({ error: org || scopedOrgs ? ORG_FORBIDDEN : "Organization not found" });
+      }
       organization = org.isDefault ? null : org.doc._id;
     }
     const result = await createVenue({ name: req.body?.name, organization });
@@ -1550,9 +1674,19 @@ router.post("/announcements/:announcementId/end", requireAuth, requireAdmin, asy
 /**
  * GET /api/admin/organizations — every organization, including empty ones.
  */
-router.get("/organizations", requireAuth, requireAdmin, async (_req, res, next) => {
+router.get("/organizations", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    return res.status(200).json({ organizations: await listOrganizations({ includeEmpty: true }) });
+    let organizations = await listOrganizations({ includeEmpty: true });
+    if (!isGlobalAdmin(req.user)) {
+      // Organization admins see theirs; staff see the one their venue is in.
+      let staffOrg = null;
+      if (isStaff(req.user) && staffVenueId(req.user)) {
+        const venue = await Venue.findById(staffVenueId(req.user)).select("organization");
+        staffOrg = venue ? orgIdOfVenue(venue) : null;
+      }
+      organizations = organizations.filter((org) => (isOrgAdmin(req.user) ? canAccessOrg(req.user, org.id) : org.id === staffOrg));
+    }
+    return res.status(200).json({ organizations });
   } catch (err) {
     return next(err);
   }
@@ -1563,7 +1697,7 @@ router.get("/organizations", requireAuth, requireAdmin, async (_req, res, next) 
  */
 router.post("/organizations", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    if (!isGlobalAdmin(req.user)) return res.status(403).json({ error: "Only a global admin can add organizations" });
+    if (forbidUnlessGlobal(req, res, "Only a global admin can add organizations")) return;
     const org = await createOrganization({ name: req.body?.name });
     await writeAudit(req, { action: "org-create", meta: { name: org.name } });
     return res.status(201).json({ organization: org.toPublicJSON() });
@@ -1578,7 +1712,7 @@ router.post("/organizations", requireAuth, requireAdmin, async (req, res, next) 
  */
 router.patch("/organizations/:organizationId", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    if (!isGlobalAdmin(req.user)) return res.status(403).json({ error: "Only a global admin can rename organizations" });
+    if (forbidUnlessGlobal(req, res, "Only a global admin can rename organizations")) return;
     const { doc, previous } = await renameOrganization(req.params.organizationId, { name: req.body?.name });
     if (previous !== doc.name) await writeAudit(req, { action: "org-rename", meta: { from: previous, to: doc.name } });
     return res.status(200).json({ organization: doc.toPublicJSON() });

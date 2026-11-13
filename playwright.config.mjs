@@ -49,6 +49,7 @@ export default defineConfig({
       env: {
         ...process.env,
         MONGODB_URI: E2E_MONGODB_URI,
+        AUTH_RATE_LIMIT_MAX: "200",
       },
     },
     {

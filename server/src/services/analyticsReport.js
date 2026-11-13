@@ -7,19 +7,17 @@
  */
 import mongoose from "mongoose";
 import { Queue } from "../models/Queue.js";
-import { Venue } from "../models/Venue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { now as clockNow } from "./clock.js";
 import { feedbackSummary } from "./feedback.js";
 import { FREQUENT_NO_SHOW_THRESHOLD, NO_SHOW_WINDOW_DAYS, listFrequentNoShows } from "./noShowTracker.js";
 import {
-  canAccessQueue,
-  isGlobalAdmin,
-  isStaff,
   QUEUE_FORBIDDEN,
-  staffQueueIds,
-  staffVenueId,
   VENUE_FORBIDDEN,
+  canAccessQueue,
+  isStaff,
+  resolveVenueFilter,
+  staffQueueIds,
 } from "./staffAccess.js";
 
 export const CAMPUS_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -112,31 +110,16 @@ async function resolveScope(user, query) {
   const venueParam = query.venueId != null && String(query.venueId).trim() !== "" ? String(query.venueId).trim() : null;
   const queueParam = query.queueId != null && String(query.queueId).trim() !== "" ? String(query.queueId).trim() : null;
 
-  let venueFilter = {};
-  let venueJson = null;
-  if (isStaff(user)) {
-    const assigned = staffVenueId(user);
-    if (!assigned) return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-    if (venueParam && venueParam !== assigned) return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-    const venue = await Venue.findById(assigned);
-    if (!venue) return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-    venueFilter = { venue: venue._id };
-    venueJson = venue.toPublicJSON();
-  } else if (!isGlobalAdmin(user)) {
-    return { ok: false, status: 403, error: VENUE_FORBIDDEN };
-  } else if (venueParam) {
-    if (!mongoose.isValidObjectId(venueParam)) return { ok: false, status: 404, error: "Venue not found" };
-    const venue = await Venue.findById(venueParam);
-    if (!venue) return { ok: false, status: 404, error: "Venue not found" };
-    venueFilter = { venue: venue._id };
-    venueJson = venue.toPublicJSON();
-  }
+  const scoped = await resolveVenueFilter(user, venueParam);
+  if (!scoped.ok) return scoped;
+  const venueFilter = scoped.filter;
+  const venueJson = scoped.venue ? scoped.venue.toPublicJSON() : null;
 
   if (queueParam) {
     if (!mongoose.isValidObjectId(queueParam)) return { ok: false, status: 404, error: "Queue not found" };
     const queue = await Queue.findById(queueParam).populate("venue");
     if (!queue) return { ok: false, status: 404, error: "Queue not found" };
-    if (venueFilter.venue && String(queue.venue?._id ?? queue.venue) !== String(venueFilter.venue)) {
+    if (scoped.venue && String(queue.venue?._id ?? queue.venue) !== String(scoped.venue._id)) {
       return { ok: false, status: 403, error: isStaff(user) ? VENUE_FORBIDDEN : "Queue is not in this venue" };
     }
     if (!canAccessQueue(user, queue)) {

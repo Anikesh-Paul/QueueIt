@@ -43,6 +43,12 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
     /**
+     * Organization scope for role=admin. Values are organization ids or
+     * "default" (the built-in Main campus). Empty / missing = global admin,
+     * so every admin created before this field existed stays global.
+     */
+    adminOrganizations: { type: [String], default: [] },
+    /**
      * Bumped by "Sign out of all devices" and password resets. Session JWTs
      * carry it as `tv`; a mismatch is rejected. Missing on older documents →
      * treated as 0, which matches tokens issued before this field existed.
@@ -72,6 +78,9 @@ userSchema.pre("validate", function validateStaffVenue() {
     this.staffVenue = null;
     this.staffQueues = [];
   }
+  if (this.role !== "admin" && (this.adminOrganizations || []).length) {
+    this.adminOrganizations = [];
+  }
 });
 
 userSchema.statics.hashPassword = async function hashPassword(plain) {
@@ -92,6 +101,10 @@ userSchema.methods.toPublicJSON = function toPublicJSON() {
     staffQueueIds:
       this.role === "staff"
         ? (this.staffQueues || []).map((id) => id.toString())
+        : null,
+    adminOrganizationIds:
+      this.role === "admin" && (this.adminOrganizations || []).length
+        ? [...this.adminOrganizations]
         : null,
     twoFactorEnabled: Boolean(this.twoFactorEnabled),
   };

@@ -15,7 +15,7 @@ import { Venue } from "../models/Venue.js";
 import { now as clockNow } from "./clock.js";
 import { campusLocalToUtc, getCampusParts } from "./serviceWindows.js";
 import { DEFAULT_ORG_NAME, findOrganization, orgIdOfVenue } from "./organizations.js";
-import { canAccessQueue, canAccessVenue, isGlobalAdmin, staffVenueId } from "./staffAccess.js";
+import { adminOrgIds, canAccessOrg, canAccessQueue, canAccessVenue, isGlobalAdmin, isOrgAdmin, staffVenueId } from "./staffAccess.js";
 
 export const MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAX_ACTIVE_PUBLIC = 30;
@@ -81,11 +81,15 @@ export function cleanAnnouncementFields(input = {}, { existing = null, at = cloc
 export async function resolveTarget(user, input = {}) {
   const scope = input.scope;
   if (scope === "campus") {
-    if (!isGlobalAdmin(user)) throw new AnnouncementError(403, "Only campus admins can post to everyone");
+    if (!isGlobalAdmin(user) && !isOrgAdmin(user)) throw new AnnouncementError(403, "Only campus admins can post to everyone");
     let organizationId = null;
-    if (input.organizationId) {
-      const org = await findOrganization(input.organizationId);
-      if (!org) throw new AnnouncementError(404, "Organization not found");
+    // Organization admins post to one of their organizations, never to all.
+    const requested = input.organizationId || (isOrgAdmin(user) && adminOrgIds(user).length === 1 ? adminOrgIds(user)[0] : null);
+    if (!requested && !isGlobalAdmin(user)) throw new AnnouncementError(400, "Pick an organization");
+    if (requested) {
+      const org = await findOrganization(requested);
+      if (!org) throw new AnnouncementError(isGlobalAdmin(user) ? 404 : 403, isGlobalAdmin(user) ? "Organization not found" : "You don't have access to this organization");
+      if (!canAccessOrg(user, org.id)) throw new AnnouncementError(403, "You don't have access to this organization");
       organizationId = org.id;
     }
     return { scope, venue: null, queue: null, venueDoc: null, queueDoc: null, organizationId };
@@ -111,7 +115,7 @@ export async function resolveTarget(user, input = {}) {
 /** Whether a console user may edit or end this notice. */
 export function canManageAnnouncement(user, doc) {
   if (isGlobalAdmin(user)) return true;
-  if (doc.scope === "campus") return false;
+  if (doc.scope === "campus") return Boolean(doc.organizationId) && isOrgAdmin(user) && canAccessOrg(user, doc.organizationId);
   if (doc.scope === "venue") return canAccessVenue(user, doc.venue);
   return canAccessQueue(user, { _id: doc.queue, venue: doc.venue });
 }
@@ -185,7 +189,10 @@ async function nameMaps(docs) {
 export async function listAnnouncementsForConsole(user, at = clockNow()) {
   const since = new Date(at.getTime() - 7 * 24 * 60 * 60 * 1000);
   const docs = await Announcement.find({ endsAt: { $gt: since } }).sort({ startsAt: -1, _id: -1 }).limit(200);
-  const mine = docs.filter((d) => d.scope === "campus" || canManageAnnouncement(user, d));
+  // Campus-wide notices are public; organization-wide ones from other
+  // organizations are hidden from organization admins.
+  const visibleCampus = (d) => !isOrgAdmin(user) || !d.organizationId || canAccessOrg(user, d.organizationId);
+  const mine = docs.filter((d) => (d.scope === "campus" && visibleCampus(d)) || canManageAnnouncement(user, d));
   const names = await nameMaps(mine);
   const rows = mine.map((d) => ({ ...toAnnouncementJSON(d, { at, names }), canManage: canManageAnnouncement(user, d) }));
   const rank = { live: 0, scheduled: 1, ended: 2 };

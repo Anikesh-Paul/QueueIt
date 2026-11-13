@@ -11,7 +11,7 @@ import { useApp } from "@/context/app-context";
 import { editNotice, endNotice, fetchAdminCatalog, fetchAdminOrganizations, fetchConsoleNotices, postNotice } from "@/api";
 import { BODY_MAX, TITLE_MAX, audienceLabel, toCampusInput, untilLabel } from "@/lib/announcements";
 import { campusDatetimeLocalToIso, formatCampusDateTime } from "@/lib/campus-time";
-import { staffCanManageQueue } from "@/lib/staff-access";
+import { isGlobalAdmin, staffCanManageQueue } from "@/lib/staff-access";
 import { cn } from "@/lib/utils";
 
 const TONES = [
@@ -342,20 +342,22 @@ export function AdminNoticesPage() {
 
   const audiences = useMemo(() => {
     const out = [];
-    if (isAdmin && orgs.length > 1) {
+    // Organization admins post to their organizations only, never to all.
+    const everyOrg = isGlobalAdmin(user);
+    if (isAdmin && (orgs.length > 1 || (!everyOrg && orgs.length))) {
       out.push({
-        group: "Whole organizations",
+        group: orgs.length > 1 ? "Whole organizations" : "Whole organization",
         items: [
-          { value: "campus", label: "Everyone, every organization" },
+          ...(everyOrg ? [{ value: "campus", label: "Everyone, every organization" }] : []),
           ...orgs.map((o) => ({ value: `campus:${o.id}`, label: `Everyone at ${o.name}` })),
         ],
       });
-    } else if (isAdmin) {
+    } else if (isAdmin && everyOrg) {
       out.push({ value: "campus", label: "Everyone on campus" });
     }
     for (const venue of venues) {
       const venueOk = isAdmin || (user?.staffVenueId === venue.id && !(user?.staffQueueIds || []).length);
-      const queues = (venue.queues || []).filter((q) => !q.archived && staffCanManageQueue(user, { ...q, venue: { id: venue.id } }));
+      const queues = (venue.queues || []).filter((q) => !q.archived && staffCanManageQueue(user, { ...q, venue: { id: venue.id, organizationId: venue.organizationId } }));
       if (!venueOk && !queues.length) continue;
       out.push({
         group: venue.name,

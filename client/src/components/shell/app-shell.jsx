@@ -12,6 +12,7 @@ import { useI18n } from "@/context/i18n-context";
 import { SkipToContent } from "@/components/shell/skip-to-content";
 import { MAIN_CONTENT_ID } from "@/lib/skip-to-content";
 import { InstallAppPrompt } from "@/components/pwa/install-prompt";
+import { isGlobalAdmin } from "@/lib/staff-access";
 
 function ShellNavLink({ to, end, children, testId }) {
   const exact = end ?? shellNavEnd(to);
@@ -40,7 +41,7 @@ function resolveAdminQueueId(adminQueueId, pathname) {
   return match?.[1] || null;
 }
 
-function ShellNavItems({ isAdmin, inQueue, openAdminQueueId, t }) {
+function ShellNavItems({ isAdmin, globalAdmin, inQueue, openAdminQueueId, t }) {
   return (
     <>
       <ShellNavLink to="/queues" testId="nav-queues">
@@ -82,6 +83,11 @@ function ShellNavItems({ isAdmin, inQueue, openAdminQueueId, t }) {
           Audit
         </ShellNavLink>
       )}
+      {globalAdmin && (
+        <ShellNavLink to="/admin/access" testId="nav-access">
+          Access
+        </ShellNavLink>
+      )}
       {isAdmin && openAdminQueueId && (
         <>
           <ShellNavLink to={`/admin/queues/${openAdminQueueId}`} testId="nav-admin">
@@ -114,7 +120,19 @@ export function AppShell() {
 
   // JWT User/Admin wins; otherwise Guest chip on the student peer path.
   const identity = user
-    ? { name: user.name, role: user.role === "admin" || user.role === "staff" ? user.role : "user" }
+    ? {
+        name: user.name,
+        role: user.role === "admin" || user.role === "staff" ? user.role : "user",
+        // Organization admins get a distinct badge so the scope is obvious.
+        // (Phones keep "Admin" so the top row still fits at 390px.)
+        roleLabel:
+          user.role === "admin" && !isGlobalAdmin(user) ? (
+            <>
+              <span className="min-[420px]:hidden">Admin</span>
+              <span className="hidden min-[420px]:inline">Org admin</span>
+            </>
+          ) : null,
+      }
     : isGuest
       ? { name: "Guest", role: "guest" }
       : null;
@@ -130,6 +148,7 @@ export function AppShell() {
   const navItems = (
     <ShellNavItems
       isAdmin={isAdmin}
+      globalAdmin={isGlobalAdmin(user)}
       inQueue={inQueue}
       openAdminQueueId={openAdminQueueId}
       t={t}

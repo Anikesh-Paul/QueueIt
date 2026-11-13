@@ -2,7 +2,7 @@ import { Queue } from "../models/Queue.js";
 import { QueueEntry } from "../models/QueueEntry.js";
 import { now as clockNow } from "./clock.js";
 import { counterState, countersForJson, ensureDefaultCounters, findCounter, staffingFactor } from "./counters.js";
-import { isGlobalAdmin, isStaff, staffQueueIds, staffVenueId } from "./staffAccess.js";
+import { isAdminRole, isConsoleUser, scopedVenueIds, staffQueueIds } from "./staffAccess.js";
 import { emitQueueChanged } from "./realtime.js";
 import { estimateBasisJson, resolveSmartPace } from "./smartEstimate.js";
 
@@ -15,12 +15,11 @@ function sameUser(a, b) {
 /** Queues this console user can see on the shift board. */
 async function boardQueues(user) {
   const filter = { archivedAt: null };
-  if (isStaff(user)) {
-    const venue = staffVenueId(user);
-    if (!venue) return [];
-    filter.venue = venue;
-  } else if (!isGlobalAdmin(user)) {
-    return [];
+  if (!isConsoleUser(user)) return [];
+  const limit = scopedVenueIds(user);
+  if (limit) {
+    if (!limit.length) return [];
+    filter.venue = { $in: limit };
   }
   let queues = await Queue.find(filter).populate("venue").sort({ name: 1 });
   const allowed = staffQueueIds(user);
@@ -129,7 +128,9 @@ export async function applyShiftAction(user, queue, counterId, action, { at = cl
     if (!counter.staffedBy) {
       return { ok: false, status: 409, error: `No one is on shift at ${counter.name}`, code: "not-staffed" };
     }
-    if (!mine && !isGlobalAdmin(user)) {
+    // Callers have already checked queue access, so any admin who can see
+    // this counter (global or within their organizations) may change it.
+    if (!mine && !isAdminRole(user)) {
       return { ok: false, status: 403, error: `Only ${otherName} can change this shift` };
     }
     if (action === "break") {

@@ -69,6 +69,11 @@ function ShellNavItems({ isAdmin, globalAdmin, inQueue, openAdminQueueId, t }) {
         </ShellNavLink>
       )}
       {isAdmin && (
+        <ShellNavLink to="/admin/live" testId="nav-live">
+          Live
+        </ShellNavLink>
+      )}
+      {isAdmin && (
         <ShellNavLink to="/admin/shift" testId="nav-shift">
           Shift
         </ShellNavLink>

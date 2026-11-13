@@ -9,6 +9,7 @@ import { dateRangeMatch, resolveAnalyticsRange } from "../services/analyticsRang
 import { collectQueueBusyness } from "../services/bestTime.js";
 import { collectCampusAnalytics, formatCampusAnalyticsCsv } from "../services/campusAnalytics.js";
 import { buildAnalyticsReport, formatAnalyticsReportCsv } from "../services/analyticsReport.js";
+import { collectLiveView } from "../services/liveView.js";
 import { emitQueueChanged } from "../services/realtime.js";
 import {
   adminOrgIds,
@@ -1098,6 +1099,25 @@ router.get("/analytics/report.csv", requireAuth, requireAdmin, async (req, res, 
 router.get("/analytics", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const result = await collectCampusAnalytics(req.user, req.query || {});
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    return res.status(200).json(result.payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * GET /api/admin/live — today's numbers for the live staff view (wall screen).
+ * Query: optional venueId, optional queueId. Scoped like analytics: org admins
+ * see only their organizations, staff only their venue / allowed queues.
+ * A queue outside the scope is 404. Read-only; clients poll it.
+ */
+router.get("/live", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await collectLiveView(req.user, req.query || {});
+    res.set("Cache-Control", "no-store");
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }

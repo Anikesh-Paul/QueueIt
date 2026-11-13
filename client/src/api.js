@@ -344,6 +344,15 @@ export async function downloadAuditCsv(token, query, filename = "queueit-audit-l
   return Math.max(0, text.trim().split("\n").length - 1);
 }
 
+/** GET /api/admin/live — today's numbers for the live staff view (scoped to this operator). */
+export function fetchLiveView(token, options = {}) {
+  const params = new URLSearchParams();
+  if (options.venueId) params.set("venueId", options.venueId);
+  if (options.queueId) params.set("queueId", options.queueId);
+  const qs = params.toString();
+  return apiRequest(`/api/admin/live${qs ? `?${qs}` : ""}`, { token });
+}
+
 export function fetchAnalytics(token, queueId, options = {}) {
   const params = new URLSearchParams();
   if (options.window) params.set("window", options.window);

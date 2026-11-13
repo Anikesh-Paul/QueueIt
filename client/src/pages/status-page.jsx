@@ -437,6 +437,10 @@ export function StatusPage() {
               secondsLeft={recoverSecondsLeft}
               busy={rejoinBusy}
               onRejoin={handleRejoin}
+              reason={liveStatus.missedReason}
+              graceMinutes={liveStatus.missedGraceMinutes}
+              noShows={liveStatus.noShows}
+              onJoinAgain={() => navigate("/queues")}
             />
           </div>
         )}
@@ -694,29 +698,70 @@ function formatRejoinClock(seconds) {
   return `${minutes}:${String(secs).padStart(2, "0")}`;
 }
 
-function MissedTurnBanner({ t, canRecover, secondsLeft, busy, onRejoin }) {
+function missedReasonCopy(t, reason, graceMinutes) {
+  if (reason === "staff") return t("status.missedStaff");
+  if (reason === "no-show") {
+    return graceMinutes
+      ? t("status.missedNoShow", { minutes: graceMinutes })
+      : t("status.missedNoShowGeneric");
+  }
+  return null;
+}
+
+function MissedTurnBanner({ t, canRecover, secondsLeft, busy, onRejoin, reason, graceMinutes, noShows, onJoinAgain }) {
+  const why = missedReasonCopy(t, reason, graceMinutes);
+  const count = Number(noShows?.count) || 0;
+  const limit = Number(noShows?.threshold) || 0;
+  const days = noShows?.windowDays || 30;
   return (
     <div
       className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3"
       data-testid="missed-turn-banner"
+      data-reason={reason || "unknown"}
       role="status"
     >
       <p className="font-heading text-sm font-semibold text-foreground">{t("status.missedTitle")}</p>
+      {why ? (
+        <p className="mt-1 text-sm text-text-secondary" data-testid="missed-turn-reason">
+          {why}
+        </p>
+      ) : null}
       {canRecover ? (
-        <Button
-          type="button"
-          className="mt-3"
-          onClick={onRejoin}
-          disabled={busy}
-          data-testid="rejoin-queue"
-        >
-          {busy
-            ? t("status.rejoining")
-            : t("status.rejoin", { clock: formatRejoinClock(secondsLeft) })}
-        </Button>
+        <>
+          <p className="mt-1 text-sm text-text-secondary">{t("status.rejoinHint")}</p>
+          <Button
+            type="button"
+            className="mt-3"
+            onClick={onRejoin}
+            disabled={busy}
+            data-testid="rejoin-queue"
+          >
+            {busy
+              ? t("status.rejoining")
+              : t("status.rejoin", { clock: formatRejoinClock(secondsLeft) })}
+          </Button>
+        </>
       ) : (
-        <p className="mt-2 text-sm text-text-secondary">{t("status.rejoinClosed")}</p>
+        <>
+          <p className="mt-2 text-sm text-text-secondary">{t("status.rejoinClosed")}</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            onClick={onJoinAgain}
+            data-testid="missed-join-again"
+          >
+            {t("status.joinAgain")}
+          </Button>
+        </>
       )}
+      {count > 0 && limit > 0 ? (
+        <p className="mt-3 text-xs text-text-muted" data-testid="missed-turn-count">
+          {count >= limit
+            ? t("status.noShowFlagged", { count, days })
+            : t("status.noShowCount", { count, days, limit })}
+        </p>
+      ) : null}
     </div>
   );
 }

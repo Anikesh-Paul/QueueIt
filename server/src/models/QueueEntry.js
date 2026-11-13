@@ -80,6 +80,12 @@ const queueEntrySchema = new mongoose.Schema(
     },
     /** When this entry was skipped (no-show or staff skip). */
     skippedAt: { type: Date, default: null },
+    /** Why the entry was skipped: "no-show" = grace period ran out, "staff" = skipped by staff. Null on older rows. */
+    skipReason: { type: String, enum: ["no-show", "staff"], default: null },
+    /** When a called ticket ended as a no-show. Kept after a rejoin so repeat no-shows still count. */
+    noShowAt: { type: Date, default: null },
+    /** How many times this ticket was a no-show (a rejoined ticket can miss again). */
+    noShows: { type: Number, default: 0, min: 0 },
     /** When this visit last used missed-turn recovery. */
     recoveredAt: { type: Date, default: null },
     /** Recoveries used on this visit. Max 1. */

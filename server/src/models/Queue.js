@@ -187,6 +187,11 @@ const queueSchema = new mongoose.Schema(
       max: 30,
       default: 15,
     },
+    /**
+     * When a called person's grace period runs out, call the next person at that
+     * counter straight away (only while the counter is open). Off by default.
+     */
+    noShowAutoCall: { type: Boolean, default: false },
     /** Minutes after a skip during which the student may rejoin once. */
     recoveryMinutes: {
       type: Number,
@@ -268,6 +273,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     noShowMode: this.noShowMode === "dynamic" ? "dynamic" : "fixed",
     noShowMinMinutes: this.noShowMinMinutes ?? 2,
     noShowMaxMinutes: this.noShowMaxMinutes ?? 15,
+    noShowAutoCall: this.noShowAutoCall === true,
     recoveryMinutes: this.recoveryMinutes ?? 15,
     recoveryPlaces: this.recoveryPlaces ?? 2,
     priorityEveryK: this.priorityEveryK ?? 3,

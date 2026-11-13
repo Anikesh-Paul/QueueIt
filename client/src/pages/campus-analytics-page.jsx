@@ -421,7 +421,9 @@ export function CampusAnalyticsPage() {
               <Kpi
                 label="No-show rate"
                 value={formatRate(totals.noShowRate)}
-                hint={`${totals.noShows} no-shows · ${totals.left} left`}
+                hint={`${totals.noShows} no-shows${
+                  totals.timedOutNoShows ? ` (${totals.timedOutNoShows} timed out)` : ""
+                } · ${totals.left} left`}
                 testId="analytics-no-show-rate"
               />
               <Kpi
@@ -506,12 +508,86 @@ export function CampusAnalyticsPage() {
               )}
             </Panel>
 
+            <FrequentNoShowsPanel
+              rows={data.frequentNoShows || []}
+              policy={data.noShowPolicy}
+              year={year}
+            />
+
             <RatingsPanel totals={totals} counters={data.counters || []} comments={data.comments || []} multiQueue={!queueLabel} year={year} />
           </div>
         ) : null}
       </ShellContent>
     </>
   );
+}
+
+/** People at or over the no-show threshold in the last N days (not limited to the date range). */
+function FrequentNoShowsPanel({ rows, policy, year }) {
+  const threshold = policy?.threshold ?? 3;
+  const days = policy?.windowDays ?? 30;
+  return (
+    <Panel
+      title="Frequent no-shows"
+      subtitle={`${threshold} or more missed calls in the last ${days} days. Staff see a note on their tickets.`}
+      testId="analytics-frequent-no-shows"
+    >
+      {rows.length === 0 ? (
+        <p className="px-5 py-8 text-center text-sm text-text-muted" data-testid="analytics-frequent-no-shows-empty">
+          No one has missed {threshold} calls in the last {days} days.
+        </p>
+      ) : (
+        <div
+          className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+          tabIndex={0}
+          role="region"
+          aria-label="Frequent no-shows table"
+        >
+          <table className="w-full min-w-[420px] text-sm" data-testid="analytics-frequent-no-shows-table">
+            <thead className="bg-secondary/60 text-left text-xs text-text-muted">
+              <tr>
+                <th scope="col" className="px-5 py-2 font-medium">Person</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">No-shows</th>
+                <th scope="col" className="px-5 py-2 text-right font-medium">Last missed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr key={`${row.kind}:${row.email || row.name}:${index}`} className="border-t border-border">
+                  <th scope="row" className="px-5 py-2.5 text-left font-medium text-foreground">
+                    {row.name}
+                    {row.email ? <span className="block text-xs font-normal text-text-muted">{row.email}</span> : null}
+                  </th>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink">
+                      {row.noShows}
+                    </span>
+                  </td>
+                  <td className="px-5 py-2.5 text-right text-text-secondary">
+                    {row.lastNoShowAt ? formatNoShowDate(row.lastNoShowAt, year) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function formatNoShowDate(iso, year) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "—";
+  const sameYear = String(year) === new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric" }).format(at);
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    ...(sameYear ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(at);
 }
 
 function RatingCell({ average, count }) {

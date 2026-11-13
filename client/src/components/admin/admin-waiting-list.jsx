@@ -11,6 +11,9 @@ const PRIORITY_REASON_LABELS = {
   other: "Other",
 };
 
+/** Matches the server window for the frequent no-show flag. */
+const NO_SHOW_WINDOW_DAYS = 30;
+
 export function priorityReasonLabel(reason) {
   return PRIORITY_REASON_LABELS[reason] || reason;
 }
@@ -80,8 +83,8 @@ export function AdminWaitingList({
                             #{entry.tokenNumber}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
-                              {displayName ? <span className="truncate">{displayName}</span> : null}
+                            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm font-medium text-foreground">
+                              {displayName ? <span className="min-w-0 max-w-full truncate">{displayName}</span> : null}
                               {isGuest ? (
                                 <span
                                   className="badge--guest shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-text-secondary ring-1 ring-border"
@@ -127,6 +130,15 @@ export function AdminWaitingList({
                                   data-testid="waiting-returning-badge"
                                 >
                                   Returning
+                                </span>
+                              ) : null}
+                              {entry.frequentNoShow ? (
+                                <span
+                                  className="shrink-0 rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink ring-1 ring-warning-line"
+                                  data-testid="waiting-frequent-no-show-badge"
+                                  title={`${entry.noShowCount} no-shows in the last ${NO_SHOW_WINDOW_DAYS} days`}
+                                >
+                                  Frequent no-show · {entry.noShowCount}
                                 </span>
                               ) : null}
                               {entry.priority ? (

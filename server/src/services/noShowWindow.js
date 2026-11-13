@@ -163,5 +163,6 @@ export function noShowConfigForJson(queue) {
     noShowMode: resolveNoShowMode(queue),
     noShowMinMinutes: bounds.min,
     noShowMaxMinutes: bounds.max,
+    noShowAutoCall: queue?.noShowAutoCall === true,
   };
 }

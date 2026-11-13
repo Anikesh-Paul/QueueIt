@@ -202,6 +202,8 @@ export function AdminCatalogPage() {
     const equivalentGroupRaw =
       draft.equivalentGroup !== undefined ? draft.equivalentGroup : (queue.equivalentGroup ?? "");
     const guestJoin = draft.guestJoin !== undefined ? draft.guestJoin : queue.guestJoin !== false;
+    const noShowAutoCall =
+      draft.noShowAutoCall !== undefined ? draft.noShowAutoCall : queue.noShowAutoCall === true;
     const booking = queue.appointments || {};
     const appointmentsEnabled =
       draft.appointmentsEnabled !== undefined ? draft.appointmentsEnabled : booking.enabled === true;
@@ -224,6 +226,7 @@ export function AdminCatalogPage() {
         priorityEveryK: priorityKRaw === "" || priorityKRaw == null ? "" : Number(priorityKRaw),
         equivalentGroup: equivalentGroupRaw == null ? "" : String(equivalentGroupRaw),
         guestJoin,
+        noShowAutoCall,
         appointmentsEnabled,
         slotMinutes: slotNumber("slotMinutes", booking.slotMinutes),
         slotCapacity: slotNumber("slotCapacity", booking.slotCapacity),
@@ -411,7 +414,7 @@ export function AdminCatalogPage() {
                         </select>
                       </div>
                       <div className="w-full sm:w-28">
-                        <Label htmlFor={`queue-noshow-${queue.id}`}>Fixed / fallback (min)</Label>
+                        <Label htmlFor={`queue-noshow-${queue.id}`}>Grace period (min)</Label>
                         <Input
                           id={`queue-noshow-${queue.id}`}
                           type="number"
@@ -585,6 +588,34 @@ export function AdminCatalogPage() {
                           disabled={busy}
                         />
                       </div>
+                      <label
+                        htmlFor={`queue-noshow-autocall-${queue.id}`}
+                        className="flex w-full items-start gap-2 rounded-md border border-border px-3 py-2 text-sm sm:w-auto"
+                      >
+                        <input
+                          id={`queue-noshow-autocall-${queue.id}`}
+                          type="checkbox"
+                          className="mt-0.5 size-4 accent-[var(--primary)]"
+                          defaultChecked={queue.noShowAutoCall === true}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue.id]: {
+                                ...(prev[queue.id] || {}),
+                                noShowAutoCall: event.target.checked,
+                              },
+                            }))
+                          }
+                          data-testid="catalog-queue-noshow-autocall"
+                          disabled={busy}
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">Call the next person after a no-show</span>
+                          <span className="block text-xs text-text-muted">
+                            When the grace period runs out. Only while that counter is open.
+                          </span>
+                        </span>
+                      </label>
                       <label
                         htmlFor={`queue-guest-${queue.id}`}
                         className="flex w-full items-start gap-2 rounded-md border border-border px-3 py-2 text-sm sm:w-auto"

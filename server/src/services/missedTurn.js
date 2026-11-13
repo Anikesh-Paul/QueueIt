@@ -198,6 +198,7 @@ export async function recoverMissedTurn({ queue, identity, now = clockNow() }) {
         status: "waiting",
         returning: true,
         recoveredAt: now,
+        skipReason: null,
         waitOrder,
         calledAt: null,
         servingDeadlineAt: null,

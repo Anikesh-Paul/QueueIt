@@ -9,6 +9,7 @@ import { servingFieldsForJson } from "./servingDeadline.js";
 import { countersForJson, ensureDefaultCounters, reconcileCounterServing, staffingFactor } from "./counters.js";
 import { isRecoverable, recoveryDeadline } from "./missedTurn.js";
 import { positionInFairOrder, priorityFieldsForJson } from "./priorityLane.js";
+import { countNoShowsForEntry, FREQUENT_NO_SHOW_THRESHOLD, NO_SHOW_WINDOW_DAYS } from "./noShowTracker.js";
 
 /**
  * Live position among active waiters (1 = front of the fair call order).
@@ -69,6 +70,9 @@ export async function buildStatusPayload(queue, entry) {
   }
   const recoverable = isRecoverable(entry, queue);
   const until = recoverable ? recoveryDeadline(entry, queue) : null;
+  const missed = entry.status === "skipped";
+  // Only worth a query when the student is looking at a missed turn.
+  const noShowCount = missed ? await countNoShowsForEntry(entry) : null;
 
   return {
     tokenNumber: entry.tokenNumber,
@@ -86,7 +90,13 @@ export async function buildStatusPayload(queue, entry) {
     countersTotal: staffing.total,
     status: entry.status,
     arrivalPass: signArrivalPass(queue._id, entry.tokenNumber),
-    missedTurn: entry.status === "skipped",
+    missedTurn: missed,
+    /** "no-show" = grace period ran out; "staff" = staff skipped the turn; null = older ticket. */
+    missedReason: missed ? entry.skipReason || null : null,
+    missedGraceMinutes: missed ? entry.noShowWindowMinutes ?? null : null,
+    noShows: missed
+      ? { count: noShowCount, threshold: FREQUENT_NO_SHOW_THRESHOLD, windowDays: NO_SHOW_WINDOW_DAYS }
+      : null,
     canRecover: recoverable,
     recoverUntil: until ? until.toISOString() : null,
     returning: Boolean(entry.returning),

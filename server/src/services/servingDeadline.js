@@ -13,6 +13,8 @@ import {
 } from "./counters.js";
 import { resolveNoShowWindow } from "./noShowWindow.js";
 import { applyServedFairness, claimNextWaiting } from "./priorityLane.js";
+import { recordNoShow, SYSTEM_ACTOR } from "./noShowTracker.js";
+import { recordAdminAudit } from "./adminAudit.js";
 
 export { DEFAULT_NO_SHOW_MINUTES, resolveNoShowMinutes } from "./noShowWindow.js";
 
@@ -153,7 +155,7 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
       status: terminalStatus,
       returning: false,
       ...clearServingTimer(),
-      ...(terminalStatus === "skipped" ? { skippedAt: clockNow() } : {}),
+      ...(terminalStatus === "skipped" ? { skippedAt: clockNow(), skipReason: "staff" } : {}),
       ...(terminalStatus === "served" ? { servedAt: clockNow() } : {}),
     },
   };
@@ -174,6 +176,7 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
       completeCounterTurn(queue, counter, serving.tokenNumber, { served: terminalStatus === "served" });
       await autoPrepareIfClosedEmpty(queue);
       await queue.save();
+      await markStaffNoShow(serving, queue, terminalStatus);
       emitQueueChanged(queue._id, terminalStatus);
       return { ok: true, entry: serving, queue, counter };
     }
@@ -204,8 +207,21 @@ export async function advanceLineEntry(queue, { entryId, counterId } = {}, termi
   completeCounterTurn(queue, counter, entry.tokenNumber, { served: terminalStatus === "served" });
   await autoPrepareIfClosedEmpty(queue);
   await queue.save();
+  await markStaffNoShow(entry, queue, terminalStatus);
   emitQueueChanged(queue._id, terminalStatus);
   return { ok: true, entry, queue, counter };
+}
+
+/**
+ * Staff skipped someone who had been called: that's a no-show too.
+ * Skipping a person still waiting (never called) is not.
+ */
+async function markStaffNoShow(entry, queue, terminalStatus) {
+  if (terminalStatus !== "skipped" || !entry?.calledAt) return;
+  const at = clockNow();
+  await QueueEntry.updateOne({ _id: entry._id }, { $set: { noShowAt: at }, $inc: { noShows: 1 } });
+  entry.noShowAt = at;
+  await recordNoShow({ entry, queue, reason: "staff", at });
 }
 
 function findCounterForEntry(queue, entry) {
@@ -250,10 +266,10 @@ export async function resumeServingDeadlines(queueId, at = clockNow()) {
 
 /**
  * Auto-skip called entries whose deadline has passed. Skips paused queues.
- * @param {{ queueId?: string }} [options]
+ * @param {{ queueId?: string, queue?: object }} [options] pass the loaded queue to update it in place
  * @returns {Promise<number>} how many entries were skipped
  */
-export async function expireNoShowCalls({ queueId } = {}) {
+export async function expireNoShowCalls({ queueId, queue: loadedQueue = null } = {}) {
   const instant = clockNow();
   const filter = {
     status: "serving",
@@ -265,7 +281,11 @@ export async function expireNoShowCalls({ queueId } = {}) {
   if (expired.length === 0) return 0;
 
   const queueIds = [...new Set(expired.map((row) => row.queue.toString()))];
-  const queues = await Queue.find({ _id: { $in: queueIds } });
+  // Reuse the caller's queue document so its counters don't go stale.
+  const queues =
+    loadedQueue && queueIds.length === 1 && String(loadedQueue._id) === queueIds[0]
+      ? [loadedQueue]
+      : await Queue.find({ _id: { $in: queueIds } });
   const openIds = new Set(
     queues.filter((queue) => queue.status !== "paused").map((queue) => queue._id.toString())
   );
@@ -279,22 +299,68 @@ export async function expireNoShowCalls({ queueId } = {}) {
         status: "serving",
         servingDeadlineAt: { $ne: null, $lte: instant },
       },
-      { $set: { status: "skipped", skippedAt: instant, returning: false, ...clearServingTimer() } },
-      { returnDocument: "after" }
+      {
+        $set: {
+          status: "skipped",
+          skippedAt: instant,
+          skipReason: "no-show",
+          noShowAt: instant,
+          returning: false,
+          ...clearServingTimer(),
+          // Remember the grace period the student had, for their missed-turn note.
+          noShowWindowMinutes: row.noShowWindowMinutes ?? null,
+        },
+        $inc: { noShows: 1 },
+      },
+      // Keep the grace window on the returned doc for the audit row.
+      { returnDocument: "before" }
     );
     if (!claimed) continue;
     const queue = queues.find((row) => row._id.toString() === claimed.queue.toString());
+    let counter = null;
     if (queue) {
       ensureDefaultCounters(queue);
-      completeCounterTurn(queue, findCounterForEntry(queue, claimed), claimed.tokenNumber, {
+      counter = findCounterForEntry(queue, claimed);
+      completeCounterTurn(queue, counter, claimed.tokenNumber, {
         served: false,
       });
       await queue.save();
     }
     skipped += 1;
+    await recordNoShow({ entry: claimed, queue, reason: "no-show", at: instant });
     emitQueueChanged(claimed.queue, "skip");
+    if (queue && queue.noShowAutoCall === true) {
+      await autoCallAfterNoShow(queue, counter);
+    }
   }
   return skipped;
+}
+
+/**
+ * Optional: after a no-show, call the next person at the same counter.
+ * Only when that counter is open (not on break or closed) and the queue is
+ * running; one call per no-show, so lazy evaluation can't chain-skip a line.
+ */
+async function autoCallAfterNoShow(queue, counter) {
+  try {
+    if (queue.status === "paused") return null;
+    const target = counter || queue.counters?.[0] || null;
+    if (!target) return null;
+    const state = target.state || "open";
+    if (state !== "open") return null;
+    const result = await callWaitingEntry(queue, { counterId: target._id.toString() });
+    if (!result.ok) return null;
+    await recordAdminAudit({
+      actor: SYSTEM_ACTOR,
+      action: "call",
+      queue,
+      meta: { tokenNumber: result.entry.tokenNumber, reason: "after a no-show" },
+    });
+    return result.entry;
+  } catch (err) {
+    console.error("auto-call after no-show failed:", err?.message || err);
+    return null;
+  }
 }
 
 /**

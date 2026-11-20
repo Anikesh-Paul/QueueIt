@@ -689,3 +689,19 @@ export function createOrganization(token, { name }) {
 export function renameOrganization(token, id, { name }) {
   return apiRequest(`/api/admin/organizations/${id}`, { method: "PATCH", token, body: { name } });
 }
+
+/** GET /api/me/visits — the signed-in user's tickets, stats and filter options. */
+export function fetchMyVisits(token, params) {
+  const qs = params instanceof URLSearchParams ? params.toString() : new URLSearchParams(params || {}).toString();
+  return apiRequest(`/api/me/visits${qs ? `?${qs}` : ""}`, { token });
+}
+
+/** GET /api/me/favorites → { favorites: [queueId] } */
+export function fetchFavorites(token) {
+  return apiRequest("/api/me/favorites", { token });
+}
+
+/** Star (PUT) or unstar (DELETE) a queue. Returns { favorites }. */
+export function setFavorite(token, queueId, starred) {
+  return apiRequest(`/api/me/favorites/${queueId}`, { method: starred ? "PUT" : "DELETE", token });
+}

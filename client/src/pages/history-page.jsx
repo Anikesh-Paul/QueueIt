@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/context/i18n-context";
 import { FeedbackForm, RatingStars } from "@/components/feedback/feedback-form";
 import { canRateVisit } from "@/lib/feedback";
+import { MyVisitsPage } from "@/pages/visits-page";
 
 function formatOutcomeLabel(outcome, t) {
   if (!outcome) return "—";
@@ -25,6 +26,12 @@ function formatOutcomeLabel(outcome, t) {
  * Ruthless copy: H1 History; empty primary + one secondary; Guest empty may reinforce upgrade.
  */
 export function HistoryPage() {
+  const { token, isGuest } = useApp();
+  // Signed-in accounts get My visits (stats, filters, pages); Guests keep device history.
+  return token && !isGuest ? <MyVisitsPage /> : <GuestHistoryPage />;
+}
+
+function GuestHistoryPage() {
   const { t, locale } = useI18n();
   const {
     token,

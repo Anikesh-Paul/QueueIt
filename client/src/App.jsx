@@ -160,6 +160,7 @@ const router = createBrowserRouter([
                 children: [
                   { path: "status", element: <StatusPage /> },
                   { path: "history", element: <HistoryPage /> },
+                  { path: "visits", element: <HistoryPage /> },
                   { path: "book/:queueId", element: <BookPage /> },
                 ],
               },

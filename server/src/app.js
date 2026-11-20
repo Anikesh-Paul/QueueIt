@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import authRoutes from "./routes/auth.js";
+import meRoutes from "./routes/me.js";
 import adminRoutes from "./routes/admin.js";
 import queueRoutes from "./routes/queues.js";
 import { parseClientOrigins } from "./corsOrigin.js";
@@ -141,13 +142,14 @@ export function createApp(options = {}) {
 
   // Sign-in and staff responses are private: no browser, proxy or service
   // worker may keep a copy (the student app's offline cache skips them too).
-  app.use(["/api/auth", "/api/admin"], (_req, res, next) => {
+  app.use(["/api/auth", "/api/admin", "/api/me"], (_req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();
   });
   app.use("/api/auth", authRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/queues", queueRoutes);
+  app.use("/api/me", meRoutes);
 
   app.use((err, _req, res, _next) => {
     if (err?.type === "entity.too.large") {

@@ -216,6 +216,9 @@ export function AdminCatalogPage() {
     const groupExtraPerPerson = Number(
       draft.groupExtraPerPerson !== undefined ? draft.groupExtraPerPerson : (groups.extraPerPerson ?? 0.5)
     );
+    const handoverExpiryHours = Number(
+      draft.handoverExpiryHours !== undefined ? draft.handoverExpiryHours : (queue.handoverExpiryHours ?? 24)
+    );
     const booking = queue.appointments || {};
     const appointmentsEnabled =
       draft.appointmentsEnabled !== undefined ? draft.appointmentsEnabled : booking.enabled === true;
@@ -242,6 +245,7 @@ export function AdminCatalogPage() {
         groupTicketsEnabled,
         groupMaxSize,
         groupExtraPerPerson,
+        handoverExpiryHours,
         appointmentsEnabled,
         slotMinutes: slotNumber("slotMinutes", booking.slotMinutes),
         slotCapacity: slotNumber("slotCapacity", booking.slotCapacity),
@@ -716,6 +720,30 @@ export function AdminCatalogPage() {
                           </div>
                         </div>
                         <p className="mt-1.5 text-xs text-text-muted">Used for wait estimates. A group of 3 at 50% counts as 2 serves.</p>
+                      </fieldset>
+                      <fieldset
+                        className="w-full rounded-md border border-border px-3 pb-3 pt-1"
+                        data-testid="catalog-queue-handover"
+                        disabled={busy}
+                      >
+                        <legend className="px-1 text-sm font-medium text-foreground">Handover notes</legend>
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor={`queue-handover-expiry-${queue.id}`} className="text-xs">Notes expire after</Label>
+                          <select
+                            id={`queue-handover-expiry-${queue.id}`}
+                            defaultValue={queue.handoverExpiryHours || 24}
+                            onChange={(event) => setDraftField(queue.id, "handoverExpiryHours", Number(event.target.value))}
+                            className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                            data-testid="catalog-queue-handover-expiry"
+                          >
+                            {[4, 8, 12, 24, 48, 72, 168].map((hours) => (
+                              <option key={hours} value={hours}>
+                                {hours === 168 ? "7 days" : hours === 24 ? "24 hours" : `${hours} hours`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <p className="mt-1.5 text-xs text-text-muted">Staff notes for the next shift. The person writing a note can pick a different window.</p>
                       </fieldset>
                       <fieldset
                         className="w-full rounded-md border border-border px-3 pb-3 pt-1"

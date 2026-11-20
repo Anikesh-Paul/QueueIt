@@ -234,6 +234,8 @@ const queueSchema = new mongoose.Schema(
     groupMaxSize: { type: Number, min: 2, max: 4, default: 4 },
     /** Each extra person adds this fraction of a normal serve to wait estimates. */
     groupExtraPerPerson: { type: Number, min: 0, max: 1, default: 0.5 },
+    /** Hours until a handover note expires, unless a note sets its own window. */
+    handoverExpiryHours: { type: Number, min: 1, max: 168, default: 24 },
     /** Booked time slots alongside walk-ins. Off by default. */
     appointmentsEnabled: { type: Boolean, default: false },
     /** Slot length in minutes. */

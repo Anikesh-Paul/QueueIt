@@ -656,12 +656,37 @@ export function fetchShiftBoard(token) {
 }
 
 /** POST shift action: start | break | back | end | open | close. */
-export function shiftAction(token, queueId, counterId, action) {
+export function shiftAction(token, queueId, counterId, action, extra = {}) {
   return apiRequest(`/api/admin/queues/${queueId}/counters/${counterId}/shift`, {
     method: "POST",
     token,
-    body: { action },
+    body: { action, ...extra },
   });
+}
+
+/** GET /api/admin/queues/:queueId/notes — handover notes staff left for this queue. */
+export function fetchHandoverNotes(token, queueId) {
+  return apiRequest(`/api/admin/queues/${queueId}/notes`, { token });
+}
+
+/** POST a short handover note on a queue or counter. */
+export function postHandoverNote(token, queueId, body) {
+  return apiRequest(`/api/admin/queues/${queueId}/notes`, { method: "POST", token, body });
+}
+
+/** PATCH pin / important flags on a handover note. */
+export function patchHandoverNote(token, queueId, noteId, body) {
+  return apiRequest(`/api/admin/queues/${queueId}/notes/${noteId}`, { method: "PATCH", token, body });
+}
+
+/** POST acknowledge a handover note. */
+export function ackHandoverNote(token, queueId, noteId) {
+  return apiRequest(`/api/admin/queues/${queueId}/notes/${noteId}/ack`, { method: "POST", token });
+}
+
+/** POST mark a handover note resolved. */
+export function resolveHandoverNote(token, queueId, noteId) {
+  return apiRequest(`/api/admin/queues/${queueId}/notes/${noteId}/resolve`, { method: "POST", token });
 }
 
 /** GET /api/queues/announcements — live notices (all, or only those for one queue). Public. */

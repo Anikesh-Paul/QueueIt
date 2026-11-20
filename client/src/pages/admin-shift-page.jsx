@@ -6,7 +6,10 @@ import { ErrorState } from "@/components/ui/error-state";
 import { PageToolbar } from "@/components/shell/page-toolbar";
 import { ShellContent } from "@/components/shell/shell-content";
 import { useApp } from "@/context/app-context";
-import { fetchShiftBoard, shiftAction } from "@/api";
+import { ackHandoverNote, fetchShiftBoard, shiftAction } from "@/api";
+import { ShiftEndNoteDialog } from "@/components/admin/shift-end-note-dialog";
+import { ShiftUnreadNotes } from "@/components/admin/shift-unread-notes";
+import { useI18n } from "@/context/i18n-context";
 import { formatCampusClockTime } from "@/lib/campus-time";
 import { ACTION_LABEL, STATE_LABEL, counterActions, effectivePace, staffingSummary } from "@/lib/shifts";
 import { cn } from "@/lib/utils";
@@ -39,11 +42,18 @@ function StatePill({ state }) {
  */
 export function AdminShiftPage() {
   const { token, user } = useApp();
+  const { t } = useI18n();
   const [board, setBoard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyKey, setBusyKey] = useState(null);
   const [actionError, setActionError] = useState("");
+  const [endTarget, setEndTarget] = useState(null);
+  const [endBusy, setEndBusy] = useState(false);
+  const [endError, setEndError] = useState("");
+  const [unreadOpen, setUnreadOpen] = useState(false);
+  const [ackBusy, setAckBusy] = useState(null);
+  const [ackError, setAckError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,17 +71,61 @@ export function AdminShiftPage() {
     load();
   }, [load]);
 
-  async function act(queueId, counterId, action) {
+  async function act(queueId, counterId, action, extra = {}) {
+    if (action === "end" && !extra.confirmed) {
+      setEndError("");
+      setEndTarget({ queueId, counterId });
+      return;
+    }
     const key = `${counterId}:${action}`;
     setBusyKey(key);
     setActionError("");
+    const payload = { ...extra };
+    delete payload.confirmed;
     try {
-      const data = await shiftAction(token, queueId, counterId, action);
+      const data = await shiftAction(token, queueId, counterId, action, payload);
       setBoard(data.board);
+      if (action === "start" && data.board?.unreadNotes?.length) {
+        setAckError("");
+        setUnreadOpen(true);
+      }
+      return data;
     } catch (err) {
       setActionError(err.message || "That didn't work. Try again.");
+      if (extra.confirmed) throw err;
     } finally {
       setBusyKey(null);
+    }
+  }
+
+  async function confirmEnd(payload) {
+    if (!endTarget) return;
+    setEndBusy(true);
+    setEndError("");
+    try {
+      await act(endTarget.queueId, endTarget.counterId, "end", { ...payload, confirmed: true });
+      setEndTarget(null);
+    } catch (err) {
+      setEndError(err.message || t("handover.failed"));
+    } finally {
+      setEndBusy(false);
+    }
+  }
+
+  async function ackUnread(note) {
+    const queueId = board?.me?.queue?.id;
+    if (!queueId || !note) return;
+    setAckBusy(note.id);
+    setAckError("");
+    try {
+      await ackHandoverNote(token, queueId, note.id);
+      const next = await fetchShiftBoard(token);
+      setBoard(next);
+      if (!(next.unreadNotes || []).some((row) => !row.acknowledged)) setUnreadOpen(false);
+    } catch (err) {
+      setAckError(err.message || t("handover.ackFailed"));
+    } finally {
+      setAckBusy(null);
     }
   }
 
@@ -135,6 +189,16 @@ export function AdminShiftPage() {
                       {me.since ? ` since ${formatCampusClockTime(me.since)}` : ""}
                       {me.queue.venue ? ` · ${me.queue.venue}` : ""}
                     </p>
+                    {(board.unreadNotes || []).some((row) => !row.acknowledged) ? (
+                      <button
+                        type="button"
+                        className="mt-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                        onClick={() => setUnreadOpen(true)}
+                        data-testid="shift-unread-open"
+                      >
+                        {t("handover.unread", { n: (board.unreadNotes || []).filter((row) => !row.acknowledged).length })}
+                      </button>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {(me.state === "break" ? ["back", "end"] : ["break", "end"]).map((action) => {
@@ -194,6 +258,7 @@ export function AdminShiftPage() {
                         <p className="text-xs text-text-muted" data-testid="shift-queue-summary">
                           {staffingSummary(queue)} · {queue.waiting} waiting
                           {pace ? ` · ~${pace} min each` : ""}
+                          {queue.activeNotes ? ` · ${t("handover.unread", { n: queue.activeNotes })}` : ""}
                         </p>
                         {queue.estimate ? (
                           <p className="w-full text-xs text-text-muted" data-testid="shift-queue-estimate">
@@ -254,6 +319,22 @@ export function AdminShiftPage() {
           </div>
         ) : null}
       </ShellContent>
+      <ShiftEndNoteDialog
+        open={Boolean(endTarget)}
+        busy={endBusy}
+        error={endError}
+        onCancel={() => { if (!endBusy) setEndTarget(null); }}
+        onSkip={() => confirmEnd({})}
+        onSave={(payload) => confirmEnd(payload)}
+      />
+      <ShiftUnreadNotes
+        open={unreadOpen}
+        notes={board?.unreadNotes || []}
+        busyId={ackBusy}
+        error={ackError}
+        onAck={ackUnread}
+        onClose={() => setUnreadOpen(false)}
+      />
     </>
   );
 }

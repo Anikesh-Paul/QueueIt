@@ -16,7 +16,7 @@ export const AUDIT_CATEGORIES = {
     "queue-update", "queue-create", "queue-archive", "queue-restore", "service-windows",
     "venue-create", "venue-rename", "venue-move", "org-create", "org-rename", "counter-add", "counter-rename", "counter-remove",
   ],
-  staff: ["staff-invite", "staff-access", "staff-move", "admin-invite", "admin-scope", "shift-start", "shift-break", "shift-back", "shift-end", "shift-open", "shift-close"],
+  staff: ["staff-invite", "staff-access", "staff-move", "admin-invite", "admin-scope", "shift-start", "shift-break", "shift-back", "shift-end", "shift-open", "shift-close", "handover-create", "handover-pin", "handover-unpin", "handover-flag", "handover-unflag", "handover-ack", "handover-resolve"],
   notices: ["announcement-post", "announcement-edit", "announcement-end"],
   security: ["2fa-enabled", "2fa-disabled", "2fa-backup-codes", "sign-out-all", "login-lockout"],
   bookings: ["appointment-book", "appointment-checkin", "priority-set", "priority-approve", "priority-reject", "priority-request"],

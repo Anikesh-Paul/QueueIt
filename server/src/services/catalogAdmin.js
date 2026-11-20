@@ -1,3 +1,4 @@
+import { applyHandoverSettings, handoverExpiryHoursOf } from "./handoverNotes.js";
 import { applyGroupSettings } from "./partySize.js";
 import { applyAppointmentSettings } from "./appointments.js";
 import { Venue } from "../models/Venue.js";
@@ -211,6 +212,7 @@ export function toAdminCatalogQueueJSON(queue, venue) {
     slug: queue.slug,
     archived: Boolean(queue.archivedAt),
     archivedAt: queue.archivedAt ? new Date(queue.archivedAt).toISOString() : null,
+    handoverExpiryHours: handoverExpiryHoursOf(queue),
     venue: venue
       ? venue.toPublicJSON?.() || { id: venue._id.toString(), name: venue.name }
       : queue.toPublicJSON().venue,
@@ -415,6 +417,8 @@ export async function updateQueue(queue, patch = {}) {
   }
   const groups = applyGroupSettings(queue, patch);
   if (groups.error) return { ok: false, status: 400, error: groups.error };
+  const handover = applyHandoverSettings(queue, patch);
+  if (handover.error) return { ok: false, status: 400, error: handover.error };
   const booking = applyAppointmentSettings(queue, patch);
   if (booking.error) return { ok: false, status: 400, error: booking.error };
   if (patch.maxWaiting !== undefined) {

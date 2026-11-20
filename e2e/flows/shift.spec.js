@@ -29,6 +29,8 @@ test("staff start a shift, take a break and come back", async ({ page, request }
   await page.getByTestId("shift-me-back").click();
   await expect(page.getByTestId("shift-me").getByTestId("shift-state")).toHaveAttribute("data-state", "open");
   await page.getByTestId("shift-me-end").click();
+  await expect(page.getByTestId("shift-end-note-dialog")).toBeVisible();
+  await page.getByTestId("shift-end-note-skip").click();
   await expect(page.getByTestId("shift-me")).toContainText("not on a counter");
   // Leave Gym taking calls for the other specs.
   await gymCard.getByTestId("shift-counter").first().getByTestId("shift-open").click();

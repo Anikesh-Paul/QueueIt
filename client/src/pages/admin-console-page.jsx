@@ -15,6 +15,7 @@ import { AdminCounters } from "@/components/admin/admin-counters";
 import { AdminResetDangerZone } from "@/components/admin/admin-reset-danger-zone";
 import { AdminAuditPanel } from "@/components/admin/admin-audit-panel";
 import { AdminAppointments } from "@/components/admin/admin-appointments";
+import { AdminHandoverNotes } from "@/components/admin/admin-handover-notes";
 
 /**
  * Admin console — medium-density waiting list + operate | Check arrival (lg+).
@@ -168,6 +169,12 @@ export function AdminConsolePage() {
               adminUpdateServiceWindows={adminUpdateServiceWindows}
             />
             <AdminWalkIn adminActionBusy={adminActionBusy} adminWalkIn={adminWalkIn} groups={adminQueueMeta?.groups} />
+            <AdminHandoverNotes
+              token={token}
+              queueId={queueId}
+              counters={adminQueueMeta?.counters || []}
+              defaultExpiryHours={adminQueueMeta?.handover?.expiryHours}
+            />
             <AdminCounters
               counters={adminQueueMeta?.counters}
               adminActionBusy={adminActionBusy}

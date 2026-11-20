@@ -64,6 +64,18 @@ import {
 import { countersForJson, ensureDefaultCounters, clearAllCounterNowServing, reconcileCounterServing } from "../services/counters.js";
 import { applyShiftAction, shiftBoard } from "../services/shifts.js";
 import {
+  HandoverError,
+  acknowledgeNote,
+  attachHandoverToBoard,
+  createHandoverNote,
+  handoverSettingsForJson,
+  listNotes,
+  notePreview,
+  resolveNote,
+  sanitizeNoteBody,
+  updateHandoverNote,
+} from "../services/handoverNotes.js";
+import {
   OrgError,
   createOrganization,
   findOrganization,
@@ -143,6 +155,7 @@ function toAdminQueueJSON(queue) {
     priorityEveryK: queue.priorityEveryK ?? 3,
     equivalentGroup: queue.equivalentGroup || null,
     groups: groupsForJson(queue),
+    handover: handoverSettingsForJson(queue),
     counters: countersForJson(queue),
     archived: Boolean(queue.archivedAt),
     ...sessionFieldsForJson(queue),
@@ -1493,6 +1506,7 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       groupTicketsEnabled: req.body?.groupTicketsEnabled,
       groupMaxSize: req.body?.groupMaxSize,
       groupExtraPerPerson: req.body?.groupExtraPerPerson,
+      handoverExpiryHours: req.body?.handoverExpiryHours,
       appointmentsEnabled: req.body?.appointmentsEnabled,
       slotMinutes: req.body?.slotMinutes,
       slotCapacity: req.body?.slotCapacity,
@@ -1529,7 +1543,8 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
  */
 router.get("/shifts", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    return res.status(200).json(await shiftBoard(req.user));
+    const board = await attachHandoverToBoard(await shiftBoard(req.user), req.user);
+    return res.status(200).json(board);
   } catch (err) {
     return next(err);
   }
@@ -1539,11 +1554,26 @@ router.get("/shifts", requireAuth, requireAdmin, async (req, res, next) => {
  * POST /api/admin/queues/:queueId/counters/:counterId/shift { action }
  * start | break | back | end (staffer) · open | close (unstaffed counter).
  */
+function handoverErrorOr(next, res, err) {
+  if (err instanceof HandoverError) {
+    return res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}) });
+  }
+  return next(err);
+}
+
 router.post("/queues/:queueId/counters/:counterId/shift", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const queue = await loadQueueOr404(req.params.queueId, res, req.user);
     if (!queue) return;
     const action = typeof req.body?.action === "string" ? req.body.action.trim() : "";
+    const wantsNote = action === "end" && Object.prototype.hasOwnProperty.call(req.body || {}, "note") && req.body.note != null;
+    if (wantsNote) {
+      try {
+        sanitizeNoteBody(req.body.note);
+      } catch (err) {
+        return handoverErrorOr(next, res, err);
+      }
+    }
     const result = await applyShiftAction(req.user, queue, req.params.counterId, action);
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
@@ -1555,9 +1585,120 @@ router.post("/queues/:queueId/counters/:counterId/shift", requireAuth, requireAd
         meta: { counter: result.counter.name, from: result.previous, to: result.counter.state || "open" },
       });
     }
-    return res.status(200).json({ queue: toAdminQueueJSON(result.queue), board: await shiftBoard(req.user) });
+    let handoverNote = null;
+    if (wantsNote) {
+      handoverNote = await createHandoverNote(req.user, result.queue, {
+        body: req.body.note,
+        counterId: req.params.counterId,
+        important: Boolean(req.body.important),
+        pinned: Boolean(req.body.pinned),
+        expiresInHours: req.body.expiresInHours,
+      });
+      await writeAudit(req, {
+        action: "handover-create",
+        queue: result.queue,
+        meta: { note: notePreview(handoverNote.body), counter: handoverNote.counterName, source: "shift-end" },
+      });
+    }
+    const board = await attachHandoverToBoard(await shiftBoard(req.user), req.user);
+    return res.status(200).json({
+      queue: toAdminQueueJSON(result.queue),
+      board,
+      ...(handoverNote ? { note: { id: String(handoverNote._id) } } : {}),
+    });
   } catch (err) {
-    return next(err);
+    return handoverErrorOr(next, res, err);
+  }
+});
+
+/**
+ * GET /api/admin/queues/:queueId/notes — active and recently resolved handover notes.
+ */
+router.get("/queues/:queueId/notes", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    const data = await listNotes(req.user, queue);
+    return res.status(200).json(data);
+  } catch (err) {
+    return handoverErrorOr(next, res, err);
+  }
+});
+
+/**
+ * POST /api/admin/queues/:queueId/notes { body, counterId?, important?, pinned?, expiresInHours? }
+ */
+router.post("/queues/:queueId/notes", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    const doc = await createHandoverNote(req.user, queue, req.body || {});
+    await writeAudit(req, {
+      action: "handover-create",
+      queue,
+      meta: { note: notePreview(doc.body), counter: doc.counterName, pinned: Boolean(doc.pinned), important: Boolean(doc.important) },
+    });
+    const data = await listNotes(req.user, queue);
+    return res.status(201).json({ note: data.notes.find((row) => row.id === String(doc._id)), ...data });
+  } catch (err) {
+    return handoverErrorOr(next, res, err);
+  }
+});
+
+/**
+ * PATCH /api/admin/queues/:queueId/notes/:noteId { pinned?, important? }
+ */
+router.patch("/queues/:queueId/notes/:noteId", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    const { note, changed } = await updateHandoverNote(req.user, queue, req.params.noteId, req.body || {});
+    for (const flag of changed) {
+      const action = { pinned: "handover-pin", unpinned: "handover-unpin", flagged: "handover-flag", unflagged: "handover-unflag" }[flag];
+      if (action) {
+        await writeAudit(req, { action, queue, meta: { note: notePreview(note.body), counter: note.counterName } });
+      }
+    }
+    const data = await listNotes(req.user, queue);
+    return res.status(200).json({ note: data.notes.find((row) => row.id === String(note._id)), ...data });
+  } catch (err) {
+    return handoverErrorOr(next, res, err);
+  }
+});
+
+/**
+ * POST /api/admin/queues/:queueId/notes/:noteId/ack
+ */
+router.post("/queues/:queueId/notes/:noteId/ack", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    const { note, changed } = await acknowledgeNote(req.user, queue, req.params.noteId);
+    if (changed) {
+      await writeAudit(req, { action: "handover-ack", queue, meta: { note: notePreview(note.body), counter: note.counterName } });
+    }
+    const data = await listNotes(req.user, queue);
+    return res.status(200).json({ note: data.notes.find((row) => row.id === String(note._id)), ...data });
+  } catch (err) {
+    return handoverErrorOr(next, res, err);
+  }
+});
+
+/**
+ * POST /api/admin/queues/:queueId/notes/:noteId/resolve
+ */
+router.post("/queues/:queueId/notes/:noteId/resolve", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const queue = await loadQueueOr404(req.params.queueId, res, req.user);
+    if (!queue) return;
+    const { note, changed } = await resolveNote(req.user, queue, req.params.noteId);
+    if (changed) {
+      await writeAudit(req, { action: "handover-resolve", queue, meta: { note: notePreview(note.body), counter: note.counterName } });
+    }
+    const data = await listNotes(req.user, queue);
+    return res.status(200).json({ note: data.notes.find((row) => row.id === String(note._id)), ...data });
+  } catch (err) {
+    return handoverErrorOr(next, res, err);
   }
 });
 

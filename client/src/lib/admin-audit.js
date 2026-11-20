@@ -29,6 +29,13 @@ const ACTION_LABELS = {
   "announcement-post": "Posted a notice",
   "announcement-edit": "Edited a notice",
   "announcement-end": "Ended a notice",
+  "handover-create": "Left a handover note",
+  "handover-pin": "Pinned a handover note",
+  "handover-unpin": "Unpinned a handover note",
+  "handover-flag": "Marked a handover note important",
+  "handover-unflag": "Cleared important on a handover note",
+  "handover-ack": "Acknowledged a handover note",
+  "handover-resolve": "Resolved a handover note",
   "walk-in": "Added a walk-in",
   "staff-access": "Changed staff access",
   "staff-move": "Moved staff to another venue",
@@ -81,6 +88,7 @@ const FIELD_LABELS = {
   groupTicketsEnabled: "group tickets",
   groupMaxSize: "largest group",
   groupExtraPerPerson: "extra time per person",
+  handoverExpiryHours: "handover expiry",
 };
 
 export function auditActionLabel(action) {
@@ -93,6 +101,7 @@ export function auditMetaLine(event) {
   const parts = [];
   if (meta.email) parts.push(meta.email);
   if (meta.title) parts.push(`“${meta.title}”`);
+  if (meta.note) parts.push(`“${meta.note}”`);
   if (meta.counter) parts.push(meta.counter);
   if (meta.from && meta.to && typeof meta.from === "string" && !/^(open|break|closed)$/.test(meta.from)) {
     parts.push(`${meta.from} → ${meta.to}`);

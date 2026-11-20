@@ -1,31 +1,34 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { GLYPH_VIEWBOX, MARK_COLORS, MARK_DOT, MARK_RING, PLATE_RADIUS } from "./mark-geometry";
 
 /**
- * QueueIt wordmark — pass-stub + dog-ear mark on forest plate + sans product name.
- * Same glyph as favicon (Mess hall linen / locked plan §2.5).
+ * QueueIt lockup: the ring-and-dot glyph + "QueueIt" set in Fraunces.
+ * The logotype uses the serif so the capital I never reads as a lowercase l.
  */
 export function Wordmark({ className, to = "/", tone = "default" }) {
+  const inverse = tone === "inverse";
   return (
     <Link
       to={to}
       aria-label="QueueIt home"
       className={cn(
         "group inline-flex items-center gap-2 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        tone === "inverse" && "focus-visible:ring-[#b7e4c7]",
+        inverse && "focus-visible:ring-[#b7e4c7]",
         className
       )}
     >
-      <span
-        className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-[10px] shadow-card transition-opacity group-hover:opacity-90"
-        aria-hidden="true"
-      >
-        <PassStubMark className="size-full" />
-      </span>
+      <QueueItMark
+        variant="glyph"
+        className={cn(
+          "size-[1.375rem] shrink-0 transition-transform duration-200 ease-out group-hover:rotate-[-8deg] motion-reduce:transition-none",
+          inverse ? "text-[#f0fdf4]" : "text-primary"
+        )}
+      />
       <span
         className={cn(
-          "font-heading text-[1.125rem] font-semibold leading-none tracking-[-0.01em]",
-          tone === "inverse" ? "text-[#f0fdf4]" : "text-foreground"
+          "font-display text-[1.3125rem] font-semibold leading-none tracking-[-0.02em]",
+          inverse ? "text-[#f0fdf4]" : "text-foreground"
         )}
       >
         QueueIt
@@ -35,32 +38,29 @@ export function Wordmark({ className, to = "/", tone = "default" }) {
 }
 
 /**
- * Pass-stub glyph matching client/public/favicon.svg.
- * Plate #1B4332 · glyph #F0FDF4 — terracotta never in the mark.
+ * The QueueIt mark (same geometry as client/public/favicon.svg).
+ *
+ * variant="glyph" — ring + dot only, filled with currentColor; tight viewBox so
+ *   it sizes like an icon. Use for lockups and hero-scale display.
+ * variant="plate" — the app-icon form: forest rounded square, light glyph.
  */
-export function PassStubMark({ className }) {
+export function QueueItMark({ className, variant = "glyph", title }) {
+  const a11y = title ? { role: "img", "aria-label": title } : { "aria-hidden": true };
+  if (variant === "plate") {
+    return (
+      <svg viewBox="0 0 32 32" className={className} {...a11y}>
+        <rect width="32" height="32" rx={PLATE_RADIUS} fill={MARK_COLORS.forest} />
+        <g fill={MARK_COLORS.onForest}>
+          <path d={MARK_RING} />
+          <circle cx={MARK_DOT.cx} cy={MARK_DOT.cy} r={MARK_DOT.r} />
+        </g>
+      </svg>
+    );
+  }
   return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-    >
-      <rect width="32" height="32" rx="8" fill="#1B4332" />
-      <path
-        fill="#F0FDF4"
-        d="M9.5 8h10.25L24 12.25V22.5A1.75 1.75 0 0 1 22.25 24.25H9.5A1.75 1.75 0 0 1 7.75 22.5v-12.75A1.75 1.75 0 0 1 9.5 8z"
-      />
-      <path fill="#1B4332" d="M19.75 8v4.25H24L19.75 8z" />
-      <path
-        fill="none"
-        stroke="#F0FDF4"
-        strokeWidth="0.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.75 8v4.25H24"
-        opacity="0.35"
-      />
+    <svg viewBox={GLYPH_VIEWBOX} fill="currentColor" className={className} {...a11y}>
+      <path d={MARK_RING} />
+      <circle cx={MARK_DOT.cx} cy={MARK_DOT.cy} r={MARK_DOT.r} />
     </svg>
   );
 }

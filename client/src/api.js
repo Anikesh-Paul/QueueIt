@@ -705,3 +705,14 @@ export function fetchFavorites(token) {
 export function setFavorite(token, queueId, starred) {
   return apiRequest(`/api/me/favorites/${queueId}`, { method: starred ? "PUT" : "DELETE", token });
 }
+
+/** GET /api/queues/:queueId/best-time — public hourly crowd + wait for a weekday. */
+export function fetchBestTime(queueId, weekday) {
+  const qs = weekday == null ? "" : `?weekday=${weekday}`;
+  return apiRequest(`/api/queues/${queueId}/best-time${qs}`);
+}
+
+/** GET /api/queues/best-time — compact best-time data for every listed queue (today). */
+export function fetchBestTimeSummary() {
+  return apiRequest("/api/queues/best-time");
+}

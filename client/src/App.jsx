@@ -22,6 +22,7 @@ import { HistoryPage } from "@/pages/history-page";
 import { LoginPage, NotFoundPage, RegisterPage } from "@/pages/auth-pages";
 import { ForgotPasswordPage, ResetPasswordPage } from "@/pages/password-reset-pages";
 import { KioskPage } from "@/pages/kiosk-page";
+import { StatusBoardPage } from "@/pages/status-board-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { BookPage } from "@/pages/book-page";
 
@@ -92,6 +93,7 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
     children: [
       { path: "/kiosk/:queueId", element: <KioskPage /> },
+      { path: "/status-board", element: <StatusBoardPage /> },
       {
         element: <RequireLoggedOut />,
         children: [

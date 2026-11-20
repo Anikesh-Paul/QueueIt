@@ -13,6 +13,7 @@ async function pages(request) {
     ["history", "/history", student],
     ["book a time", `/book/${cafeteria.id}`, student],
     ["kiosk", `/kiosk/${cafeteria.id}`, null],
+    ["status board", "/status-board", null],
     ["admin console", `/admin/queues/${cafeteria.id}`, admin],
     ["analytics", "/admin/analytics", admin],
     ["shift", "/admin/shift", admin],
@@ -30,6 +31,7 @@ async function pages(request) {
     ["queues (bn)", "/queues", student, "bn"],
     ["join (QR, bn)", `/join/${cafeteria.id}?src=qr`, null, "bn"],
     ["kiosk (hi)", `/kiosk/${cafeteria.id}`, null, "hi"],
+    ["status board (bn)", "/status-board", null, "bn"],
     ["account security (bn)", "/security", student, "bn"],
     ["poster (bn)", `/admin/queues/${cafeteria.id}/poster`, admin, "bn"],
     ["live view (hi)", "/admin/live", admin, "hi"],
@@ -38,7 +40,7 @@ async function pages(request) {
 
 for (const theme of ["light", "dark"]) {
   test(`no serious accessibility violations (${theme})`, async ({ browser, request }) => {
-    // 25 pages (incl. Hindi and Bengali) per theme.
+    // 27 pages (incl. Hindi and Bengali) per theme.
     test.setTimeout(240_000);
     const failures = [];
     for (const [name, url, token, locale] of await pages(request)) {

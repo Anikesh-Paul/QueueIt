@@ -19,6 +19,7 @@ The production API is a Vercel serverless function, so the live app uses short p
 ## For students
 
 - Browse a venue’s queues, or open a **poster join link** (`/join/:queueId`) from a printed QR — no need to visit the catalog first.
+- Share **`/status-board`** for a no-login view of every queue’s current wait, status, and now-serving numbers. Optional `?org=` / `?venue=` focus one campus or building.
 - Join with an account, or **continue as a guest**. Registering or logging in later moves the guest place and device history onto the account.
 - See **token**, **position**, **ETA** (campus clock, IST), and **now serving**, including the counter when a queue has more than one desk.
 - Get a **near-front** prompt in the next three, then a **called** banner with a countdown and an **I'm here** button when the counter calls you.
@@ -43,6 +44,7 @@ The production API is a Vercel serverless function, so the live app uses short p
 - **Catalog editor** — add, rename, or archive venues and queues without re-seeding. Set average service time, a **max waiting** cap (catalog shows Full; join and walk-in return 409 at capacity), no-show settings, missed-turn recovery, priority fairness, and an equivalent-queue group.
 - **Service windows** in campus IST, including optional day-of-week scope, overnight windows (for example 22:00–02:00), and **holiday / exception** dates. Staff can start or stop accepting tokens, extend a session, and reset the line.
 - **Poster QR** for the public join link (not an arrival pass), a **printable A4 poster** at `/admin/queues/:queueId/poster`, and a public **display board** at `/kiosk/:queueId` for a TV or tablet. The board shows a "Scan to join" QR while the queue takes tokens.
+- **Public wait board** at `/status-board` — no account. Share the link in WhatsApp or put it on a lobby screen. Optional `?org=` and `?venue=` (id or slug) focus one campus or building. Backed by `GET /api/status-board`, which is **read-only** and cached for **20 seconds** (`Cache-Control: public, max-age=20`). It does not use `GET /api/queues` (that catalog route performs session maintenance writes).
 - **Analytics** at `/admin/analytics`:
   - date range of Today, 7 days, 30 days or custom dates (up to 92)
   - served per day, peak hours across 24 IST hours, average and 90th-percentile wait (join to call), and no-show rate per queue

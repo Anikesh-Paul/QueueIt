@@ -176,6 +176,15 @@ export function getQueueBoard(queueId) {
   return apiRequest(`/api/queues/${queueId}/board`);
 }
 
+/** GET /api/status-board — public, read-only campus wait board. No auth. */
+export function fetchStatusBoard({ org, venue } = {}) {
+  const params = new URLSearchParams();
+  if (org) params.set("org", org);
+  if (venue) params.set("venue", venue);
+  const qs = params.toString();
+  return apiRequest(`/api/status-board${qs ? `?${qs}` : ""}`);
+}
+
 /** GET /api/queues/:queueId/status — poll token, position, ETA, now serving. */
 export function fetchQueueStatus(token, queueId, guestCredential) {
   return apiRequest(`/api/queues/${queueId}/status`, {

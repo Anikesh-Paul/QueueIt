@@ -158,6 +158,7 @@ describe("service worker: never caches private or write traffic", () => {
     `${API}/api/admin/queues/0123456789abcdef01234567/waiting-list`,
     `${API}/api/admin/analytics/report`,
     `${API}/api/queues/history`,
+    `${API}/api/status-board`,
     `${API}/socket.io/?EIO=4&transport=polling`,
   ]) {
     it(`passes ${new URL(url).pathname} straight through`, async () => {

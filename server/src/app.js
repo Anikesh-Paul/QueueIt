@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminRoutes from "./routes/admin.js";
 import queueRoutes from "./routes/queues.js";
+import statusBoardRoutes from "./routes/statusBoard.js";
 import { parseClientOrigins } from "./corsOrigin.js";
 
 /** Default JSON body cap — enough for queue APIs, small enough to blunt abuse. */
@@ -149,6 +150,7 @@ export function createApp(options = {}) {
   app.use("/api/auth", authRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/queues", queueRoutes);
+  app.use("/api/status-board", statusBoardRoutes);
   app.use("/api/me", meRoutes);
 
   app.use((err, _req, res, _next) => {

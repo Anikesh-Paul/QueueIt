@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Star } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +25,8 @@ import { formatBookingWhen } from "@/lib/appointments";
 import { NoticeList } from "@/components/notices/notice-list";
 import { useNotices } from "@/hooks/use-notices";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { useFavorites } from "@/hooks/use-favorites";
+import { sortWithFavorites } from "@/lib/visits";
 import { noticesForOrg, pickOrg, queuesForOrg, readOrgChoice, writeOrgChoice } from "@/lib/organizations";
 
 /** Segmented picker shown only when there's more than one organization. */
@@ -109,7 +112,9 @@ export function QueuesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [savedOrg, setSavedOrg] = useState(readOrgChoice);
   const activeOrg = pickOrg(orgs, { linkSlug: searchParams.get("org") || "", savedSlug: savedOrg });
-  const queues = queuesForOrg(allQueues, activeOrg);
+  const canStar = Boolean(token) && !isGuest && !isAdmin;
+  const { favorites, toggle: toggleFavorite, pending: favoritePending, error: favoriteError } = useFavorites(token, canStar);
+  const queues = sortWithFavorites(queuesForOrg(allQueues, activeOrg), favorites);
   const notices = noticesForOrg(allNotices, activeOrg, queues);
   const linkedOrg = activeOrg && searchParams.get("org") === activeOrg.slug ? activeOrg.slug : "";
   useEffect(() => {
@@ -299,13 +304,14 @@ export function QueuesPage() {
                     isSelected && "border-primary bg-primary-muted/60"
                   )}
                 >
+                <div className="flex items-stretch">
                 <button
                   type="button"
                   data-testid="queue-card"
                   data-queue-id={queue.id}
                   data-accepting-tokens={closed ? "false" : "true"}
                   className={cn(
-                    "queue-card flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left outline-none hover:bg-secondary/40 focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "queue-card flex min-w-0 flex-1 flex-col items-start gap-0.5 px-4 py-3 text-left outline-none hover:bg-secondary/40 focus-visible:ring-3 focus-visible:ring-ring/50",
                     isSelected && "bg-transparent"
                   )}
                   onClick={() => {
@@ -401,6 +407,31 @@ export function QueuesPage() {
                     </span>
                   ) : null}
                 </button>
+                {canStar ? (
+                  <button
+                    type="button"
+                    className={cn(
+                      "grid w-12 shrink-0 place-items-start justify-center pt-3 text-text-muted outline-none transition-colors hover:text-attention focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:opacity-60",
+                      favorites.includes(queue.id) && "text-attention"
+                    )}
+                    onClick={() => toggleFavorite(queue.id)}
+                    disabled={favoritePending === queue.id}
+                    aria-pressed={favorites.includes(queue.id)}
+                    aria-label={t("favorites.star", { name: queue.name })}
+                    title={favorites.includes(queue.id) ? t("favorites.starred") : t("favorites.starHint")}
+                    data-testid="queue-star"
+                    data-starred={favorites.includes(queue.id) ? "true" : "false"}
+                  >
+                    <span className="grid size-9 place-items-center rounded-full">
+                      <Star
+                        className={cn("size-5 transition-transform", favorites.includes(queue.id) && "fill-current motion-safe:scale-110")}
+                        strokeWidth={1.8}
+                        aria-hidden="true"
+                      />
+                    </span>
+                  </button>
+                ) : null}
+                </div>
                 {closed && !isAdmin ? (
                   <OpenWatchControls queue={queue} className="px-4 pb-3 pt-0" />
                 ) : null}
@@ -483,6 +514,11 @@ export function QueuesPage() {
       )}
 
       {joinError && <Alert variant="destructive" className="mt-4">{joinError}</Alert>}
+      {favoriteError ? (
+        <Alert variant="destructive" className="mt-4" data-testid="favorite-error">
+          {t(favoriteError)}
+        </Alert>
+      ) : null}
 
       <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-border pt-5">
         <Button
@@ -502,7 +538,7 @@ export function QueuesPage() {
             onClick={() => navigate("/history")}
             data-testid="view-history"
           >
-            {t("queues.viewHistory")}
+            {t("queues.viewVisits")}
           </Button>
         )}
       </div>

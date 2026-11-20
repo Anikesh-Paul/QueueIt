@@ -49,6 +49,14 @@ const userSchema = new mongoose.Schema(
      */
     adminOrganizations: { type: [String], default: [] },
     /**
+     * Queues this person starred; pinned to the top of their queue list.
+     * Missing on older documents → treated as none.
+     */
+    favoriteQueues: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Queue" }],
+      default: [],
+    },
+    /**
      * Bumped by "Sign out of all devices" and password resets. Session JWTs
      * carry it as `tv`; a mismatch is rejected. Missing on older documents →
      * treated as 0, which matches tokens issued before this field existed.

@@ -41,7 +41,7 @@ function resolveAdminQueueId(adminQueueId, pathname) {
   return match?.[1] || null;
 }
 
-function ShellNavItems({ isAdmin, globalAdmin, inQueue, openAdminQueueId, t }) {
+function ShellNavItems({ isAdmin, globalAdmin, inQueue, openAdminQueueId, isSignedIn, t }) {
   return (
     <>
       <ShellNavLink to="/queues" testId="nav-queues">
@@ -50,7 +50,7 @@ function ShellNavItems({ isAdmin, globalAdmin, inQueue, openAdminQueueId, t }) {
       {/* Student / Guest path: History is not an admin surface */}
       {!isAdmin && (
         <ShellNavLink to="/history" testId="nav-history">
-          {t("nav.history")}
+          {isSignedIn ? t("nav.myVisits") : t("nav.history")}
         </ShellNavLink>
       )}
       {inQueue && (
@@ -153,6 +153,7 @@ export function AppShell() {
   const navItems = (
     <ShellNavItems
       isAdmin={isAdmin}
+      isSignedIn={Boolean(user) && !isGuest}
       globalAdmin={isGlobalAdmin(user)}
       inQueue={inQueue}
       openAdminQueueId={openAdminQueueId}

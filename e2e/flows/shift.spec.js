@@ -16,6 +16,8 @@ test("staff start a shift, take a break and come back", async ({ page, request }
   const gymCard = page.getByTestId("shift-queue").filter({ hasText: gym.name });
   const row = gymCard.getByTestId("shift-counter").first();
   const start = row.getByTestId("shift-start");
+  // Wait for the row to render before checking which button it offers.
+  await expect(row.getByTestId("shift-start").or(row.getByTestId("shift-open"))).toBeVisible({ timeout: 15_000 });
   if (!(await start.isVisible())) await row.getByTestId("shift-open").click();
   await row.getByTestId("shift-start").click();
   await expect(page.getByTestId("shift-me")).toContainText(gym.name);

@@ -16,6 +16,8 @@ async function makeOrg(request, stamp) {
 }
 
 test("a global admin limits a new admin to one organization, and the server enforces it", async ({ page, browser, request }) => {
+  // Two browser sessions and ~40 steps: lands right at the 30s default late in a full run.
+  test.setTimeout(60_000);
   const stamp = Date.now() % 1_000_000;
   const { headers, org, venue, queue } = await makeOrg(request, stamp);
   const cafeteria = await queueByName(request, "Cafeteria");

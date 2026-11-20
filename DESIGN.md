@@ -31,7 +31,7 @@ Teal “Operate” palettes are an anti-reference. The product is light-only; th
 
 Two faces only:
 
-- **Display** — Fraunces (Soft axis; WONK off). Heroes and page titles only.
+- **Display** — Fraunces (Soft axis; WONK off). Heroes, page titles and the "QueueIt" logotype only.
 - **Sans / heading / metric** — Source Sans 3. UI, labels, and token numbers.
 
 Do not add a third family.
@@ -63,3 +63,13 @@ Warm stone tints, quiet and structural — no glass or backdrop blur.
 - `--shadow-dialog`: `0 8px 24px rgb(26 26 24 / 12%)`
 
 Sticky chrome and dialog dimmers use solid surfaces (`bg-card`, `bg-foreground/40`).
+
+## Brand mark
+
+A Q drawn as an open ring with the tail as a dot: the line, and the next person stepping into it. Geometry lives in `client/src/components/brand/mark-geometry.js` (32-unit grid: ring centre 15,15, radii 9/5, 56° gap on the 45° diagonal with radial cuts, dot r 3.25 at 23,23). At 16px every ring edge lands on a whole pixel. Do not redraw it by hand elsewhere; use `QueueItMark`.
+
+- **Glyph** (`QueueItMark variant="glyph"`) — fills `currentColor`. Forest on stone/card, `#f0fdf4` on Forest. Use in the lockup and at hero scale.
+- **Plate** (`variant="plate"`, `favicon.svg`, app icons) — Forest rounded square (radius 7.5/32), `#f0fdf4` glyph. In a dark browser chrome the favicon flips to a mist `#d8f3dc` plate with a Forest glyph.
+- **Lockup** (`Wordmark`) — glyph + "QueueIt" in Fraunces semibold. The serif keeps the capital I from reading as a lowercase l.
+- Terracotta never appears in the mark. Keep clear space of at least the dot's diameter around it.
+- Raster set (`favicon.ico`, `apple-touch-icon.png`, `icons/*`, `og-image.png`) is generated: `node client/scripts/build-icons.mjs`.

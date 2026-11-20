@@ -36,6 +36,8 @@ function emptyTotals() {
     servedLastHour: 0,
     averageWaitMinutes: null,
     waitingCount: 0,
+    waitingPeople: 0,
+    peopleServedToday: 0,
     noShowsToday: 0,
     openCounters: 0,
     totalCounters: 0,
@@ -112,6 +114,7 @@ export async function collectLiveView(user, query = {}, at = clockNow()) {
         $group: {
           _id: { queue: "$queue", counter: "$servingCounterId" },
           served: { $sum: 1 },
+          people: { $sum: { $ifNull: ["$partySize", 1] } },
           lastHour: { $sum: { $cond: [{ $gte: [SERVED_AT, hourAgo] }, 1, 0] } },
           waitSum: {
             $sum: { $max: [0, { $divide: [{ $subtract: [CALLED_AT, "$createdAt"] }, 60000] }] },
@@ -121,7 +124,7 @@ export async function collectLiveView(user, query = {}, at = clockNow()) {
     ]),
     QueueEntry.aggregate([
       { $match: { queue: { $in: queueIds }, status: "waiting" } },
-      { $group: { _id: "$queue", count: { $sum: 1 } } },
+      { $group: { _id: "$queue", count: { $sum: 1 }, people: { $sum: { $ifNull: ["$partySize", 1] } } } },
     ]),
     QueueEntry.aggregate([
       {
@@ -138,6 +141,7 @@ export async function collectLiveView(user, query = {}, at = clockNow()) {
   ]);
 
   const waitingBy = new Map(waitingRows.map((r) => [String(r._id), r.count]));
+  const waitingPeopleBy = new Map(waitingRows.map((r) => [String(r._id), r.people ?? r.count]));
   const noShowBy = new Map(noShowRows.map((r) => [String(r._id), r.count]));
   const servedBy = new Map();
   for (const row of servedRows) {
@@ -178,6 +182,7 @@ export async function collectLiveView(user, query = {}, at = clockNow()) {
     }
 
     const servedToday = rows.reduce((s, r) => s + r.served, 0);
+    const peopleServedToday = rows.reduce((s, r) => s + (r.people ?? r.served), 0);
     const servedLastHour = rows.reduce((s, r) => s + r.lastHour, 0);
     const waitSum = rows.reduce((s, r) => s + r.waitSum, 0);
     const openCounters = counters.filter((c) => c.state === "open").length;
@@ -187,6 +192,8 @@ export async function collectLiveView(user, query = {}, at = clockNow()) {
     totals.servedToday += servedToday;
     totals.servedLastHour += servedLastHour;
     totals.waitingCount += waitingBy.get(id) || 0;
+    totals.waitingPeople += waitingPeopleBy.get(id) || 0;
+    totals.peopleServedToday += peopleServedToday;
     totals.noShowsToday += noShowBy.get(id) || 0;
     totals.openCounters += openCounters;
     totals.totalCounters += counters.length;
@@ -202,7 +209,9 @@ export async function collectLiveView(user, query = {}, at = clockNow()) {
       acceptingTokens: isOpen,
       nowServing: queue.nowServing ?? null,
       waitingCount: waitingBy.get(id) || 0,
+      waitingPeople: waitingPeopleBy.get(id) || 0,
       servedToday,
+      peopleServedToday,
       servedLastHour,
       averageWaitMinutes: servedToday ? round1(waitSum / servedToday) : null,
       noShowsToday: noShowBy.get(id) || 0,

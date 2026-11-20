@@ -46,9 +46,11 @@ export async function collectCampusAnalytics(user, query = {}) {
 
   const emptyMetrics = {
     servedCount: 0,
+    servedPeople: 0,
     skippedCount: 0,
     leftCount: 0,
     waitingCount: 0,
+    waitingPeople: 0,
     averageWaitMinutes: null,
     longestWaitMinutes: null,
   };
@@ -76,7 +78,7 @@ export async function collectCampusAnalytics(user, query = {}) {
     QueueEntry.countDocuments({ queue: { $in: queueIds }, status: "left", ...terminalMatch }),
     QueueEntry.aggregate([
       { $match: { queue: { $in: queueIds }, status: "waiting" } },
-      { $group: { _id: "$queue", count: { $sum: 1 } } },
+      { $group: { _id: "$queue", count: { $sum: 1 }, people: { $sum: { $ifNull: ["$partySize", 1] } } } },
     ]),
     QueueEntry.aggregate([
       { $match: { queue: { $in: queueIds }, status: "served", ...terminalMatch } },
@@ -87,6 +89,7 @@ export async function collectCampusAnalytics(user, query = {}) {
               $group: {
                 _id: null,
                 count: { $sum: 1 },
+                people: { $sum: { $ifNull: ["$partySize", 1] } },
                 waitMinutesSum: {
                   $sum: { $divide: [{ $subtract: ["$updatedAt", "$createdAt"] }, 60000] },
                 },
@@ -121,6 +124,7 @@ export async function collectCampusAnalytics(user, query = {}) {
         $group: {
           _id: { queue: "$queue", status: "$status" },
           count: { $sum: 1 },
+          people: { $sum: { $ifNull: ["$partySize", 1] } },
           waitMinutesSum: {
             $sum: {
               $cond: [
@@ -146,15 +150,18 @@ export async function collectCampusAnalytics(user, query = {}) {
 
   const waitingByQueue = new Map(waitingRows.map((row) => [String(row._id), row.count]));
   const waitingCount = waitingRows.reduce((sum, row) => sum + row.count, 0);
+  const waitingPeopleByQueue = new Map(waitingRows.map((row) => [String(row._id), row.people ?? row.count]));
+  const waitingPeople = waitingRows.reduce((sum, row) => sum + (row.people ?? row.count), 0);
   const totals = facet?.totals?.[0] || { count: 0, waitMinutesSum: 0, maxWaitMinutes: 0 };
   const hasServed = totals.count > 0;
 
   const byQueue = new Map();
   for (const row of perQueue) {
     const id = String(row._id.queue);
-    const current = byQueue.get(id) || { servedCount: 0, skippedCount: 0, leftCount: 0, waitMinutesSum: 0, maxWaitMinutes: 0 };
+    const current = byQueue.get(id) || { servedCount: 0, servedPeople: 0, skippedCount: 0, leftCount: 0, waitMinutesSum: 0, maxWaitMinutes: 0 };
     if (row._id.status === "served") {
       current.servedCount = row.count;
+      current.servedPeople = row.people ?? row.count;
       current.waitMinutesSum = row.waitMinutesSum;
       current.maxWaitMinutes = row.maxWaitMinutes || 0;
     } else if (row._id.status === "skipped") {
@@ -168,6 +175,7 @@ export async function collectCampusAnalytics(user, query = {}) {
   const queueRows = queues.map((queue) => {
     const stats = byQueue.get(String(queue._id)) || {
       servedCount: 0,
+      servedPeople: 0,
       skippedCount: 0,
       leftCount: 0,
       waitMinutesSum: 0,
@@ -179,9 +187,11 @@ export async function collectCampusAnalytics(user, query = {}) {
       name: queue.name,
       venue: queue.venue?.name || queue.venue?.toPublicJSON?.().name || null,
       servedCount: stats.servedCount,
+      servedPeople: stats.servedPeople ?? stats.servedCount,
       skippedCount: stats.skippedCount,
       leftCount: stats.leftCount,
       waitingCount: waitingByQueue.get(String(queue._id)) || 0,
+      waitingPeople: waitingPeopleByQueue.get(String(queue._id)) || 0,
       averageWaitMinutes: served ? roundWaitMinutes(stats.waitMinutesSum / served) : null,
       longestWaitMinutes: served ? roundWaitMinutes(stats.maxWaitMinutes) : null,
     };
@@ -198,9 +208,11 @@ export async function collectCampusAnalytics(user, query = {}) {
       },
       metrics: {
         servedCount,
+        servedPeople: totals.people ?? servedCount,
         skippedCount,
         leftCount,
         waitingCount,
+        waitingPeople,
         averageWaitMinutes: hasServed ? roundWaitMinutes(totals.waitMinutesSum / totals.count) : null,
         longestWaitMinutes: hasServed ? roundWaitMinutes(totals.maxWaitMinutes) : null,
       },
@@ -229,6 +241,8 @@ export function formatCampusAnalyticsCsv(payload) {
     "window",
     "from",
     "to",
+    "served_people",
+    "waiting_people",
   ];
   const windowLabel = payload.range?.preset || "all";
   const from = payload.range?.from || "";
@@ -248,6 +262,8 @@ export function formatCampusAnalyticsCsv(payload) {
         windowLabel,
         from,
         to,
+        row.servedPeople ?? row.servedCount,
+        row.waitingPeople ?? row.waitingCount,
       ].join(",")
     );
   }
@@ -265,6 +281,8 @@ export function formatCampusAnalyticsCsv(payload) {
       windowLabel,
       from,
       to,
+      totals.servedPeople ?? totals.servedCount ?? 0,
+      totals.waitingPeople ?? totals.waitingCount ?? 0,
     ].join(",")
   );
   return `${lines.join("\n")}\n`;

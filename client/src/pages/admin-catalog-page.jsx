@@ -209,6 +209,13 @@ export function AdminCatalogPage() {
     const guestJoin = draft.guestJoin !== undefined ? draft.guestJoin : queue.guestJoin !== false;
     const noShowAutoCall =
       draft.noShowAutoCall !== undefined ? draft.noShowAutoCall : queue.noShowAutoCall === true;
+    const groups = queue.groups || { enabled: true, maxSize: 4, extraPerPerson: 0.5 };
+    const groupTicketsEnabled =
+      draft.groupTicketsEnabled !== undefined ? draft.groupTicketsEnabled : groups.enabled !== false;
+    const groupMaxSize = Number(draft.groupMaxSize !== undefined ? draft.groupMaxSize : groups.enabled === false ? 4 : groups.maxSize || 4);
+    const groupExtraPerPerson = Number(
+      draft.groupExtraPerPerson !== undefined ? draft.groupExtraPerPerson : (groups.extraPerPerson ?? 0.5)
+    );
     const booking = queue.appointments || {};
     const appointmentsEnabled =
       draft.appointmentsEnabled !== undefined ? draft.appointmentsEnabled : booking.enabled === true;
@@ -232,6 +239,9 @@ export function AdminCatalogPage() {
         equivalentGroup: equivalentGroupRaw == null ? "" : String(equivalentGroupRaw),
         guestJoin,
         noShowAutoCall,
+        groupTicketsEnabled,
+        groupMaxSize,
+        groupExtraPerPerson,
         appointmentsEnabled,
         slotMinutes: slotNumber("slotMinutes", booking.slotMinutes),
         slotCapacity: slotNumber("slotCapacity", booking.slotCapacity),
@@ -653,6 +663,60 @@ export function AdminCatalogPage() {
                           <span className="block text-xs text-text-muted">Guests from the poster QR. Off means sign-in only.</span>
                         </span>
                       </label>
+                      <fieldset
+                        className="w-full rounded-md border border-border px-3 pb-3 pt-1"
+                        data-testid="catalog-queue-groups"
+                        disabled={busy}
+                      >
+                        <legend className="px-1 text-sm font-medium text-foreground">Group tickets</legend>
+                        <label htmlFor={`queue-groups-${queue.id}`} className="flex items-start gap-2 text-sm">
+                          <input
+                            id={`queue-groups-${queue.id}`}
+                            type="checkbox"
+                            className="mt-0.5 size-4 accent-[var(--primary)]"
+                            defaultChecked={queue.groups?.enabled !== false}
+                            onChange={(event) => setDraftField(queue.id, "groupTicketsEnabled", event.target.checked)}
+                            data-testid="catalog-queue-groups-enabled"
+                          />
+                          <span>
+                            <span className="font-medium text-foreground">One ticket can cover a small group</span>
+                            <span className="block text-xs text-text-muted">Friends or family join together. Off means one person per ticket.</span>
+                          </span>
+                        </label>
+                        <div className="mt-2 flex flex-wrap gap-3">
+                          <div className="flex flex-col gap-1">
+                            <Label htmlFor={`queue-groups-max-${queue.id}`} className="text-xs">Largest group</Label>
+                            <select
+                              id={`queue-groups-max-${queue.id}`}
+                              defaultValue={queue.groups?.enabled === false ? 4 : queue.groups?.maxSize || 4}
+                              onChange={(event) => setDraftField(queue.id, "groupMaxSize", Number(event.target.value))}
+                              className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                              data-testid="catalog-queue-groups-max"
+                            >
+                              {[2, 3, 4].map((n) => (
+                                <option key={n} value={n}>{n} people</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Label htmlFor={`queue-groups-extra-${queue.id}`} className="text-xs">Each extra person adds</Label>
+                            <select
+                              id={`queue-groups-extra-${queue.id}`}
+                              defaultValue={String(queue.groups?.extraPerPerson ?? 0.5)}
+                              onChange={(event) => setDraftField(queue.id, "groupExtraPerPerson", Number(event.target.value))}
+                              className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                              data-testid="catalog-queue-groups-extra"
+                            >
+                              {[0, 0.25, 0.5, 0.75, 1].map((x) => (
+                                <option key={x} value={String(x)}>
+                                  {x === 0 ? "No extra time" : x === 1 ? "A full serve" : `${Math.round(x * 100)}% of a serve`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <p className="mt-1.5 text-xs text-text-muted">Used for wait estimates. A group of 3 at 50% counts as 2 serves.</p>
+                      </fieldset>
                       <fieldset
                         className="w-full rounded-md border border-border px-3 pb-3 pt-1"
                         data-testid="catalog-queue-bookings"

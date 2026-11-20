@@ -9,7 +9,14 @@ describe("presentCounterServing", () => {
       value: "8",
       live: true,
       last: 4,
+      partySize: null,
     });
+  });
+
+  it("carries a group size for the live ticket only", () => {
+    assert.equal(presentCounterServing({ nowServing: 8, nowServingPartySize: 3 }).partySize, 3);
+    assert.equal(presentCounterServing({ nowServing: 8, nowServingPartySize: 1 }).partySize, null);
+    assert.equal(presentCounterServing({ nowServing: null, lastServed: 8, nowServingPartySize: 3 }).partySize, undefined);
   });
 
   it("shows Last served when the counter is free", () => {

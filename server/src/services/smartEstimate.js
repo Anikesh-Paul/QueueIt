@@ -9,6 +9,7 @@ import {
   fetchRecentServedAt,
 } from "./recentServicePace.js";
 import { getCampusParts, campusLocalToUtc } from "./serviceWindows.js";
+import { groupSettingsOf, unitsForCounts } from "./partySize.js";
 
 /** How many past weeks of the same weekday + hour feed the typical pace. */
 export const HISTORY_WEEKS = 4;
@@ -230,10 +231,11 @@ export async function attachWaitEstimates(queueJsons, queueDocs, { at = clockNow
   const waitingRows = ids.length
     ? await QueueEntry.aggregate([
         { $match: { queue: { $in: ids }, status: "waiting" } },
-        { $group: { _id: "$queue", n: { $sum: 1 } } },
+        { $group: { _id: "$queue", n: { $sum: 1 }, people: { $sum: { $ifNull: ["$partySize", 1] } } } },
       ])
     : [];
   const waitingBy = new Map(waitingRows.map((row) => [String(row._id), row.n]));
+  const peopleBy = new Map(waitingRows.map((row) => [String(row._id), row.people]));
   return Promise.all(
     (queueJsons || []).map(async (row) => {
       const doc = docsById.get(String(row.id || row._id));
@@ -246,7 +248,9 @@ export async function attachWaitEstimates(queueJsons, queueDocs, { at = clockNow
       }
       const smart = await resolveSmartPace(doc, { at });
       const factor = staffing ? staffing(doc).factor : 1;
-      const position = waiting + 1;
+      // A one-person joiner behind everyone already waiting (groups count a bit more).
+      const ahead = unitsForCounts(waiting, peopleBy.get(String(doc._id)) || waiting, groupSettingsOf(doc).extraPerPerson);
+      const position = ahead + 1;
       const { etaMinutes, range } = buildEstimate(smart, { position, staffingFactor: factor });
       return {
         ...row,

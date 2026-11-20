@@ -120,6 +120,8 @@ const queueEntrySchema = new mongoose.Schema(
     travelMinutes: { type: Number, min: 0, max: 120, default: null },
     /** How an app join arrived: "qr" from a printed poster / kiosk QR, otherwise "app". */
     joinSource: { type: String, enum: ["app", "qr"], default: "app" },
+    /** People on this ticket (group tickets). Older tickets have none and count as 1. */
+    partySize: { type: Number, min: 1, max: 4, default: 1 },
   },
   { timestamps: true }
 );

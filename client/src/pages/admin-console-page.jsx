@@ -167,7 +167,7 @@ export function AdminConsolePage() {
               adminActionBusy={adminActionBusy}
               adminUpdateServiceWindows={adminUpdateServiceWindows}
             />
-            <AdminWalkIn adminActionBusy={adminActionBusy} adminWalkIn={adminWalkIn} />
+            <AdminWalkIn adminActionBusy={adminActionBusy} adminWalkIn={adminWalkIn} groups={adminQueueMeta?.groups} />
             <AdminCounters
               counters={adminQueueMeta?.counters}
               adminActionBusy={adminActionBusy}

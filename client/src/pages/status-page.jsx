@@ -32,7 +32,8 @@ import { statusConnectionPresentation } from "@/lib/status-connection";
 import { presentServingBoard } from "@/lib/now-serving";
 import { NotifyControls } from "@/components/status/notify-controls";
 import { useI18n } from "@/context/i18n-context";
-import { acknowledgeArrival, rejoinQueue, requestPriority, setTravelMinutes } from "@/api";
+import { acknowledgeArrival, reducePartySize, rejoinQueue, requestPriority, setTravelMinutes } from "@/api";
+import { PartySizeCard } from "@/components/status/party-size-card";
 import { LeaveNowBanner, LeaveTimeCard } from "@/components/status/leave-time-card";
 import { NoticeList } from "@/components/notices/notice-list";
 import { useNotices } from "@/hooks/use-notices";
@@ -86,6 +87,8 @@ export function StatusPage() {
   const [priorityReason, setPriorityReason] = useState("accessibility");
   const [travelBusy, setTravelBusy] = useState(false);
   const [travelError, setTravelError] = useState("");
+  const [partyBusy, setPartyBusy] = useState(false);
+  const [partyError, setPartyError] = useState("");
 
   useEffect(() => {
     if (!inQueue) navigate("/queues", { replace: true });
@@ -206,6 +209,20 @@ export function StatusPage() {
       setTravelError(t("leave.saveFailed"));
     } finally {
       setTravelBusy(false);
+    }
+  }
+
+  async function handlePartyReduce(size) {
+    if (partyBusy || !statusQueueId) return;
+    setPartyBusy(true);
+    setPartyError("");
+    try {
+      const data = await reducePartySize(token, statusQueueId, size, guestCredential);
+      adoptMembership?.(data);
+    } catch (err) {
+      setPartyError(actionErrorMessage(err, "generic", locale, t("party.reduceFailed")));
+    } finally {
+      setPartyBusy(false);
     }
   }
 
@@ -532,6 +549,15 @@ export function StatusPage() {
                 {t("book.bookedFor", { time: formatCampusClockTime(liveStatus.appointmentAt, locale) })}
               </p>
             ) : null}
+            <PartySizeCard
+              key={liveStatus.partySize || 1}
+              partySize={liveStatus.partySize}
+              canReduce={liveStatus.status === "waiting"}
+              busy={partyBusy}
+              error={partyError}
+              onReduce={handlePartyReduce}
+              t={t}
+            />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
               <StatusMetric label={t("status.position")} value={isCalled ? t("status.called") : isMissed ? "—" : liveStatus.position} testId="position" />
               <StatusMetric

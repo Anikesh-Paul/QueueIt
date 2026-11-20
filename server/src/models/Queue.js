@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import "./Venue.js";
 import { normalizeServiceWindows, normalizeServiceExceptions } from "../services/serviceWindows.js";
 import { countersForJson } from "../services/counters.js";
+import { groupsForJson } from "../services/partySize.js";
 
 const QUEUE_STATUSES = ["open", "paused"];
 
@@ -227,6 +228,12 @@ const queueSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /** Let one ticket cover a group (party size 1..groupMaxSize). On by default. */
+    groupTicketsEnabled: { type: Boolean, default: true },
+    /** Largest party on one ticket (2–4). */
+    groupMaxSize: { type: Number, min: 2, max: 4, default: 4 },
+    /** Each extra person adds this fraction of a normal serve to wait estimates. */
+    groupExtraPerPerson: { type: Number, min: 0, max: 1, default: 0.5 },
     /** Booked time slots alongside walk-ins. Off by default. */
     appointmentsEnabled: { type: Boolean, default: false },
     /** Slot length in minutes. */
@@ -289,6 +296,7 @@ queueSchema.methods.toPublicJSON = function toPublicJSON() {
     archived: Boolean(this.archivedAt),
     maxWaiting: this.maxWaiting ?? null,
     guestJoin: this.guestJoin !== false,
+    groups: groupsForJson(this),
     appointments: {
       enabled: this.appointmentsEnabled === true,
       slotMinutes: this.slotMinutes ?? 15,

@@ -78,6 +78,9 @@ const FIELD_LABELS = {
   priorityEveryK: "priority lane",
   recoveryMinutes: "missed-turn recovery",
   equivalentGroup: "equivalent lines",
+  groupTicketsEnabled: "group tickets",
+  groupMaxSize: "largest group",
+  groupExtraPerPerson: "extra time per person",
 };
 
 export function auditActionLabel(action) {

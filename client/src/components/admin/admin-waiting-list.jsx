@@ -3,6 +3,8 @@ import { Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { PartyBadge } from "@/components/party/party-badge";
+import { partySizeOf, peopleOn } from "@/lib/party";
 
 const PRIORITY_REASON_LABELS = {
   accessibility: "Accessibility",
@@ -28,8 +30,13 @@ export function AdminWaitingList({
 }) {
   return (
             <section className="overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card">
-              <h2 className="text-label uppercase tracking-wide text-text-muted">
+              <h2 className="flex items-baseline justify-between gap-2 text-label uppercase tracking-wide text-text-muted">
                 Waiting list
+                {!waitingLoading && !empty && peopleOn(waitingList) > waitingList.length ? (
+                  <span className="normal-case tracking-normal" data-testid="admin-waiting-people">
+                    {waitingList.length} tickets · {peopleOn(waitingList)} people
+                  </span>
+                ) : null}
               </h2>
 
               {waitingLoading && (
@@ -98,6 +105,11 @@ export function AdminWaitingList({
                                   · Walk-in
                                 </span>
                               ) : null}
+                              <PartyBadge
+                                size={entry.partySize}
+                                label={`Group of ${partySizeOf(entry)}`}
+                                testId="waiting-party-badge"
+                              />
                               {isCalled ? (
                                 <span
                                   className="shrink-0 rounded-full bg-primary-muted px-2 py-0.5 text-xs font-semibold text-primary ring-1 ring-primary/30"

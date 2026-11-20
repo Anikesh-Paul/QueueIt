@@ -254,12 +254,12 @@ export function useAdminConsoleState({
    * @returns {Promise<boolean>}
    */
   const adminWalkIn = useCallback(
-    async ({ name, tokenNumber } = {}) => {
+    async ({ name, tokenNumber, partySize } = {}) => {
       if (!token || !adminQueueId) return false;
       setAdminActionError("");
       setAdminActionBusy(true);
       try {
-        await walkInQueue(token, adminQueueId, { name, tokenNumber });
+        await walkInQueue(token, adminQueueId, { name, tokenNumber, partySize });
         await loadWaitingList(token, adminQueueId, { silent: true });
         return true;
       } catch (err) {

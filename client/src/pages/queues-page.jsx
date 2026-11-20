@@ -28,6 +28,8 @@ import { useOrganizations } from "@/hooks/use-organizations";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useBestTimeSummary } from "@/hooks/use-best-time";
 import { BestTimeCard } from "@/components/best-time/best-time-card";
+import { PartySizePicker } from "@/components/party/party-size-picker";
+import { clampPartySize } from "@/lib/party";
 import { BestTimeStrip } from "@/components/best-time/best-time-strip";
 import { sortWithFavorites } from "@/lib/visits";
 import { noticesForOrg, pickOrg, queuesForOrg, readOrgChoice, writeOrgChoice } from "@/lib/organizations";
@@ -191,6 +193,9 @@ export function QueuesPage() {
   }
 
   const selected = queues.find((q) => q.id === selectedQueueId) || null;
+  // Party size is per selected queue; switching queues starts again at 1.
+  const [partyPick, setPartyPick] = useState({ id: null, size: 1 });
+  const partySize = partyPick.id === selectedQueueId ? partyPick.size : 1;
 
   function refreshCatalog() {
     loadQueues(token || null, { guestCred: guestCredential || null });
@@ -198,7 +203,7 @@ export function QueuesPage() {
 
   async function handleJoin() {
     if (!selectedQueueId || joinBusy) return;
-    const ok = await join(selectedQueueId);
+    const ok = await join(selectedQueueId, { partySize: clampPartySize(partySize, selected) });
     if (ok) navigate("/status");
   }
 
@@ -452,6 +457,16 @@ export function QueuesPage() {
           })}
         </ul>
       )}
+
+      {selected && !isAdmin && selected.acceptingTokens !== false && selected.full !== true && !activeMemberships.some((row) => row.queue?.id === selected.id) ? (
+        <PartySizePicker
+          queue={selected}
+          value={clampPartySize(partySize, selected)}
+          onChange={(size) => setPartyPick({ id: selected.id, size })}
+          disabled={joinBusy}
+          className="mt-5 sm:ml-auto sm:max-w-sm"
+        />
+      ) : null}
 
       {selected && (
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">

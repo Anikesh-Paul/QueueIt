@@ -409,7 +409,7 @@ export function CampusAnalyticsPage() {
               <Kpi
                 label="Served"
                 value={totals.served.toLocaleString("en-IN")}
-                hint={`${totals.averageServedPerDay} per day`}
+                hint={`${(totals.peopleServed ?? totals.served).toLocaleString("en-IN")} people · ${totals.averageServedPerDay} per day`}
                 testId="campus-analytics-served"
               />
               <Kpi
@@ -439,8 +439,8 @@ export function CampusAnalyticsPage() {
                 <ColumnChart points={dailyPoints} testId="analytics-daily-chart" emptyText="No one was served in this range." />
                 <SrTable
                   caption="Served per day"
-                  headers={["Date", "Served", "No-shows", "Average wait"]}
-                  rows={data.daily.map((d) => [d.date, d.served, d.noShows, formatMinutes(d.averageWaitMinutes)])}
+                  headers={["Date", "Served", "People", "No-shows", "Average wait"]}
+                  rows={data.daily.map((d) => [d.date, d.served, d.peopleServed ?? d.served, d.noShows, formatMinutes(d.averageWaitMinutes)])}
                 />
               </Panel>
               <Panel title="Peak hours" subtitle="Served by hour of day · IST" testId="analytics-hourly">
@@ -468,6 +468,7 @@ export function CampusAnalyticsPage() {
                       <tr>
                         <th scope="col" className="px-5 py-2 font-medium">Queue</th>
                         <th scope="col" className="px-3 py-2 text-right font-medium">Served</th>
+                        <th scope="col" className="px-3 py-2 text-right font-medium">People</th>
                         <th scope="col" className="px-3 py-2 font-medium">Average wait</th>
                         <th scope="col" className="px-3 py-2 text-right font-medium">90th pct</th>
                         <th scope="col" className="px-3 py-2 text-right font-medium">No-shows</th>
@@ -483,6 +484,7 @@ export function CampusAnalyticsPage() {
                             {row.venue && !data.venue ? <span className="block text-xs font-normal text-text-muted">{row.venue}</span> : null}
                           </th>
                           <td className="px-3 py-2.5 text-right tabular-nums">{row.served}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums" data-testid="campus-analytics-queue-people">{row.peopleServed ?? row.served}</td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-2">
                               <span className="w-16 shrink-0 tabular-nums">{formatMinutes(row.averageWaitMinutes)}</span>

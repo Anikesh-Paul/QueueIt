@@ -13,6 +13,7 @@ import { fetchMyVisits } from "@/api";
 import { canRateVisit } from "@/lib/feedback";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { cn } from "@/lib/utils";
+import { PartyBadge } from "@/components/party/party-badge";
 import {
   VISITS_PAGE_SIZE,
   formatWait,
@@ -130,6 +131,7 @@ function VisitRow({ visit, locale, t, ...feedback }) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="text-xs font-semibold text-text-secondary">{t("history.token", { token: visit.tokenNumber })}</span>
+          <PartyBadge size={visit.partySize} label={t("party.badge", { count: visit.partySize })} testId="visit-party" />
           <span
             className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold", outcomeTone(visit.outcome))}
             data-testid="visit-outcome"

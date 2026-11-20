@@ -21,6 +21,7 @@ import { recordAdminAudit } from "../services/adminAudit.js";
 import { occupancyByQueueIds, queuesWithOccupancy, rejectIfQueueFull, releaseEntryIfOverCapacity } from "../services/capacity.js";
 import { attachEquivalentSuggestions } from "../services/equivalentQueues.js";
 import { attachQuietHints } from "../services/bestTime.js";
+import { BEST_TIME_CACHE_HEADER, bestTimeForQueue, bestTimeSummary, isQueueIdLike, parseWeekday } from "../services/bestTimeChart.js";
 import { toBoardJSON } from "../services/queueBoard.js";
 import { listLiveAnnouncements } from "../services/announcements.js";
 import { findOrganization, listOrganizations, venueIdsForOrg } from "../services/organizations.js";
@@ -102,6 +103,40 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+
+/**
+ * GET /api/queues/best-time?weekday= — compact "best time to come" for every listed queue.
+ * Public and read-only: no session upkeep or other writes. Briefly cacheable.
+ */
+router.get("/best-time", async (req, res, next) => {
+  try {
+    const weekday = parseWeekday(req.query.weekday);
+    if (!weekday.ok) return res.status(400).json({ error: "weekday must be 0 (Sunday) to 6 (Saturday)" });
+    const body = await bestTimeSummary({ weekday: weekday.value });
+    res.set("Cache-Control", BEST_TIME_CACHE_HEADER);
+    return res.status(200).json(body);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * GET /api/queues/:queueId/best-time?weekday= — hourly crowd and wait for one weekday.
+ * Public and read-only. Briefly cacheable.
+ */
+router.get("/:queueId/best-time", async (req, res, next) => {
+  try {
+    if (!isQueueIdLike(req.params.queueId)) return res.status(400).json({ error: "Invalid queue id" });
+    const weekday = parseWeekday(req.query.weekday);
+    if (!weekday.ok) return res.status(400).json({ error: "weekday must be 0 (Sunday) to 6 (Saturday)" });
+    const body = await bestTimeForQueue(req.params.queueId, { weekday: weekday.value });
+    if (!body) return res.status(404).json({ error: "Queue not found" });
+    res.set("Cache-Control", BEST_TIME_CACHE_HEADER);
+    return res.status(200).json(body);
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /**
  * GET /api/queues/organizations — organizations that have open lines. Public.

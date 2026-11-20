@@ -18,6 +18,7 @@ import { staffCanManageQueue } from "@/lib/staff-access";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { placeLabel } from "@/lib/organizations";
+import { BestTimeCard } from "@/components/best-time/best-time-card";
 
 /**
  * Poster / deep-link landing — join a specific queue (or explain why not).
@@ -208,11 +209,6 @@ export function JoinPage() {
                   </Link>
                 </p>
               ) : null}
-              {queue.quietHint?.label ? (
-                <p className="mt-2 text-sm text-text-secondary" data-testid="quiet-hint">
-                  {t("queues.quietHint", { time: queue.quietHint.label })}
-                </p>
-              ) : null}
             </div>
             <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
               <span
@@ -347,6 +343,8 @@ export function JoinPage() {
       ) : null}
 
       {joinError ? <Alert variant="destructive" className="mt-4">{joinError}</Alert> : null}
+
+      {queue ? <BestTimeCard queueId={queue.id} className="mt-5" /> : null}
 
       {isGuest && validId ? (
         <p className="mt-6 text-sm text-text-secondary">

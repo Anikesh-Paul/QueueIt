@@ -26,6 +26,9 @@ import { NoticeList } from "@/components/notices/notice-list";
 import { useNotices } from "@/hooks/use-notices";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useBestTimeSummary } from "@/hooks/use-best-time";
+import { BestTimeCard } from "@/components/best-time/best-time-card";
+import { BestTimeStrip } from "@/components/best-time/best-time-strip";
 import { sortWithFavorites } from "@/lib/visits";
 import { noticesForOrg, pickOrg, queuesForOrg, readOrgChoice, writeOrgChoice } from "@/lib/organizations";
 
@@ -115,6 +118,7 @@ export function QueuesPage() {
   const canStar = Boolean(token) && !isGuest && !isAdmin;
   const { favorites, toggle: toggleFavorite, pending: favoritePending, error: favoriteError } = useFavorites(token, canStar);
   const queues = sortWithFavorites(queuesForOrg(allQueues, activeOrg), favorites);
+  const bestTimes = useBestTimeSummary(allQueues.length > 0);
   const notices = noticesForOrg(allNotices, activeOrg, queues);
   const linkedOrg = activeOrg && searchParams.get("org") === activeOrg.slug ? activeOrg.slug : "";
   useEffect(() => {
@@ -368,7 +372,9 @@ export function QueuesPage() {
                       {t("queues.shorterEquivalent", { name: queue.shorterEquivalent.name })}
                     </span>
                   ) : null}
-                  {queue.quietHint?.label ? (
+                  {bestTimes.get(queue.id)?.enough ? (
+                    <BestTimeStrip data={bestTimes.get(queue.id)} />
+                  ) : queue.quietHint?.label ? (
                     <span className="mt-1 text-sm text-text-secondary" data-testid="quiet-hint">
                       {t("queues.quietHint", { time: queue.quietHint.label })}
                     </span>
@@ -434,6 +440,11 @@ export function QueuesPage() {
                 </div>
                 {closed && !isAdmin ? (
                   <OpenWatchControls queue={queue} className="px-4 pb-3 pt-0" />
+                ) : null}
+                {isSelected ? (
+                  <div className="border-t border-border/70 px-3 pb-3 pt-3 sm:px-4" data-testid="selected-best-time">
+                    <BestTimeCard queueId={queue.id} headingLevel="h2" className="border-0 bg-transparent p-1 shadow-none" />
+                  </div>
                 ) : null}
                 </div>
               </li>

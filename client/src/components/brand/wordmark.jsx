@@ -5,13 +5,14 @@ import { cn } from "@/lib/utils";
  * QueueIt wordmark — pass-stub + dog-ear mark on forest plate + sans product name.
  * Same glyph as favicon (Mess hall linen / locked plan §2.5).
  */
-export function Wordmark({ className, to = "/" }) {
+export function Wordmark({ className, to = "/", tone = "default" }) {
   return (
     <Link
       to={to}
       aria-label="QueueIt home"
       className={cn(
         "group inline-flex items-center gap-2 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        tone === "inverse" && "focus-visible:ring-[#b7e4c7]",
         className
       )}
     >
@@ -21,7 +22,12 @@ export function Wordmark({ className, to = "/" }) {
       >
         <PassStubMark className="size-full" />
       </span>
-      <span className="font-heading text-[1.125rem] font-semibold leading-none tracking-[-0.01em] text-foreground">
+      <span
+        className={cn(
+          "font-heading text-[1.125rem] font-semibold leading-none tracking-[-0.01em]",
+          tone === "inverse" ? "text-[#f0fdf4]" : "text-foreground"
+        )}
+      >
         QueueIt
       </span>
     </Link>

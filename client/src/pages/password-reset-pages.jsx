@@ -1,34 +1,69 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AuthLayout } from "@/components/auth/auth-layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Alert } from "@/components/ui/alert";
+import { ArrowLeft, KeyRound, MailCheck } from "lucide-react";
+import { AuthLayout, AuthSuccess } from "@/components/auth/auth-layout";
+import { AuthErrorAlert, AuthField, AuthHeading, AuthSubmit, PasswordField } from "@/components/auth/auth-fields";
 import { forgotPassword, resetPassword } from "@/api";
 import { useApp } from "@/context/app-context";
 import { clearOfflineStatusCache } from "@/lib/register-sw";
 import { useI18n } from "@/context/i18n-context";
+import { confirmError, describeAuthError, emailError, passwordError } from "@/lib/auth-validation";
 
-const fieldClass =
-  "h-11 rounded-md border-border bg-background/60 px-3.5 text-[0.9375rem] shadow-none transition-[border-color,box-shadow] placeholder:text-text-muted focus-visible:border-primary focus-visible:bg-card";
+const backLinkClass =
+  "inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50";
+
+function BackToLogin() {
+  const { t } = useI18n();
+  return (
+    <p className="mt-8 text-center">
+      <Link to="/login" className={backLinkClass} data-testid="back-to-login">
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        {t("forgot.back")}
+      </Link>
+    </p>
+  );
+}
+
+function IconBadge({ icon: Icon }) {
+  return (
+    <span className="mb-5 grid size-11 place-items-center rounded-xl bg-primary-muted text-primary" aria-hidden="true">
+      <Icon className="size-5" />
+    </span>
+  );
+}
+
+function useFocusOnError(error) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (error) ref.current?.focus();
+  }, [error]);
+  return ref;
+}
 
 export function ForgotPasswordPage() {
   const { t } = useI18n();
   const [email, setEmail] = useState("");
-  const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState("");
+  const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const errorRef = useFocusOnError(error);
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError("");
+    setError(null);
+    const bad = emailError(email);
+    setFieldError(bad);
+    if (bad) {
+      document.getElementById("email")?.focus();
+      return;
+    }
     setBusy(true);
     try {
-      await forgotPassword({ email });
+      await forgotPassword({ email: email.trim() });
       setDone(true);
     } catch (err) {
-      setError(err.message || t("auth.requestFailed"));
+      setError(describeAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -36,60 +71,50 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-[22rem]">
-        <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.015em] text-foreground">
-          {t("forgot.title")}
-        </h1>
-        <p className="mt-2 text-[0.9375rem] leading-snug text-text-secondary">
-          {t("forgot.intro")}
-        </p>
+      <div className="w-full">
+        <IconBadge icon={MailCheck} />
+        <AuthHeading title={t("forgot.title")} intro={t("forgot.intro")} />
 
         {done ? (
-          <p className="mt-8 text-sm leading-relaxed text-foreground" data-testid="forgot-password-sent">
-            {t("forgot.notice")}
-          </p>
+          <AuthSuccess title={t("forgot.sentTitle")} body={t("forgot.notice")} testId="forgot-password-sent" />
         ) : (
-          <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-label text-foreground">
-                {t("auth.email")}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                name="email"
-                autoComplete="email"
-                required
-                maxLength={254}
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-                className={fieldClass}
-                data-testid="forgot-password-email"
-              />
-            </div>
+          <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit} noValidate aria-busy={busy || undefined}>
+            <AuthField
+              id="email"
+              label={t("auth.email")}
+              error={fieldError}
+              type="email"
+              name="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              maxLength={254}
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (fieldError) setFieldError(emailError(event.target.value));
+              }}
+              onBlur={(event) => event.target.value && setFieldError(emailError(event.target.value))}
+              placeholder="you@example.com"
+              data-testid="forgot-password-email"
+            />
             {error ? (
-              <Alert variant="destructive" className="text-sm">
-                {error}
-              </Alert>
+              <div ref={errorRef} tabIndex={-1} className="outline-none">
+                <AuthErrorAlert info={error} />
+              </div>
             ) : null}
-            <Button
-              type="submit"
-              size="lg"
-              disabled={busy}
-              className="mt-1 h-11 w-full text-[0.9375rem] font-semibold tracking-[-0.01em]"
+            <AuthSubmit
+              busy={busy}
+              label={t("forgot.submit")}
+              busyLabel={t("forgot.sending")}
               data-testid="forgot-password-submit"
-            >
-              {busy ? t("auth.pleaseWait") : t("forgot.submit")}
-            </Button>
+            />
           </form>
         )}
 
-        <p className="mt-6 text-center text-sm text-text-secondary">
-          <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
-            {t("forgot.back")}
-          </Link>
-        </p>
+        <BackToLogin />
       </div>
     </AuthLayout>
   );
@@ -103,14 +128,27 @@ export function ResetPasswordPage() {
   const { persistSession, guestCredential } = useApp();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
+  const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const errorRef = useFocusOnError(error);
+
+  function validate(next = { password, confirm }) {
+    const out = {};
+    const p = passwordError(next.password, { mode: "reset" });
+    if (p) out.password = p;
+    const c = confirmError(next.password, next.confirm);
+    if (c) out.confirm = c;
+    return out;
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError("");
-    if (password !== confirm) {
-      setError(t("reset.mismatch"));
+    setError(null);
+    const bad = validate();
+    setErrors(bad);
+    if (bad.password || bad.confirm) {
+      document.getElementById(bad.password ? "password" : "confirm-password")?.focus();
       return;
     }
     setBusy(true);
@@ -129,7 +167,7 @@ export function ResetPasswordPage() {
       persistSession(data.token, data.user);
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err.message || t("auth.requestFailed"));
+      setError(describeAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -137,79 +175,72 @@ export function ResetPasswordPage() {
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-[22rem]">
-        <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.015em] text-foreground">
-          {t("reset.title")}
-        </h1>
-        <p className="mt-2 text-[0.9375rem] leading-snug text-text-secondary">
-          {t("reset.intro")}
-        </p>
+      <div className="w-full">
+        <IconBadge icon={KeyRound} />
+        <AuthHeading title={t("reset.title")} intro={t("reset.intro")} />
 
         {!token ? (
-          <p className="mt-8 text-sm text-text-secondary" data-testid="reset-password-missing">
-            {t("reset.missing")}
-          </p>
+          <div className="mt-8" data-testid="reset-password-missing">
+            <AuthErrorAlert info={{ kind: "error", key: "reset.missing", message: "" }} testId="reset-password-missing-alert" />
+            <p className="mt-4 text-sm">
+              <Link to="/forgot-password" className={backLinkClass}>
+                {t("reset.requestNew")}
+              </Link>
+            </p>
+          </div>
         ) : (
-          <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password" className="text-label text-foreground">
-                {t("reset.newPassword")}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                name="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                maxLength={128}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder={t("auth.passwordHint")}
-                className={fieldClass}
-                data-testid="reset-password-input"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="confirm-password" className="text-label text-foreground">
-                {t("reset.confirmPassword")}
-              </Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                name="confirm-password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                maxLength={128}
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-                className={fieldClass}
-                data-testid="reset-password-confirm"
-              />
-            </div>
+          <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit} noValidate aria-busy={busy || undefined}>
+            <PasswordField
+              id="password"
+              label={t("reset.newPassword")}
+              error={errors.password || ""}
+              hint={t("auth.passwordHint")}
+              name="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              maxLength={128}
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                if (errors.password || errors.confirm) setErrors(validate({ password: event.target.value, confirm }));
+              }}
+              data-testid="reset-password-input"
+            />
+            <PasswordField
+              id="confirm-password"
+              label={t("reset.confirmPassword")}
+              error={errors.confirm || ""}
+              name="confirm-password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              maxLength={128}
+              value={confirm}
+              onChange={(event) => {
+                setConfirm(event.target.value);
+                if (errors.confirm) setErrors(validate({ password, confirm: event.target.value }));
+              }}
+              onBlur={(event) => {
+                if (event.target.value) setErrors(validate({ password, confirm: event.target.value }));
+              }}
+              data-testid="reset-password-confirm"
+            />
             {error ? (
-              <Alert variant="destructive" className="text-sm">
-                {error}
-              </Alert>
+              <div ref={errorRef} tabIndex={-1} className="outline-none">
+                <AuthErrorAlert info={error} />
+              </div>
             ) : null}
-            <Button
-              type="submit"
-              size="lg"
-              disabled={busy}
-              className="mt-1 h-11 w-full text-[0.9375rem] font-semibold tracking-[-0.01em]"
+            <AuthSubmit
+              busy={busy}
+              label={t("reset.submit")}
+              busyLabel={t("reset.saving")}
               data-testid="reset-password-submit"
-            >
-              {busy ? t("auth.pleaseWait") : t("reset.submit")}
-            </Button>
+            />
           </form>
         )}
 
-        <p className="mt-6 text-center text-sm text-text-secondary">
-          <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
-            {t("forgot.back")}
-          </Link>
-        </p>
+        <BackToLogin />
       </div>
     </AuthLayout>
   );

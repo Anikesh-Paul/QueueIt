@@ -1,25 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { QrCode, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Alert } from "@/components/ui/alert";
 import { login, loginTwoFactor, register } from "@/api";
 import { cleanCode, codeLooksComplete, loginOutcome } from "@/lib/two-factor";
 import { peekAuthFlash, setAuthFlash, takeAuthFlashNotice } from "@/lib/auth-flash";
+import { describeAuthError, emailError, nameError, passwordError, validateAuthForm } from "@/lib/auth-validation";
 import { useApp } from "@/context/app-context";
-import { Alert } from "@/components/ui/alert";
 import { isSafeAppPath } from "@/lib/join-link";
 import { useI18n } from "@/context/i18n-context";
 import { clearOfflineStatusCache } from "@/lib/register-sw";
+import {
+  AuthDivider,
+  AuthErrorAlert,
+  AuthField,
+  AuthHeading,
+  AuthSubmit,
+  PasswordField,
+} from "@/components/auth/auth-fields";
 
 /**
- * Auth form (login | register). Shared layout; quiet elevation on kit primitives.
- * On success the session persists and the router redirects "/" to /status or /queues.
- * Continue as Guest enters the student path without a User account.
+ * Auth form (login | register). On success the session persists and the
+ * router redirects "/" to /status or /queues. Continue as Guest enters the
+ * student path without a User account. Enrolled accounts get a second step
+ * for their authenticator (or backup) code.
  */
 function pathAfterAuth(from, fallback) {
   return isSafeAppPath(from) ? from : fallback;
 }
+
+const linkClass =
+  "rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export function AuthForm({ mode }) {
   const navigate = useNavigate();
@@ -30,17 +42,23 @@ export function AuthForm({ mode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(false);
   /** Two-step sign-in: set after the password step for enrolled accounts. */
   const [challenge, setChallenge] = useState(() => location.state?.twoFactorChallenge || "");
   const [codeMode, setCodeMode] = useState("app");
   const [code, setCode] = useState("");
   const [notice] = useState(() => peekAuthFlash()?.notice || location.state?.notice || "");
+  const errorRef = useRef(null);
   useEffect(() => {
     // Clear after reading (not inside the initializer: StrictMode runs it twice).
     takeAuthFlashNotice();
   }, []);
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   function finish(data) {
     persistSession(data.token, data.user);
@@ -54,9 +72,27 @@ export function AuthForm({ mode }) {
     navigate(pathAfterAuth(from, "/"), { replace: true });
   }
 
+  /** Re-check a field once the person has left it (or after a submit attempt). */
+  function check(field, value) {
+    const next =
+      field === "email" ? emailError(value) : field === "password" ? passwordError(value, { mode }) : nameError(value);
+    setFieldErrors((prev) => ({ ...prev, [field]: next }));
+  }
+  function onChangeField(field, setter) {
+    return (e) => {
+      setter(e.target.value);
+      if (touched[field] && fieldErrors[field]) check(field, e.target.value);
+    };
+  }
+  function onBlurField(field, value) {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    // Don't nag about an empty field the person only tabbed through.
+    if (value || fieldErrors[field]) check(field, value);
+  }
+
   async function handleCodeSubmit(event) {
     event.preventDefault();
-    setError("");
+    setError(null);
     setBusy(true);
     try {
       const data = await loginTwoFactor({
@@ -67,7 +103,7 @@ export function AuthForm({ mode }) {
     } catch (err) {
       setCode("");
       if (err.status === 401 && /timed out/i.test(err.message || "")) setChallenge("");
-      setError(err.message || t("auth.requestFailed"));
+      setError(describeAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -77,22 +113,30 @@ export function AuthForm({ mode }) {
     setChallenge("");
     setCode("");
     setCodeMode("app");
-    setError("");
+    setError(null);
     setPassword("");
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError("");
+    setError(null);
+    const errors = validateAuthForm({ mode, name, email, password });
+    setFieldErrors(errors);
+    setTouched({ name: true, email: true, password: true });
+    const firstBad = ["name", "email", "password"].find((f) => errors[f]);
+    if (firstBad) {
+      document.getElementById(firstBad)?.focus();
+      return;
+    }
     setBusy(true);
     try {
       // Soft upgrade: present Guest credential is claimed + retired on the server.
       const guestCred = guestCredential || null;
       const data =
         mode === "login"
-          ? await login({ email, password, guestCredential: guestCred })
+          ? await login({ email: email.trim(), password, guestCredential: guestCred })
           : await register({
-              email,
+              email: email.trim(),
               password,
               name: name.trim(),
               guestCredential: guestCred,
@@ -106,7 +150,7 @@ export function AuthForm({ mode }) {
       }
       finish(data);
     } catch (err) {
-      setError(err.message || t("auth.requestFailed"));
+      setError(describeAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -117,64 +161,56 @@ export function AuthForm({ mode }) {
     navigate(pathAfterAuth(from, "/queues"), { replace: true });
   }
 
-  const fieldClass =
-    "h-11 rounded-md border-border bg-background/60 px-3.5 text-[0.9375rem] shadow-none transition-[border-color,box-shadow] placeholder:text-text-muted focus-visible:border-primary focus-visible:bg-card";
-
   if (mode === "login" && challenge) {
     const complete = codeLooksComplete(code, codeMode);
     return (
-      <div className="w-full max-w-[22rem]" data-testid="two-step-form">
-        <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.015em] text-foreground">
-          {t("auth.codeTitle")}
-        </h1>
-        <p className="mt-2 text-[0.9375rem] leading-snug text-text-secondary">
-          {codeMode === "app" ? t("auth.codeIntro") : t("auth.backupIntro")}
-        </p>
-        <form className="mt-8 flex flex-col gap-5" onSubmit={handleCodeSubmit}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="two-step-code" className="text-label text-foreground">
-              {codeMode === "app" ? t("auth.codeLabel") : t("auth.backupLabel")}
-            </Label>
-            <Input
-              id="two-step-code"
-              name="code"
-              type="text"
-              autoFocus
-              required
-              autoComplete="one-time-code"
-              inputMode={codeMode === "app" ? "numeric" : "text"}
-              pattern={codeMode === "app" ? "[0-9 ]*" : undefined}
-              maxLength={codeMode === "app" ? 7 : 11}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder={codeMode === "app" ? "123456" : "xxxxx-xxxxx"}
-              className={`${fieldClass} font-mono tracking-[0.2em]`}
-              data-testid="two-step-code"
-            />
-          </div>
-          {error && (
-            <Alert variant="destructive" className="text-sm" data-testid="two-step-error">
-              {error}
-            </Alert>
-          )}
-          <Button
-            type="submit"
-            size="lg"
-            disabled={busy || !complete}
-            className="mt-1 h-11 w-full text-[0.9375rem] font-semibold tracking-[-0.01em]"
+      <div className="w-full" data-testid="two-step-form">
+        <span className="mb-5 grid size-11 place-items-center rounded-xl bg-primary-muted text-primary" aria-hidden="true">
+          <ShieldCheck className="size-5" />
+        </span>
+        <AuthHeading
+          title={t("auth.codeTitle")}
+          intro={codeMode === "app" ? t("auth.codeIntro") : t("auth.backupIntro")}
+        />
+        <form className="mt-8 flex flex-col gap-5" onSubmit={handleCodeSubmit} aria-busy={busy || undefined}>
+          <AuthField
+            id="two-step-code"
+            label={codeMode === "app" ? t("auth.codeLabel") : t("auth.backupLabel")}
+            name="code"
+            type="text"
+            autoFocus
+            required
+            autoComplete="one-time-code"
+            inputMode={codeMode === "app" ? "numeric" : "text"}
+            pattern={codeMode === "app" ? "[0-9 ]*" : undefined}
+            maxLength={codeMode === "app" ? 7 : 11}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder={codeMode === "app" ? "123456" : "xxxxx-xxxxx"}
+            className="text-center font-mono text-xl tracking-[0.35em] md:text-xl"
+            data-testid="two-step-code"
+          />
+          {error ? (
+            <div ref={errorRef} tabIndex={-1} className="outline-none">
+              <AuthErrorAlert info={error} testId="two-step-error" />
+            </div>
+          ) : null}
+          <AuthSubmit
+            busy={busy}
+            disabled={!complete}
+            label={t("auth.verify")}
+            busyLabel={t("auth.verifying")}
             data-testid="two-step-submit"
-          >
-            {busy ? t("auth.pleaseWait") : t("auth.verify")}
-          </Button>
+          />
         </form>
         <div className="mt-6 flex flex-col items-center gap-3 text-sm">
           <button
             type="button"
-            className="font-medium text-primary underline-offset-4 hover:underline"
+            className={linkClass}
             onClick={() => {
               setCodeMode((m) => (m === "app" ? "backup" : "app"));
               setCode("");
-              setError("");
+              setError(null);
             }}
             data-testid="two-step-toggle"
           >
@@ -182,7 +218,7 @@ export function AuthForm({ mode }) {
           </button>
           <button
             type="button"
-            className="text-text-secondary underline-offset-4 hover:underline"
+            className="rounded-sm text-text-secondary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
             onClick={startOver}
           >
             {t("auth.startOver")}
@@ -192,135 +228,122 @@ export function AuthForm({ mode }) {
     );
   }
 
+  const isLogin = mode === "login";
   return (
-    <div className="w-full max-w-[22rem]">
+    <div className="w-full">
       {notice ? (
         <Alert className="mb-6 text-sm" data-testid="auth-notice">
           {notice}
         </Alert>
       ) : null}
-      <h1 className="font-display text-display font-semibold leading-tight tracking-[-0.015em] text-foreground">
-        {mode === "login" ? t("auth.login") : t("auth.register")}
-      </h1>
-      <p className="mt-2 text-[0.9375rem] leading-snug text-text-secondary">
-        {t("auth.subtitle")}
-      </p>
+      <AuthHeading
+        eyebrow={isLogin ? t("auth.welcomeBack") : t("auth.newHere")}
+        title={isLogin ? t("auth.login") : t("auth.register")}
+        intro={isLogin ? t("auth.subtitle") : t("auth.registerIntro")}
+      />
 
       {isGuest ? (
         <div
-          className="mt-5 rounded-lg border border-primary-muted bg-primary-muted/40 px-3.5 py-3"
+          className="mt-5 flex gap-3 rounded-lg border border-primary/25 bg-primary-muted/50 px-3.5 py-3"
           data-testid="soft-upgrade-auth-hint"
         >
-          <p className="text-sm font-semibold text-foreground">{t("auth.keepHistory")}</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
-            {t("auth.keepHistoryBody")}
-          </p>
+          <UserRound className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">{t("auth.keepHistory")}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">{t("auth.keepHistoryBody")}</p>
+          </div>
         </div>
       ) : null}
 
-      <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>
+      <form
+        className="mt-8 flex flex-col gap-5"
+        onSubmit={handleSubmit}
+        noValidate
+        aria-busy={busy || undefined}
+        data-testid={`${mode}-form`}
+      >
         {mode === "register" && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="name" className="text-label text-foreground">
-              {t("auth.name")}
-            </Label>
-            <Input
-              id="name"
-              type="text"
-              name="name"
-              autoComplete="name"
-              required
-              minLength={1}
-              maxLength={80}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("auth.namePlaceholder")}
-              className={fieldClass}
-              data-testid="register-name"
-            />
-          </div>
+          <AuthField
+            id="name"
+            label={t("auth.name")}
+            error={touched.name ? fieldErrors.name : ""}
+            type="text"
+            name="name"
+            autoComplete="name"
+            required
+            maxLength={80}
+            value={name}
+            onChange={onChangeField("name", setName)}
+            onBlur={(e) => onBlurField("name", e.target.value)}
+            placeholder={t("auth.namePlaceholder")}
+            data-testid="register-name"
+          />
         )}
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="email" className="text-label text-foreground">
-            {t("auth.email")}
-          </Label>
-          <Input
-            id="email"
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            maxLength={254}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            className={fieldClass}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="password" className="text-label text-foreground">
-            {t("auth.password")}
-          </Label>
-          <Input
-            id="password"
-            type="password"
-            name="password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            required
-            minLength={8}
-            maxLength={128}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={t("auth.passwordHint")}
-            className={fieldClass}
-          />
-          {mode === "login" ? (
-            <p className="text-right text-sm">
-              <Link
-                to="/forgot-password"
-                className="font-medium text-primary underline-offset-4 hover:underline"
-                data-testid="forgot-password-link"
-              >
+        <AuthField
+          id="email"
+          label={t("auth.email")}
+          error={touched.email ? fieldErrors.email : ""}
+          type="email"
+          name="email"
+          inputMode="email"
+          autoComplete={isLogin ? "username" : "email"}
+          autoCapitalize="none"
+          spellCheck={false}
+          required
+          maxLength={254}
+          value={email}
+          onChange={onChangeField("email", setEmail)}
+          onBlur={(e) => onBlurField("email", e.target.value)}
+          placeholder="you@example.com"
+        />
+        <PasswordField
+          id="password"
+          label={t("auth.password")}
+          error={touched.password ? fieldErrors.password : ""}
+          hint={isLogin ? "" : t("auth.passwordHint")}
+          name="password"
+          autoComplete={isLogin ? "current-password" : "new-password"}
+          required
+          minLength={isLogin ? undefined : 8}
+          maxLength={128}
+          value={password}
+          onChange={onChangeField("password", setPassword)}
+          onBlur={(e) => onBlurField("password", e.target.value)}
+          trailing={
+            isLogin ? (
+              <Link to="/forgot-password" className={`${linkClass} text-sm`} data-testid="forgot-password-link">
                 {t("auth.forgotLink")}
               </Link>
-            </p>
-          ) : null}
-        </div>
+            ) : null
+          }
+        />
 
-        {error && (
-          <Alert variant="destructive" className="text-sm">
-            {error}
-          </Alert>
-        )}
+        {error ? (
+          <div ref={errorRef} tabIndex={-1} className="outline-none">
+            <AuthErrorAlert info={error} />
+          </div>
+        ) : null}
 
-        <Button
-          type="submit"
-          size="lg"
-          disabled={busy}
-          className="mt-1 h-11 w-full text-[0.9375rem] font-semibold tracking-[-0.01em]"
-        >
-          {busy ? t("auth.pleaseWait") : mode === "login" ? t("auth.login") : t("auth.createAccount")}
-        </Button>
+        <AuthSubmit
+          busy={busy}
+          label={isLogin ? t("auth.login") : t("auth.createAccount")}
+          busyLabel={isLogin ? t("auth.signingIn") : t("auth.creatingAccount")}
+          data-testid="auth-submit"
+        />
       </form>
 
       <p className="mt-6 text-center text-sm text-text-secondary">
-        {mode === "login" ? (
+        {isLogin ? (
           <>
             {t("auth.noAccount")}{" "}
-            <Link
-              to="/register"
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
+            <Link to="/register" className={linkClass} data-testid="register-link">
               {t("auth.register")}
             </Link>
           </>
         ) : (
           <>
             {t("auth.alreadyRegistered")}{" "}
-            <Link
-              to="/login"
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
+            <Link to="/login" className={linkClass} data-testid="login-link">
               {t("auth.login")}
             </Link>
           </>
@@ -328,22 +351,25 @@ export function AuthForm({ mode }) {
       </p>
 
       {!isGuest ? (
-        <div className="mt-6 border-t border-border pt-6">
-          <p className="mb-3 text-center text-xs text-text-muted">
-            {t("auth.guestHint")}
-          </p>
+        <div className="mt-7 flex flex-col gap-4">
+          <AuthDivider label={t("auth.or")} />
           <Button
             type="button"
             variant="secondary"
             size="lg"
-            className="h-11 w-full text-[0.9375rem]"
+            className="h-12 w-full rounded-lg border border-border text-[0.9375rem] font-semibold"
             onClick={handleContinueAsGuest}
             data-testid="continue-as-guest"
           >
             {t("auth.continueGuest")}
           </Button>
+          <p className="flex items-start justify-center gap-2 text-center text-xs leading-relaxed text-text-secondary">
+            <QrCode className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span>{t("auth.qrHint")}</span>
+          </p>
         </div>
       ) : null}
     </div>
   );
 }
+

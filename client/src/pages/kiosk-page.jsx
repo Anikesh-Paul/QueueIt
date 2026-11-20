@@ -15,6 +15,7 @@ import { qrJoinUrl } from "@/lib/join-link";
 import { presentServingBoard } from "@/lib/now-serving";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
 import { cn } from "@/lib/utils";
+import { PartyBadge } from "@/components/party/party-badge";
 
 const POLL_MS = 3000;
 
@@ -178,6 +179,14 @@ export function KioskPage() {
                 >
                   {row.value}
                 </p>
+                {row.partySize ? (
+                  <PartyBadge
+                    size={row.partySize}
+                    label={t("party.badge", { count: row.partySize })}
+                    className="mt-4 px-3 py-1 text-base [&_svg]:size-5"
+                    testId="kiosk-party"
+                  />
+                ) : null}
               </li>
             ))}
           </ul>

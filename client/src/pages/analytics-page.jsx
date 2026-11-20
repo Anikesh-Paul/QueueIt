@@ -13,7 +13,7 @@ function formatMinutes(value) {
   return `${Number(value).toFixed(1)} min`;
 }
 
-function MetricCard({ label, value, testId, hero = false }) {
+function MetricCard({ label, value, testId, hero = false, hint = null, hintTestId }) {
   return (
     <div
       className={cn(
@@ -28,6 +28,11 @@ function MetricCard({ label, value, testId, hero = false }) {
       >
         {value}
       </span>
+      {hint ? (
+        <span className="text-xs text-text-muted" data-testid={hintTestId}>
+          {hint}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -132,6 +137,8 @@ export function AnalyticsPage() {
                 label="Served"
                 value={servedCount}
                 testId="analytics-served"
+                hint={(metrics.servedPeople ?? servedCount) > servedCount ? `${metrics.servedPeople} people` : null}
+                hintTestId="analytics-served-people"
                 hero
               />
               <MetricCard
@@ -148,6 +155,8 @@ export function AnalyticsPage() {
                 label="Waiting now"
                 value={metrics.waitingCount}
                 testId="analytics-waiting"
+                hint={(metrics.waitingPeople ?? metrics.waitingCount) > metrics.waitingCount ? `${metrics.waitingPeople} people` : null}
+                hintTestId="analytics-waiting-people"
               />
             </section>
 

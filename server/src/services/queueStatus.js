@@ -8,7 +8,8 @@ import { buildEstimate, estimateBasisJson, resolveSmartPace } from "./smartEstim
 import { servingFieldsForJson } from "./servingDeadline.js";
 import { countersForJson, ensureDefaultCounters, reconcileCounterServing, staffingFactor } from "./counters.js";
 import { isRecoverable, recoveryDeadline } from "./missedTurn.js";
-import { positionInFairOrder, priorityFieldsForJson } from "./priorityLane.js";
+import { fairCallOrder, positionInFairOrder, priorityFieldsForJson } from "./priorityLane.js";
+import { groupSettingsOf, groupsForJson, partySizeOf, unitsThrough } from "./partySize.js";
 import { countNoShowsForEntry, FREQUENT_NO_SHOW_THRESHOLD, NO_SHOW_WINDOW_DAYS } from "./noShowTracker.js";
 
 /**
@@ -31,6 +32,24 @@ export async function computePosition(queueId, tokenOrEntry, entryStatus = "wait
 }
 
 /**
+ * Position plus "serve units" up to this entry: groups ahead (and your own
+ * group) count as 1 + extraPerPerson × (people − 1) serves each.
+ */
+export async function computePlace(queue, entry) {
+  const status = entry?.status || "waiting";
+  if (status === "serving") return { position: 0, units: 0 };
+  if (status === "skipped" || status === "left" || status === "served") return { position: null, units: null };
+  const waiters = await QueueEntry.find({ queue: queue._id, status: "waiting" }).select(
+    "tokenNumber waitOrder priority appointmentAt partySize"
+  );
+  const ordered = fairCallOrder(waiters, queue);
+  const position = positionInFairOrder(waiters, entry, queue) ?? 1;
+  const { extraPerPerson } = groupSettingsOf(queue);
+  const units = unitsThrough(ordered, entry, extraPerPerson, position) ?? position;
+  return { position, units };
+}
+
+/**
  * Product ETA rule: position × service pace (minutes).
  * Pace is the recent inter-serve average when the sample is thick enough,
  * otherwise the queue's configured averageServiceTime.
@@ -50,13 +69,14 @@ export async function buildStatusPayload(queue, entry) {
   const missingCounters = ensureDefaultCounters(queue);
   const reconciled = reconcileCounterServing(queue, servingEntries);
   if (missingCounters || reconciled) await queue.save();
-  const position = await computePosition(queue._id, entry, entry.status, queue);
+  const { position, units } = await computePlace(queue, entry);
   const averageServiceTime = queue.averageServiceTime;
   const smart = await resolveSmartPace(queue);
   const etaPaceSource = smart.source;
   const staffing = staffingFactor(queue);
   // Fewer counters open → each place in line takes longer.
-  const estimate = buildEstimate(smart, { position, staffingFactor: staffing.factor });
+  // Groups ahead (and your own) take a bit longer than one person each.
+  const estimate = buildEstimate(smart, { position: units, staffingFactor: staffing.factor });
   const etaServiceTime = estimate.pace;
   let etaMinutes = estimate.etaMinutes;
   let etaRange = estimate.range;
@@ -77,6 +97,8 @@ export async function buildStatusPayload(queue, entry) {
   return {
     tokenNumber: entry.tokenNumber,
     position,
+    partySize: partySizeOf(entry),
+    groups: groupsForJson(queue),
     etaMinutes,
     nowServing: queue.nowServing ?? null,
     counters: countersForJson(queue),

@@ -337,7 +337,7 @@ export function useStudentQueue({
       setJoinError("");
       setJoinBusy(true);
       try {
-        const data = await joinQueue(auth.token, queueId, auth.guestCredential, options.source);
+        const data = await joinQueue(auth.token, queueId, auth.guestCredential, options.source, options.partySize);
         if (data.guestCredential) {
           persistGuestCredential(data.guestCredential);
         }

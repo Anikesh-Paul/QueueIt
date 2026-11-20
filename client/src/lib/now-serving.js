@@ -12,7 +12,10 @@ export function presentCounterServing(counter = {}, locale = "en") {
   const nowLabel = t(locale, "serving.now");
   const lastLabel = t(locale, "serving.last");
   if (live != null) {
-    return { label: nowLabel, value: String(live), live: true, last };
+    // Group ticket at the counter (public boards only send a number, never names).
+    const party = Number(counter.nowServingPartySize);
+    const partySize = Number.isInteger(party) && party > 1 ? party : null;
+    return { label: nowLabel, value: String(live), live: true, last, partySize };
   }
   if (last != null) {
     return { label: lastLabel, value: String(last), live: false, last };

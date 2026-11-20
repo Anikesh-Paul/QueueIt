@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { campusDatetimeLocalToIso, formatCampusDateTime } from "@/lib/campus-time";
 import { presentServingBoard } from "@/lib/now-serving";
+import { PartyBadge } from "@/components/party/party-badge";
+import { partySizeOf, peopleOn } from "@/lib/party";
 
 export function AdminOperatePanel({
   adminQueueMeta,
@@ -56,6 +58,9 @@ export function AdminOperatePanel({
   );
   const freeCounters = counters.filter((counter) => counter.id && !busyIds.has(counter.id));
   const waiterCount = waitingList.filter((entry) => entry.status !== "serving").length;
+  const waiterPeople = peopleOn(waitingList.filter((entry) => entry.status !== "serving"));
+  // Group size of whoever is at each counter (by token).
+  const partyByToken = new Map(calledEntries.map((entry) => [String(entry.tokenNumber), partySizeOf(entry)]));
   const noShowWindowMinutes =
     adminQueueMeta?.noShowWindow?.minutes ?? adminQueueMeta?.noShowMinutes ?? null;
   const noShowWindowMode =
@@ -99,18 +104,38 @@ export function AdminOperatePanel({
                           data-testid="admin-counter-serving"
                         >
                           <span className="truncate text-text-secondary">{row.name}</span>
-                          <span className="font-metric text-lg font-bold tabular-nums text-foreground">
-                            {row.value}
+                          <span className="flex items-center gap-1.5">
+                            {row.live ? (
+                              <PartyBadge
+                                size={partyByToken.get(row.value)}
+                                label={`Group of ${partyByToken.get(row.value)}`}
+                                short
+                                testId="admin-serving-party"
+                              />
+                            ) : null}
+                            <span className="font-metric text-lg font-bold tabular-nums text-foreground">
+                              {row.value}
+                            </span>
                           </span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <span
-                      className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
-                      data-testid="admin-now-serving"
-                    >
-                      {servingBoard.value}
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span
+                        className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
+                        data-testid="admin-now-serving"
+                      >
+                        {servingBoard.value}
+                      </span>
+                      {servingBoard.rows[0]?.live ? (
+                        <PartyBadge
+                          size={partyByToken.get(servingBoard.value)}
+                          label={`Group of ${partyByToken.get(servingBoard.value)}`}
+                          short
+                          testId="admin-serving-party"
+                        />
+                      ) : null}
                     </span>
                   )}
                 </div>
@@ -124,6 +149,11 @@ export function AdminOperatePanel({
                   >
                     {waiterCount}
                   </span>
+                  {waiterPeople > waiterCount ? (
+                    <span className="text-xs text-text-muted" data-testid="admin-waiting-people-count">
+                      {waiterPeople} people
+                    </span>
+                  ) : null}
                 </div>
               </div>
               {noShowWindowMinutes != null ? (

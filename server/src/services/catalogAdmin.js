@@ -1,3 +1,4 @@
+import { applyGroupSettings } from "./partySize.js";
 import { applyAppointmentSettings } from "./appointments.js";
 import { Venue } from "../models/Venue.js";
 import { Queue } from "../models/Queue.js";
@@ -412,6 +413,8 @@ export async function updateQueue(queue, patch = {}) {
     }
     queue.guestJoin = patch.guestJoin;
   }
+  const groups = applyGroupSettings(queue, patch);
+  if (groups.error) return { ok: false, status: 400, error: groups.error };
   const booking = applyAppointmentSettings(queue, patch);
   if (booking.error) return { ok: false, status: 400, error: booking.error };
   if (patch.maxWaiting !== undefined) {

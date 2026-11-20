@@ -175,6 +175,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
             status: 1,
             eventAt: 1,
             skipReason: 1,
+            people: { $ifNull: ["$partySize", 1] },
             waitMs: {
               $cond: [
                 { $eq: ["$status", "served"] },
@@ -187,10 +188,10 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       ])
     : [];
 
-  const daily = new Map(range.days.map((d) => [d, { date: d, served: 0, noShows: 0, timedOut: 0, left: 0, waitSum: 0 }]));
+  const daily = new Map(range.days.map((d) => [d, { date: d, served: 0, peopleServed: 0, noShows: 0, timedOut: 0, left: 0, waitSum: 0 }]));
   const hourly = Array.from({ length: 24 }, (_, hour) => ({ hour, served: 0 }));
   const perQueue = new Map(
-    scope.queues.map((q) => [String(q._id), { served: 0, noShows: 0, timedOut: 0, left: 0, waits: [] }])
+    scope.queues.map((q) => [String(q._id), { served: 0, peopleServed: 0, noShows: 0, timedOut: 0, left: 0, waits: [] }])
   );
   const allWaits = [];
 
@@ -201,9 +202,12 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
     if (!day || !q) continue;
     if (row.status === "served") {
       const waitMin = Math.max(0, (row.waitMs || 0) / 60000);
+      const people = Math.max(1, Number(row.people) || 1);
       day.served += 1;
+      day.peopleServed += people;
       day.waitSum += waitMin;
       q.served += 1;
+      q.peopleServed += people;
       q.waits.push(waitMin);
       allWaits.push(waitMin);
       const hour = new Date(at2.getTime() + CAMPUS_OFFSET_MS).getUTCHours();
@@ -222,6 +226,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
   }
 
   const served = allWaits.length;
+  const peopleServed = [...perQueue.values()].reduce((s, q) => s + q.peopleServed, 0);
   const noShows = [...perQueue.values()].reduce((s, q) => s + q.noShows, 0);
   const left = [...perQueue.values()].reduce((s, q) => s + q.left, 0);
   const timedOut = [...perQueue.values()].reduce((s, q) => s + q.timedOut, 0);
@@ -242,6 +247,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       name: queue.name,
       venue: queue.venue?.name ?? null,
       served: s.served,
+      peopleServed: s.peopleServed,
       noShows: s.noShows,
       timedOutNoShows: s.timedOut,
       left: s.left,
@@ -263,6 +269,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       queueId: query.queueId ? String(query.queueId) : null,
       totals: {
         served,
+        peopleServed,
         noShows,
         timedOutNoShows: timedOut,
         left,
@@ -278,6 +285,7 @@ export async function buildAnalyticsReport(user, query = {}, at = clockNow()) {
       daily: [...daily.values()].map((d) => ({
         date: d.date,
         served: d.served,
+        peopleServed: d.peopleServed,
         noShows: d.noShows,
         timedOutNoShows: d.timedOut,
         left: d.left,
@@ -313,6 +321,7 @@ export function formatAnalyticsReportCsv(payload) {
     "label",
     "venue",
     "served",
+    "people_served",
     "no_shows",
     "left",
     "no_show_rate_pct",
@@ -329,6 +338,7 @@ export function formatAnalyticsReportCsv(payload) {
     `${payload.range.from} to ${payload.range.to}`,
     payload.venue?.name || "All venues",
     t.served,
+    t.peopleServed ?? t.served,
     t.noShows,
     t.left,
     pct(t.noShowRate),
@@ -338,10 +348,10 @@ export function formatAnalyticsReportCsv(payload) {
     t.averageRating ?? "",
   ]);
   for (const d of payload.daily) {
-    push(["daily", d.date, "", d.served, d.noShows, d.left, pct(noShowRate(d.served, d.noShows)), d.averageWaitMinutes ?? "", "", "", ""]);
+    push(["daily", d.date, "", d.served, d.peopleServed ?? d.served, d.noShows, d.left, pct(noShowRate(d.served, d.noShows)), d.averageWaitMinutes ?? "", "", "", ""]);
   }
   for (const h of payload.hourly) {
-    push(["hourly", `${String(h.hour).padStart(2, "0")}:00 IST`, "", h.served, "", "", "", "", "", "", ""]);
+    push(["hourly", `${String(h.hour).padStart(2, "0")}:00 IST`, "", h.served, "", "", "", "", "", "", "", ""]);
   }
   for (const q of payload.queues) {
     push([
@@ -349,6 +359,7 @@ export function formatAnalyticsReportCsv(payload) {
       q.name,
       q.venue || "",
       q.served,
+      q.peopleServed ?? q.served,
       q.noShows,
       q.left,
       pct(q.noShowRate),
@@ -359,7 +370,7 @@ export function formatAnalyticsReportCsv(payload) {
     ]);
   }
   for (const c of payload.counters || []) {
-    push(["counter", `${c.queue || ""} · ${c.counter}`, "", "", "", "", "", "", "", c.ratings, c.averageRating ?? ""]);
+    push(["counter", `${c.queue || ""} · ${c.counter}`, "", "", "", "", "", "", "", "", c.ratings, c.averageRating ?? ""]);
   }
   return `${lines.join("\n")}\n`;
 }

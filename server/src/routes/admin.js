@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { cleanPartySize, groupsForJson, partySizeOf } from "../services/partySize.js";
 import mongoose from "mongoose";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { Queue } from "../models/Queue.js";
@@ -141,6 +142,7 @@ function toAdminQueueJSON(queue) {
     recoveryPlaces: queue.recoveryPlaces ?? 2,
     priorityEveryK: queue.priorityEveryK ?? 3,
     equivalentGroup: queue.equivalentGroup || null,
+    groups: groupsForJson(queue),
     counters: countersForJson(queue),
     archived: Boolean(queue.archivedAt),
     ...sessionFieldsForJson(queue),
@@ -194,6 +196,7 @@ function toWaitingRow(entry, position, { paused = false, queue = null, noShowCou
     isWalkIn,
     isGuest,
     joinedAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
+    partySize: partySizeOf(entry),
     returning: Boolean(entry.returning),
     appointmentAt: entry.appointmentAt ? new Date(entry.appointmentAt).toISOString() : null,
     ...priorityFieldsForJson(entry),
@@ -543,6 +546,10 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
     if (!name) {
       return res.status(400).json({ error: "Walk-in name is required" });
     }
+    const party = cleanPartySize(req.body?.partySize, queue);
+    if (party.error) {
+      return res.status(400).json({ error: party.error, code: party.code });
+    }
     if (name.length > 80) {
       return res.status(400).json({ error: "Walk-in name is too long" });
     }
@@ -593,6 +600,7 @@ router.post("/queues/:queueId/walk-in", requireAuth, requireAdmin, async (req, r
         walkInName: name,
         tokenNumber,
         status: "waiting",
+        partySize: party.value,
       });
     } catch (err) {
       if (isDuplicateKeyError(err)) {
@@ -1482,6 +1490,9 @@ router.patch("/queues/:queueId", requireAuth, requireAdmin, async (req, res, nex
       priorityEveryK: req.body?.priorityEveryK,
       equivalentGroup: req.body?.equivalentGroup,
       guestJoin: req.body?.guestJoin,
+      groupTicketsEnabled: req.body?.groupTicketsEnabled,
+      groupMaxSize: req.body?.groupMaxSize,
+      groupExtraPerPerson: req.body?.groupExtraPerPerson,
       appointmentsEnabled: req.body?.appointmentsEnabled,
       slotMinutes: req.body?.slotMinutes,
       slotCapacity: req.body?.slotCapacity,

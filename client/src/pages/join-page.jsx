@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +19,8 @@ import { OpenWatchControls } from "@/components/status/open-watch-controls";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { placeLabel } from "@/lib/organizations";
 import { BestTimeCard } from "@/components/best-time/best-time-card";
+import { PartySizePicker } from "@/components/party/party-size-picker";
+import { clampPartySize } from "@/lib/party";
 
 /**
  * Poster / deep-link landing — join a specific queue (or explain why not).
@@ -66,6 +68,7 @@ export function JoinPage() {
     setJoinError("");
   }, [queueId, setJoinError]);
 
+  const [partySize, setPartySize] = useState(1);
   const queue = validId ? queues.find((row) => row.id === queueId) : null;
   const membership = activeMemberships.find((row) => row.queue?.id === queueId);
   const closed = queue?.acceptingTokens === false;
@@ -79,7 +82,7 @@ export function JoinPage() {
 
   async function handleJoin() {
     if (!validId || joinBusy) return;
-    const ok = await join(queueId, { source: fromQr ? "qr" : undefined });
+    const ok = await join(queueId, { source: fromQr ? "qr" : undefined, partySize: clampPartySize(partySize, queue) });
     if (ok) navigate("/status");
   }
 
@@ -287,6 +290,10 @@ export function JoinPage() {
             </p>
           ) : null}
 
+          {!membership && !isAdmin && !guestBlocked && !closed && !full ? (
+            <PartySizePicker queue={queue} value={clampPartySize(partySize, queue)} onChange={setPartySize} disabled={joinBusy} className="mt-4" />
+          ) : null}
+
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
             {canManageQueue(queue) ? (
               <Button
@@ -321,12 +328,12 @@ export function JoinPage() {
                 className="w-full sm:w-auto"
               >
                 {joinBusy
-                  ? "Joining…"
+                  ? t("queue.joining")
                   : closed
-                    ? `${queue.name} is closed`
+                    ? t("queue.closed", { name: queue.name })
                     : full
-                      ? `${queue.name} is full`
-                      : `Join ${queue.name}`}
+                      ? t("queue.full", { name: queue.name })
+                      : t("queue.join", { name: queue.name })}
               </Button>
             )}
             <Button

@@ -149,12 +149,25 @@ export function fetchQueues(token, guestCredential) {
 }
 
 /** POST /api/queues/:queueId/join — take a place; Guest mints credential on first join. */
-export function joinQueue(token, queueId, guestCredential, source) {
+export function joinQueue(token, queueId, guestCredential, source, partySize) {
+  const body = {};
+  if (source === "qr") body.source = "qr";
+  if (Number.isInteger(partySize) && partySize > 1) body.partySize = partySize;
   return apiRequest(`/api/queues/${queueId}/join`, {
     method: "POST",
     token,
     guestCredential,
-    ...(source === "qr" ? { body: { source: "qr" } } : {}),
+    ...(Object.keys(body).length ? { body } : {}),
+  });
+}
+
+/** POST /api/queues/:queueId/party-size — make a waiting group smaller. */
+export function reducePartySize(token, queueId, partySize, guestCredential) {
+  return apiRequest(`/api/queues/${queueId}/party-size`, {
+    method: "POST",
+    token,
+    guestCredential,
+    body: { partySize },
   });
 }
 
@@ -574,8 +587,9 @@ export function resetQueue(token, queueId) {
  * POST /api/admin/queues/:queueId/walk-in
  * Counter walk-in: { name, tokenNumber? } — auto token when tokenNumber omitted.
  */
-export function walkInQueue(token, queueId, { name, tokenNumber } = {}) {
+export function walkInQueue(token, queueId, { name, tokenNumber, partySize } = {}) {
   const body = { name };
+  if (Number.isInteger(partySize) && partySize > 1) body.partySize = partySize;
   if (tokenNumber !== undefined && tokenNumber !== null && tokenNumber !== "") {
     body.tokenNumber = Number(tokenNumber);
   }

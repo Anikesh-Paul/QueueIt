@@ -39,6 +39,13 @@ function scopeLabel(user, data, t) {
   return t("live.scope.queues");
 }
 
+/** "5 people" under a ticket count, only when groups make it differ. */
+function peopleHint(people, tickets, t) {
+  const n = Number(people);
+  if (!Number.isFinite(n) || n <= Number(tickets || 0)) return null;
+  return t("live.people", { n });
+}
+
 function Tile({ label, value, hint, testId, tv, tone }) {
   return (
     <div className="flex min-w-0 flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3 sm:px-5 sm:py-4">
@@ -53,7 +60,9 @@ function Tile({ label, value, hint, testId, tv, tone }) {
       >
         {value}
       </dd>
-      {hint ? <dd className={cn("truncate text-text-muted", tv ? "text-base" : "text-xs sm:text-sm")}>{hint}</dd> : null}
+      {(Array.isArray(hint) ? hint : [hint]).filter(Boolean).map((line) => (
+        <dd key={line} className={cn("truncate text-text-muted", tv ? "text-base" : "text-xs sm:text-sm")}>{line}</dd>
+      ))}
     </div>
   );
 }
@@ -148,14 +157,15 @@ function QueueCard({ queue, tv }) {
       </header>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
         {[
-          [t("live.served"), formatCount(queue.servedToday, locale)],
+          [t("live.served"), formatCount(queue.servedToday, locale), peopleHint(queue.peopleServedToday, queue.servedToday, t)],
           [t("live.avgWait"), formatWait(queue.averageWaitMinutes, locale)],
-          [t("live.waiting"), formatCount(queue.waitingCount, locale)],
+          [t("live.waiting"), formatCount(queue.waitingCount, locale), peopleHint(queue.waitingPeople, queue.waitingCount, t)],
           [t("live.noShows"), formatCount(queue.noShowsToday, locale)],
-        ].map(([label, value]) => (
+        ].map(([label, value, hint]) => (
           <div key={label} className="min-w-0">
             <dt className={cn("text-text-muted", tv ? "text-sm" : "text-xs")}>{label}</dt>
             <dd className={cn("font-metric font-semibold tabular-nums text-foreground", tv ? "text-4xl" : "text-2xl")}>{value}</dd>
+            {hint ? <dd className={cn("text-text-muted", tv ? "text-sm" : "text-xs")} data-testid="live-queue-people">{hint}</dd> : null}
           </div>
         ))}
       </dl>
@@ -191,9 +201,9 @@ function FocusView({ queue, tv }) {
         </p>
       </header>
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Tile tv={tv} label={t("live.servedToday")} value={formatCount(queue.servedToday, locale)} hint={t("live.lastHourHint", { n: queue.servedLastHour })} testId="live-focus-served" />
+        <Tile tv={tv} label={t("live.servedToday")} value={formatCount(queue.servedToday, locale)} hint={[t("live.lastHourHint", { n: queue.servedLastHour }), peopleHint(queue.peopleServedToday, queue.servedToday, t)]} testId="live-focus-served" />
         <Tile tv={tv} label={t("live.averageWait")} value={formatWait(queue.averageWaitMinutes, locale)} hint={t("live.joinToCall")} />
-        <Tile tv={tv} label={t("live.waitingNow")} value={formatCount(queue.waitingCount, locale)} testId="live-focus-waiting" />
+        <Tile tv={tv} label={t("live.waitingNow")} value={formatCount(queue.waitingCount, locale)} hint={peopleHint(queue.waitingPeople, queue.waitingCount, t)} testId="live-focus-waiting" />
         <Tile tv={tv} label={t("live.noShowsToday")} value={formatCount(queue.noShowsToday, locale)} tone={queue.noShowsToday ? "warn" : undefined} />
         <Tile
           tv={tv}
@@ -497,9 +507,9 @@ export function LiveViewPage() {
         {data && queues.length > 0 && !focused && !pinnedMissing ? (
           <>
             <dl className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-testid="live-totals">
-              <Tile tv={tv} label={t("live.servedToday")} value={formatCount(totals.servedToday, locale)} hint={t("live.lastHourHint", { n: totals.servedLastHour })} testId="live-served" />
+              <Tile tv={tv} label={t("live.servedToday")} value={formatCount(totals.servedToday, locale)} hint={[t("live.lastHourHint", { n: totals.servedLastHour }), peopleHint(totals.peopleServedToday, totals.servedToday, t)]} testId="live-served" />
               <Tile tv={tv} label={t("live.averageWait")} value={formatWait(totals.averageWaitMinutes, locale)} hint={t("live.joinToCall")} testId="live-wait" />
-              <Tile tv={tv} label={t("live.waitingNow")} value={formatCount(totals.waitingCount, locale)} hint={t("live.queuesOpen", { open: totals.openQueues, total: queues.length })} testId="live-waiting" />
+              <Tile tv={tv} label={t("live.waitingNow")} value={formatCount(totals.waitingCount, locale)} hint={[t("live.queuesOpen", { open: totals.openQueues, total: queues.length }), peopleHint(totals.waitingPeople, totals.waitingCount, t)]} testId="live-waiting" />
               <Tile tv={tv} label={t("live.noShowsToday")} value={formatCount(totals.noShowsToday, locale)} tone={totals.noShowsToday ? "warn" : undefined} testId="live-noshows" />
               <Tile tv={tv} label={t("live.openCounters")} value={`${totals.openCounters}/${totals.totalCounters}`} testId="live-open-counters" />
               <Tile

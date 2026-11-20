@@ -2,10 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { partyOptions } from "@/lib/party";
 
-export function AdminWalkIn({ adminActionBusy, adminWalkIn }) {
+export function AdminWalkIn({ adminActionBusy, adminWalkIn, groups }) {
   const [walkInName, setWalkInName] = useState("");
   const [walkInToken, setWalkInToken] = useState("");
+  const [walkInParty, setWalkInParty] = useState(1);
+  const sizes = partyOptions({ groups });
 
   async function handleWalkIn(event) {
     event.preventDefault();
@@ -13,6 +16,7 @@ export function AdminWalkIn({ adminActionBusy, adminWalkIn }) {
     const name = walkInName.trim();
     if (!name) return;
     const payload = { name };
+    if (sizes.length > 1 && walkInParty > 1) payload.partySize = Math.min(walkInParty, sizes.length);
     if (walkInToken.trim() !== "") {
       payload.tokenNumber = walkInToken.trim();
     }
@@ -20,6 +24,7 @@ export function AdminWalkIn({ adminActionBusy, adminWalkIn }) {
     if (ok) {
       setWalkInName("");
       setWalkInToken("");
+      setWalkInParty(1);
     }
   }
 
@@ -62,6 +67,25 @@ export function AdminWalkIn({ adminActionBusy, adminWalkIn }) {
                     className="h-10"
                   />
                 </div>
+                {sizes.length > 1 ? (
+                  <div className="flex w-full flex-col gap-1.5 sm:w-28">
+                    <Label htmlFor="walk-in-party">People</Label>
+                    <select
+                      id="walk-in-party"
+                      value={Math.min(walkInParty, sizes.length)}
+                      onChange={(e) => setWalkInParty(Number(e.target.value))}
+                      disabled={adminActionBusy}
+                      data-testid="walk-in-party"
+                      className="h-10 rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      {sizes.map((n) => (
+                        <option key={n} value={n}>
+                          {n === 1 ? "1 (just one)" : `${n} people`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
                 <Button
                   type="submit"
                   variant="secondary"

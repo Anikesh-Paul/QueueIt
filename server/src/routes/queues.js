@@ -23,6 +23,7 @@ import { attachEquivalentSuggestions } from "../services/equivalentQueues.js";
 import { attachQuietHints } from "../services/bestTime.js";
 import { BEST_TIME_CACHE_HEADER, bestTimeForQueue, bestTimeSummary, isQueueIdLike, parseWeekday } from "../services/bestTimeChart.js";
 import { toBoardJSON } from "../services/queueBoard.js";
+import { cleanPartySize, reducePartySize } from "../services/partySize.js";
 import { listLiveAnnouncements } from "../services/announcements.js";
 import { findOrganization, listOrganizations, venueIdsForOrg } from "../services/organizations.js";
 import { ensureDefaultCounters, reconcileCounterServing, staffingFactor } from "../services/counters.js";
@@ -183,7 +184,8 @@ router.get("/:queueId/board", async (req, res, next) => {
     await reconcileCatalogServing([queue]);
     const occupancy = await occupancyByQueueIds([queue._id]);
     const waitingCount = occupancy.get(String(queue._id)) || 0;
-    return res.status(200).json({ queue: toBoardJSON(queue, waitingCount) });
+    const serving = await QueueEntry.find({ queue: queue._id, status: "serving" }).select("tokenNumber partySize").lean();
+    return res.status(200).json({ queue: toBoardJSON(queue, waitingCount, { serving }) });
   } catch (err) {
     return next(err);
   }
@@ -551,6 +553,12 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
       return res.status(409).json(full);
     }
 
+    // One ticket can cover a small group (checked before any guest pass is minted).
+    const party = cleanPartySize(req.body?.partySize, queue);
+    if (party.error) {
+      return res.status(400).json({ error: party.error, code: party.code });
+    }
+
     let guest = null;
     let guestMinted = false;
 
@@ -612,6 +620,7 @@ router.post("/:queueId/join", attachJoiner, async (req, res, next) => {
       status: "waiting",
       isWalkIn: false,
       joinSource: req.body?.source === "qr" ? "qr" : "app",
+      partySize: party.value,
     };
     if (req.user) {
       entryFields.user = req.user._id;
@@ -764,6 +773,36 @@ router.post("/:queueId/travel", attachJoiner, requireJoiner, async (req, res, ne
     entry.travelMinutes = minutes;
     await entry.save();
     const payload = await buildStatusPayload(queue, entry);
+    return res.status(200).json(payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/queues/:queueId/party-size — make a waiting group smaller
+ * (someone left or went home). Never raises it.
+ */
+router.post("/:queueId/party-size", attachJoiner, requireJoiner, async (req, res, next) => {
+  try {
+    const { queueId } = req.params;
+    if (!mongoose.isValidObjectId(queueId)) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+    const queue = await Queue.findById(queueId);
+    if (!queue) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+    const entry = await findJoinerActiveEntry(queue._id, req);
+    if (!entry) {
+      return res.status(404).json({ error: "Not in this queue" });
+    }
+    const result = await reducePartySize(entry, req.body?.partySize);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    if (result.changed) emitQueueChanged(queue._id, "party-size");
+    const payload = await buildStatusPayload(queue, result.entry);
     return res.status(200).json(payload);
   } catch (err) {
     return next(err);

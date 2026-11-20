@@ -228,6 +228,7 @@ export function toVisitJSON(entry, names, feedback) {
     id: String(entry._id),
     queue: { id: queueId, name: names.get(queueId) || null },
     tokenNumber: entry.tokenNumber,
+    partySize: Number.isInteger(entry.partySize) && entry.partySize > 1 ? entry.partySize : 1,
     status: entry.status,
     outcome,
     joinSource: entry.joinSource || "app",

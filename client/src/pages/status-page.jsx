@@ -514,22 +514,9 @@ export function StatusPage() {
           </div>
         ) : null}
 
-        {!isMissed && (
-          <PriorityBanner
-            t={t}
-            status={liveStatus.status}
-            priority={Boolean(liveStatus.priority)}
-            requestStatus={liveStatus.priorityRequestStatus}
-            reason={priorityReason}
-            onReason={setPriorityReason}
-            busy={priorityBusy}
-            onRequest={handleRequestPriority}
-          />
-        )}
-
         {/*
           Signature composition:
-          md+: token+metrics | pass+Leave
+          md+: token+metrics | pass+Leave+priority
           phone: hero → metrics → pass → Leave, then compact notifications.
           Urgent banners (called / offline) stay above the token.
         */}
@@ -558,7 +545,7 @@ export function StatusPage() {
               onReduce={handlePartyReduce}
               t={t}
             />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-stretch">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:items-stretch">
               <StatusMetric label={t("status.position")} value={isCalled ? t("status.called") : isMissed ? "—" : liveStatus.position} testId="position" />
               <StatusMetric
                 label={t("status.eta")}
@@ -588,6 +575,7 @@ export function StatusPage() {
                   </span>
                 }
                 testId="eta"
+                className="max-sm:order-last max-sm:col-span-2"
               />
               <StatusMetric
                 label={servingBoard.label}
@@ -663,6 +651,16 @@ export function StatusPage() {
               t={t}
             />
             <LeaveControl leaveBusy={leaveBusy} onLeave={handleLeave} t={t} />
+            <PriorityBanner
+              t={t}
+              status={liveStatus.status}
+              priority={Boolean(liveStatus.priority)}
+              requestStatus={liveStatus.priorityRequestStatus}
+              reason={priorityReason}
+              onReason={setPriorityReason}
+              busy={priorityBusy}
+              onRequest={handleRequestPriority}
+            />
           </section>
           )}
         </div>
@@ -873,7 +871,7 @@ function NearFrontBanner({ position, locale = "en" }) {
 }
 
 /**
- * Arrival pass — QR + token hierarchy; stub corner + terracotta edge (signature).
+ * Arrival pass — QR + token hierarchy, with a terracotta edge along the top.
  * Prefers the signed payload from live status.
  */
 function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass, t }) {
@@ -882,25 +880,9 @@ function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass, t }) {
     <section
       data-testid="arrival-pass"
       data-payload={payload}
-      className={cn(
-        "relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-card",
-        /* Terracotta 2px accent on the left edge only + subtle stub corner */
-        "border-l-[2px] border-l-warning"
-      )}
+      className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-card"
     >
-      {/* Subtle CSS stub / dog-ear at top-right */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute right-0 top-0 size-0 border-b-[18px] border-l-[18px] border-b-transparent border-l-secondary"
-        style={{
-          filter: "drop-shadow(-1px 1px 0 rgb(26 26 24 / 8%))",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute right-0 top-0 size-0 border-r-[18px] border-t-[18px] border-r-background border-t-background"
-      />
-
+      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-warning/70" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
         <div
           className="shrink-0 self-center rounded-lg border border-border bg-white p-3 shadow-card"
@@ -939,12 +921,12 @@ function ArrivalPass({ queueName, queueId, tokenNumber, arrivalPass, t }) {
   );
 }
 
-function StatusMetric({ label, value, hero = false, testId }) {
+function StatusMetric({ label, value, hero = false, testId, className }) {
   const valueEl = (
     <span
       data-testid={testId}
       className={cn(
-        "inline-flex items-baseline font-metric text-metric tabular-nums text-foreground",
+        "inline-flex items-baseline font-metric text-[1.3125rem] leading-tight font-bold tracking-[-0.02em] tabular-nums text-foreground",
         hero &&
           "text-[2.75rem] font-bold leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[3rem]"
       )}
@@ -955,8 +937,8 @@ function StatusMetric({ label, value, hero = false, testId }) {
   const labelEl = (
     <span
       className={cn(
-        "text-label uppercase tracking-wide text-text-muted",
-        hero && "font-medium normal-case tracking-normal text-text-muted"
+        "text-xs font-semibold tracking-[0.06em] text-text-muted uppercase",
+        hero && "text-sm font-medium normal-case tracking-normal text-text-muted"
       )}
     >
       {label}
@@ -965,7 +947,8 @@ function StatusMetric({ label, value, hero = false, testId }) {
   return (
     <div
       className={cn(
-        "flex h-full flex-col gap-1 rounded-md border border-border bg-secondary px-4 py-3",
+        "flex h-full flex-col gap-1.5 rounded-xl border border-border bg-card px-4 py-3.5 shadow-card",
+        className,
         hero &&
           /* 14px radius; number leads, Token is a quiet label, no pastel wash. */
           "rounded-xl min-h-[6.5rem] justify-center gap-1 border-l-4 border-l-primary border-border bg-card px-6 py-5 sm:min-h-[7rem]"
@@ -1000,7 +983,7 @@ function useAppStatus() {
 function PriorityBanner({ t, status, priority, requestStatus, reason, onReason, busy, onRequest }) {
   if (priority) {
     return (
-      <div className="mb-4" data-testid="priority-banner">
+      <div data-testid="priority-banner">
         <p className="rounded-xl border border-primary/30 bg-primary-muted px-4 py-3 text-sm font-medium text-foreground">
           {t("status.priorityApproved")}
         </p>
@@ -1010,7 +993,7 @@ function PriorityBanner({ t, status, priority, requestStatus, reason, onReason, 
   if (status !== "waiting") return null;
   if (requestStatus === "pending") {
     return (
-      <div className="mb-4" data-testid="priority-banner">
+      <div data-testid="priority-banner">
         <p className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground">
           {t("status.priorityRequested")}
         </p>
@@ -1018,7 +1001,9 @@ function PriorityBanner({ t, status, priority, requestStatus, reason, onReason, 
     );
   }
   return (
-    <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3" data-testid="priority-banner">
+    <div className="rounded-xl border border-dashed border-border-strong bg-card/60 px-4 py-3.5" data-testid="priority-banner">
+      <p className="text-sm font-semibold text-foreground">{t("status.priorityTitle")}</p>
+      <p className="mt-0.5 mb-3 text-xs leading-relaxed text-text-secondary">{t("status.priorityHint")}</p>
       {requestStatus === "rejected" ? (
         <p className="mb-2 text-sm text-text-secondary">{t("status.priorityRejected")}</p>
       ) : null}
@@ -1030,7 +1015,7 @@ function PriorityBanner({ t, status, priority, requestStatus, reason, onReason, 
             onChange={(event) => onReason(event.target.value)}
             disabled={busy}
             data-testid="priority-reason"
-            className="h-8 rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="h-9 rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <option value="accessibility">{t("status.priorityAccessibility")}</option>
             <option value="pregnancy">{t("status.priorityPregnancy")}</option>

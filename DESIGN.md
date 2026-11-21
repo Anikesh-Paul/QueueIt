@@ -103,3 +103,9 @@ Inside the card: the eyebrow is a small pill with the plate mark; inputs are 48p
 ## Touch targets
 
 `Button size="lg"` is 44px tall (`h-11`) and is used for every primary action (join, log in, serve). On phones the shell's Log out collapses to an icon button with an `aria-label`, so the top bar never overflows at 390px.
+
+## Staff screens
+
+The admin console leads with the job: the operate panel (now serving, waiting, call/serve) and the waiting list, then a "Line setup" divider over service windows, handover notes, counters and the poster QR. From lg up, Check arrival and Walk-in sit in a sticky right column; on phones they follow the waiting list. Every console card uses one heading style (`font-heading text-base font-semibold`), with uppercase micro-labels only for stats inside cards. In the catalog each line shows its name and pace up front; the rest of its rules fold into a "Rules and options" disclosure.
+
+On the student status page the metrics are cards (position and now-serving side by side on phones, ETA full width), the arrival pass has a terracotta top edge, and the priority request sits with the pass and says what it is for.

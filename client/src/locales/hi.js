@@ -199,6 +199,8 @@ export default {
   "status.priorityRejected": "प्राथमिकता स्वीकृत नहीं हुई",
   "status.requestPriority": "प्राथमिकता का अनुरोध करें",
   "status.requestingPriority": "अनुरोध भेजा जा रहा है…",
+  "status.priorityTitle": "पहले जाना ज़रूरी है?",
+  "status.priorityHint": "सुलभता, गर्भावस्था या चिकित्सा ज़रूरत के लिए। स्टाफ़ कारण देखकर तय करता है।",
   "status.priorityReason": "कारण",
   "status.priorityAccessibility": "सुगम्यता",
   "status.priorityPregnancy": "गर्भावस्था",

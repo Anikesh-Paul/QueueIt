@@ -30,7 +30,7 @@ export function AdminWalkIn({ adminActionBusy, adminWalkIn, groups }) {
 
   return (
             <section className="overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card">
-              <h2 className="text-label uppercase tracking-wide text-text-muted">Walk-in</h2>
+              <h2 className="font-heading text-base font-semibold text-foreground">Walk-in</h2>
               <form
                 className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
                 onSubmit={handleWalkIn}

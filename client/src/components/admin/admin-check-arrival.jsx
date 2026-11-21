@@ -205,9 +205,9 @@ export function AdminCheckArrival({ token, queueId, setSelectedEntryId }) {
           <section
             id="check-arrival"
             data-testid="check-arrival"
-            className="scroll-mt-28 overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card lg:sticky lg:top-[7.5rem]"
+            className="scroll-mt-28 overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card"
           >
-            <h2 className="text-label uppercase tracking-wide text-text-muted">
+            <h2 className="font-heading text-base font-semibold text-foreground">
               Check arrival
             </h2>
             <p className="mt-1 text-xs leading-5 text-text-secondary" data-testid="verify-disclaimer">

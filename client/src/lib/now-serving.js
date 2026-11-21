@@ -66,3 +66,16 @@ export function formatCatalogServing({ counters, nowServing, locale = "en" } = {
   });
   return `${board.label} ${parts.join(", ")}`;
 }
+
+/**
+ * Catalog/board serving line that never shows a bare "Now serving —":
+ * with a number on any counter it is formatCatalogServing; with nothing served
+ * yet it says "walk right up" (empty line) or "serving starts soon".
+ */
+export function catalogServingNote({ counters, nowServing, waitingCount = 0, locale = "en" } = {}) {
+  const board = presentServingBoard(counters, nowServing ?? null, locale);
+  if (board.rows.some((row) => row.value !== "—")) {
+    return formatCatalogServing({ counters, nowServing, locale });
+  }
+  return Number(waitingCount) > 0 ? t(locale, "serving.startsSoon") : t(locale, "serving.walkUp");
+}

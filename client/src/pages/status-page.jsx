@@ -394,7 +394,7 @@ export function StatusPage() {
         <header className="mb-4">
           <h1
             data-testid="status-heading"
-            className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground"
+            className="page-title"
           >
             {t("status.title")}
           </h1>

@@ -15,8 +15,8 @@ Visual language for the campus queue product. Tokens live in `client/src/index.c
 | Surface muted (`--secondary`) | `#efece4` | Recessed tiles, chips |
 | Text | `#1a1a18` | Body and headings |
 | Text secondary / muted | `#57534e` | Helper, labels, captions |
-| Border | `#e7e5e4` | Hairlines |
-| Border strong | `#d6d3d1` | Stronger edges, inputs |
+| Border | `#e5dfd3` | Hairlines (warm stone; the old cool grey `#e7e5e4` read muddy on canvas) |
+| Border strong | `#d3cbbb` | Stronger edges, inputs |
 | Danger | `#9b2226` | Destructive actions |
 | Success | `#2d6a4f` | Positive status |
 | Warning (terracotta) | `#bc6c25` | Caution, near-front |
@@ -38,13 +38,18 @@ Do not add a third family.
 
 | Step | Size | Role |
 |------|------|------|
-| Display | 1.75 rem | Page heroes (`font-display`) |
+| Page title | 1.875 → 2.125 rem (sm) | Every screen's `<h1>`: `.page-title` (Fraunces) |
+| Display | 1.75 rem | Empty-state and recover heroes (`font-display`) |
 | Headline | 1.375 rem | Section titles |
 | Title | 1.125 rem | Card titles |
 | Label | 0.875 rem | Captions, chip text, field labels |
 | Metric | 2.0 rem | Token and counter figures (`font-metric`, tabular nums) |
 
 The status token hero may go larger than the metric step so the number leads the card.
+
+## Wait cues
+
+Queue and status-board cards carry a 4px inset rail (`.wait-rail` + `data-wait-level` from `waitLevel()`): success green = little or no wait, Forest = short (≤ 10 min), terracotta = medium (≤ 25), danger = long, strong border = closed. The rail is a cue, never the only signal; the wait sentence sits beside it. A card never shows a bare "Now serving —": `catalogServingNote()` says "Counter free — walk right up" or "Serving starts soon".
 
 ## Radius
 

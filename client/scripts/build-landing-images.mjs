@@ -50,8 +50,10 @@ export const IMAGES = [
     width: 800,
     height: 600,
     prompt:
-      "Close, friendly vignette: a student's hand holding a phone up to a simple poster with a large square code " +
-      "pinned on a stone-coloured campus notice board, soft light, shallow depth. " +
+      "Over-the-shoulder view from just behind a student: they hold a smartphone up toward a simple poster with a " +
+      "large square QR-style code pinned on a stone-coloured campus notice board. The phone's SCREEN faces the viewer " +
+      "and shows the poster's square code inside a camera viewfinder frame; the back of the phone, with its camera, " +
+      "points at the poster. We see the back of the student's head and shoulder, not their face. Soft light, shallow depth. " +
       STYLE,
   },
   {

@@ -60,3 +60,15 @@ export function paceReadout(basis) {
   if (!parts.length) return "Using the configured average";
   return parts.join(" · ");
 }
+
+/** Wait grade for colour cues: none (≤1 min) · short (≤10) · medium (≤25) · long · unknown. */
+export function waitLevel(waitEstimate) {
+  if (!waitEstimate) return "unknown";
+  if (waitEstimate.source === "empty") return "none";
+  const high = Number(waitEstimate.high);
+  if (!Number.isFinite(high)) return "unknown";
+  if (high <= 1) return "none";
+  if (high <= 10) return "short";
+  if (high <= 25) return "medium";
+  return "long";
+}

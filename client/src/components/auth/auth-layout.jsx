@@ -91,44 +91,24 @@ export function AuthLayout({ children }) {
 }
 
 /**
- * A short line of ticket stubs stepping toward a "Now serving" counter.
- * Purely decorative (aria-hidden); the motion is a slow loop that is switched
- * off for reduced motion, where it simply rests.
+ * The landing's campus scene, framed on the forest panel so sign-in carries the
+ * same look as "/". Decorative (aria-hidden); lazy so the form paints first.
  */
 function QueueIllustration() {
   const { t } = useI18n();
   return (
     <div aria-hidden="true" className="relative mt-10 select-none" data-testid="auth-queue-illustration">
-      <div className="flex items-end gap-5">
-        <div className="auth-counter rounded-2xl border border-white/15 bg-white/[0.07] px-5 py-4 backdrop-blur-sm">
-          <p className="text-[0.6875rem] font-semibold tracking-[0.1em] text-[#b7e4c7] uppercase">{t("serving.now")}</p>
-          <p className="mt-1 font-display text-[2.5rem] font-semibold leading-none text-[#f0fdf4] tabular-nums">#42</p>
-        </div>
-        <div className="relative h-[4.5rem] flex-1 overflow-hidden [mask-image:linear-gradient(to_right,black_70%,transparent)]">
-          <div className="auth-queue-track absolute bottom-0 left-0 flex gap-3">
-            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-              <TicketStub key={i} first={i === 0} />
-            ))}
-          </div>
-        </div>
-      </div>
-      <p className="mt-6 text-sm text-[#b7e4c7]">{t("auth.brandFootnote")}</p>
+      <img
+        src="/landing/hero-800.webp"
+        width="800"
+        height="450"
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="block aspect-[16/9] w-full max-w-[30rem] rounded-2xl border border-white/15 object-cover shadow-dialog"
+      />
+      <p className="mt-5 text-sm text-[#b7e4c7]">{t("auth.brandFootnote")}</p>
     </div>
-  );
-}
-
-function TicketStub({ first }) {
-  return (
-    <span
-      className={
-        "auth-ticket relative flex h-14 w-11 flex-col justify-between rounded-lg border px-2 py-2 " +
-        (first ? "auth-ticket-first border-[#e7b06a]/70 bg-[#e7b06a]/20" : "border-white/20 bg-white/[0.08]")
-      }
-    >
-      <span className="h-1 w-5 rounded-full bg-white/50" />
-      <span className="h-px w-full border-t border-dashed border-white/30" />
-      <span className="h-1 w-3 rounded-full bg-white/30" />
-    </span>
   );
 }
 

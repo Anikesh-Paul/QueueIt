@@ -102,7 +102,7 @@ export function JoinPage() {
       <header className="mb-6">
         <h1
           data-testid="join-heading"
-          className="font-heading text-headline leading-tight text-foreground"
+          className="page-title"
         >
           {t("join.title")}
         </h1>

@@ -92,7 +92,7 @@ export function AnalyticsPage() {
         <header className="mb-6">
           <h1
             data-testid="analytics-heading"
-            className="font-heading text-headline leading-tight text-foreground"
+            className="page-title"
           >
             Analytics
           </h1>

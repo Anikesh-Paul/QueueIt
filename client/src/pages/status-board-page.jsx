@@ -20,7 +20,8 @@ import {
   parseStatusBoardParams,
   statusBoardPath,
 } from "@/lib/status-board";
-import { formatCatalogServing } from "@/lib/now-serving";
+import { catalogServingNote } from "@/lib/now-serving";
+import { waitLevel } from "@/lib/wait-estimate";
 
 function queueStateId(queue) {
   if (queue?.acceptingTokens === false) return "closed";
@@ -49,7 +50,8 @@ function QueueCard({ queue, showOrg, heading: Heading = "h3" }) {
 
   return (
     <article
-      className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-card sm:p-5"
+      className="wait-rail flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card py-4 pr-4 pl-5 sm:py-5 sm:pr-5 sm:pl-6"
+      data-wait-level={stateId === "closed" ? "closed" : waitLevel(queue.waitEstimate)}
       data-testid="board-card"
       data-name={queue.name}
       aria-labelledby={`board-q-${queue.id}`}
@@ -73,16 +75,17 @@ function QueueCard({ queue, showOrg, heading: Heading = "h3" }) {
           {t(`state.${stateId}`)}
         </span>
       </header>
-      <p className="text-sm text-text-secondary" data-testid="board-wait">
+      <p className="mt-1 text-title font-semibold text-foreground" data-testid="board-wait">
         {wait.wait || waitFallback}
-        {wait.confidence ? <span className="text-text-muted"> · {wait.confidence}</span> : null}
+        {wait.confidence ? <span className="text-sm font-normal text-text-muted"> · {wait.confidence}</span> : null}
       </p>
-      <p className="text-sm text-text-muted">
+      <p className="text-sm text-text-secondary">
         <span data-testid="board-waiting">{occupancy}</span>
         {people ? <span data-testid="board-people"> · {people}</span> : null}
-      </p>
-      <p className="min-w-0 text-sm text-text-secondary" data-testid="board-now-serving">
-        {formatCatalogServing({ counters: queue.counters, locale })}
+        {" · "}
+        <span className="min-w-0" data-testid="board-now-serving">
+          {catalogServingNote({ counters: queue.counters, waitingCount: queue.waitingCount, locale })}
+        </span>
       </p>
       {queue.totalCounters > 1 ? (
         <p className="text-xs text-text-muted" data-testid="board-counters">
@@ -90,13 +93,11 @@ function QueueCard({ queue, showOrg, heading: Heading = "h3" }) {
         </p>
       ) : null}
       {join ? (
-        <Link
-          to={join}
-          data-testid="board-join"
-          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-        >
-          {t("board.join")}
-        </Link>
+        <Button asChild size="sm" variant={stateId === "open" ? "default" : "outline"} className="mt-2 h-9 self-start px-3.5">
+          <Link to={join} data-testid="board-join">
+            {t("board.join")}
+          </Link>
+        </Button>
       ) : null}
     </article>
   );
@@ -216,7 +217,7 @@ export function StatusBoardPage() {
         className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 outline-none sm:px-6 sm:py-8"
       >
         <div className="min-w-0">
-          <h1 className="font-display text-display font-semibold tracking-[-0.02em] text-foreground" data-testid="board-heading">
+          <h1 className="page-title" data-testid="board-heading">
             {t("board.title")}
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-text-secondary">{t("board.subtitle")}</p>

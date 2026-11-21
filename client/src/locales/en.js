@@ -46,6 +46,7 @@ export default {
   "auth.noAccount": "No account?",
   "auth.alreadyRegistered": "Already registered?",
   "auth.guestHint": "No account needed to join a line",
+  "auth.guestSub": "No account needed. Join a line in seconds.",
   "auth.continueGuest": "Continue as Guest",
   "auth.keepHistory": "Keep your history",
   "auth.keepHistoryBody": "Register or log in on this device to claim your place and past events.",

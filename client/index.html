@@ -55,6 +55,19 @@
           for (var j = 0; !lang && j < prefs.length; j++) lang = pick(prefs[j]);
           document.documentElement.lang = lang || "en";
         } catch (e) {}
+        // Landing LCP: preload the hero art, but only where the landing renders.
+        try {
+          if (location.pathname === "/") {
+            var hero = document.createElement("link");
+            hero.rel = "preload";
+            hero.as = "image";
+            hero.type = "image/webp";
+            hero.setAttribute("imagesrcset", "/landing/hero-800.webp 800w, /landing/hero.webp 1600w");
+            hero.setAttribute("imagesizes", "(min-width: 1024px) 600px, 100vw");
+            hero.setAttribute("fetchpriority", "high");
+            document.head.appendChild(hero);
+          }
+        } catch (e) {}
       })();
     </script>
   </head>

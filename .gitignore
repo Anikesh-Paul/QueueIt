@@ -30,6 +30,8 @@ Thumbs.db
 .vite/
 .eslintcache
 
+.tmp/
+
 playwright-report/
 test-results/
 e2e/tickets/

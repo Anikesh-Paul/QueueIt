@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useApp } from "@/context/app-context";
-import { homeRedirectTarget } from "@/lib/home-redirect";
+import { HOME_LANDING, homeRedirectTarget } from "@/lib/home-redirect";
 import { peekAuthFlash } from "@/lib/auth-flash";
 
 /**
@@ -52,8 +52,12 @@ export function RequireLoggedOut() {
 /** Backward-compatible alias used by older imports. */
 export const RequireGuest = RequireLoggedOut;
 
-/** "/" for signed-in User/Admin or Guest: in queue -> /status, otherwise the catalog. */
-export function HomeRedirect() {
+/**
+ * "/": the public landing page for signed-out visitors and Guests who are not
+ * in a line; signed-in people go home (in queue -> /status, else the catalog).
+ * `landing` is the element to render for the landing case.
+ */
+export function HomeRoute({ landing }) {
   const { inQueue, isAdmin, user, isGuest, membershipsReady } = useApp();
   const target = homeRedirectTarget({
     user,
@@ -63,6 +67,7 @@ export function HomeRedirect() {
     membershipsReady,
   });
   if (!target) return null;
+  if (target === HOME_LANDING) return landing;
   return <Navigate to={target} replace />;
 }
 

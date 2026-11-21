@@ -96,7 +96,7 @@ Still no blur or glass. Forest bands reuse `.auth-brand` (the sign-in panel grad
 
 ## Sign-in screens
 
-Login, register, forgot and reset share `AuthLayout`: one centred column on the canvas, with the wordmark and toggles on top, the form in a single card (`rounded-2xl`, `shadow-lift`, Forest plate mark), and a one-line footer. The only decoration is a faint Forest halo (radial gradient) and the linen grain. On phones the card frame drops away and the form runs edge to edge. There is no split brand panel.
+Login, register, forgot and reset share `AuthLayout`. The landing's campus scene fills the page, slowly drifting (off under reduced motion) under a Forest shade (`.auth-scene-shade`). The cream Fraunces headline and up to two live-wait chips from the public status board sit in the scene; the form floats on a `rounded-2xl` card (`shadow-dialog`) on the right. On phones the scene is a banner and the card slides up over its bottom edge (`rounded-t-[1.75rem]`). The art is preloaded on these routes.
 
 ## Touch targets
 

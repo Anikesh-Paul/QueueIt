@@ -42,7 +42,7 @@ export function AdminPosterQr({ queueId, queueName }) {
       data-testid="poster-qr-card"
       className="scroll-mt-28 rounded-xl border border-border bg-card p-5 shadow-card"
     >
-      <h2 className="font-display text-headline font-semibold tracking-[-0.01em] text-foreground">
+      <h2 className="font-heading text-base font-semibold text-foreground">
         Poster QR
       </h2>
       <p className="mt-1 text-sm leading-5 text-text-secondary">

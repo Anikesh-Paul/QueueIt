@@ -199,6 +199,8 @@ export default {
   "status.priorityRejected": "অগ্রাধিকার মঞ্জুর হয়নি",
   "status.requestPriority": "অগ্রাধিকার চান",
   "status.requestingPriority": "অনুরোধ পাঠানো হচ্ছে…",
+  "status.priorityTitle": "আগে যাওয়া দরকার?",
+  "status.priorityHint": "প্রবেশযোগ্যতা, গর্ভাবস্থা বা চিকিৎসার প্রয়োজনে। কর্মীরা কারণ দেখে সিদ্ধান্ত নেন।",
   "status.priorityReason": "কারণ",
   "status.priorityAccessibility": "প্রতিবন্ধকতা / চলাফেরার অসুবিধা",
   "status.priorityPregnancy": "গর্ভাবস্থা",

@@ -30,10 +30,10 @@ export function AdminWaitingList({
 }) {
   return (
             <section className="overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card">
-              <h2 className="flex items-baseline justify-between gap-2 text-label uppercase tracking-wide text-text-muted">
+              <h2 className="flex items-baseline justify-between gap-2 font-heading text-base font-semibold text-foreground">
                 Waiting list
                 {!waitingLoading && !empty && peopleOn(waitingList) > waitingList.length ? (
-                  <span className="normal-case tracking-normal" data-testid="admin-waiting-people">
+                  <span className="text-sm font-normal text-text-muted" data-testid="admin-waiting-people">
                     {waitingList.length} tickets · {peopleOn(waitingList)} people
                   </span>
                 ) : null}

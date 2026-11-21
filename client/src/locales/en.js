@@ -199,6 +199,8 @@ export default {
   "status.priorityRejected": "Priority was not approved",
   "status.requestPriority": "Request priority",
   "status.requestingPriority": "Sending request…",
+  "status.priorityTitle": "Need to go first?",
+  "status.priorityHint": "For accessibility, pregnancy or a medical need. Staff see the reason and decide.",
   "status.priorityReason": "Reason",
   "status.priorityAccessibility": "Accessibility",
   "status.priorityPregnancy": "Pregnancy",

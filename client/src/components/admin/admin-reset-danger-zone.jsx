@@ -24,7 +24,7 @@ export function AdminResetDangerZone({ queueName, adminActionBusy, adminReset })
       data-testid="admin-danger-zone"
       className="mt-6 overflow-hidden rounded-xl border border-destructive/25 bg-card px-5 py-5 shadow-card"
     >
-      <h2 className="text-label uppercase tracking-wide text-destructive">Danger zone</h2>
+      <h2 className="font-heading text-base font-semibold text-destructive">Danger zone</h2>
       <p className="mt-1 max-w-xl text-sm text-text-secondary">
         Reset clears everyone in line and restarts token numbers. This cannot be undone.
         Pause and stop accepting tokens stay in the operate panel above.

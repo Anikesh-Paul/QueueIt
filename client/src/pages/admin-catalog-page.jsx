@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -377,7 +378,7 @@ export function AdminCatalogPage() {
                     key={queue.id}
                     data-testid="catalog-queue"
                     data-archived={queue.archived ? "true" : "false"}
-                    className="rounded-md border border-border bg-secondary px-3.5 py-3"
+                    className="rounded-xl border border-border bg-secondary/70 p-4"
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
                       <div className="min-w-0 flex-1 sm:min-w-56">
@@ -416,6 +417,24 @@ export function AdminCatalogPage() {
                           disabled={busy}
                         />
                       </div>
+                    </div>
+                    <details
+                      className="group/adv mt-3 rounded-lg border border-border bg-card"
+                      data-testid="catalog-queue-advanced"
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground outline-none hover:bg-secondary/60 focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+                        <span className="min-w-0">
+                          Rules and options
+                          <span className="block text-xs font-normal text-text-muted sm:inline">
+                            <span className="max-sm:hidden"> · </span>No-shows, rejoin, priority, guests, groups, bookings
+                          </span>
+                        </span>
+                        <ChevronDown
+                          className="size-4 shrink-0 text-text-muted transition-transform group-open/adv:rotate-180"
+                          aria-hidden="true"
+                        />
+                      </summary>
+                      <div className="flex flex-col gap-2 border-t border-border px-3 py-3 sm:flex-row sm:flex-wrap sm:items-end">
                       <div className="w-full sm:w-36">
                         <Label htmlFor={`queue-noshow-mode-${queue.id}`}>No-show mode</Label>
                         <select
@@ -788,7 +807,8 @@ export function AdminCatalogPage() {
                           ))}
                         </div>
                       </fieldset>
-                    </div>
+                      </div>
+                    </details>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
                         type="button"

@@ -67,7 +67,7 @@ export function AdminAppointments({ token, queueId, refreshKey, onCheckedIn }) {
       data-testid="admin-bookings"
     >
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="admin-bookings-title" className="text-label uppercase tracking-wide text-text-muted">
+        <h2 id="admin-bookings-title" className="font-heading text-base font-semibold text-foreground">
           Bookings today
         </h2>
         <span className="text-xs text-text-muted">

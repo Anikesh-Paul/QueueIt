@@ -109,3 +109,7 @@ Inside the card: the eyebrow is a small pill with the plate mark; inputs are 48p
 The admin console leads with the job: the operate panel (now serving, waiting, call/serve) and the waiting list, then a "Line setup" divider over service windows, handover notes, counters and the poster QR. From lg up, Check arrival and Walk-in sit in a sticky right column; on phones they follow the waiting list. Every console card uses one heading style (`font-heading text-base font-semibold`), with uppercase micro-labels only for stats inside cards. In the catalog each line shows its name and pace up front; the rest of its rules fold into a "Rules and options" disclosure.
 
 On the student status page the metrics are cards (position and now-serving side by side on phones, ETA full width), the arrival pass has a terracotta top edge, and the priority request sits with the pass and says what it is for.
+
+## Status colours
+
+Tinted washes stay in the warm stone family. `--warning-soft` is sand (not lemon) and `--info-soft` is a dusk slate (not blue). "You're next" is good news, so it uses a light Forest wash with a pulsing Forest dot. "When to head over" is a neutral card whose left rail and headline carry the state (terracotta = leave now, slate = soon, Forest = later); only the separate "time to head over" banner keeps the sand wash.

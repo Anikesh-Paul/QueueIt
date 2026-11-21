@@ -545,7 +545,7 @@ export function StatusPage() {
               onReduce={handlePartyReduce}
               t={t}
             />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:items-stretch">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1.45fr_1fr] sm:items-stretch">
               <StatusMetric label={t("status.position")} value={isCalled ? t("status.called") : isMissed ? "—" : liveStatus.position} testId="position" />
               <StatusMetric
                 label={t("status.eta")}
@@ -554,7 +554,7 @@ export function StatusPage() {
                     className="flex flex-col items-start gap-0.5"
                     data-eta-mode={etaPresented.mode}
                   >
-                    <span data-testid="eta-clock" className="leading-none">
+                    <span data-testid="eta-clock" className="leading-none whitespace-nowrap sm:text-[1.125rem]">
                       {isCalled || isMissed ? "—" : etaPresented.primary}
                     </span>
                     {!isCalled && !isMissed && etaPresented.secondary ? (
@@ -855,14 +855,16 @@ function NearFrontBanner({ position, locale = "en" }) {
       aria-live="polite"
       data-testid="near-front-banner"
       data-near-front={kind}
-      className="flex items-start gap-2.5 rounded-lg border border-warning-line bg-warning-soft px-4 py-3"
+      className="flex items-start gap-3 rounded-xl border border-primary/15 bg-primary-muted/35 px-4 py-3.5"
     >
-      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-attention" aria-hidden="true" />
+      <span className="relative mt-1.5 flex size-2.5 shrink-0" aria-hidden="true">
+        <span className="landing-live-dot absolute inset-0 rounded-full bg-primary" />
+      </span>
       <div>
-        <p className="font-heading text-sm font-semibold text-warning-ink">
+        <p className="font-heading text-sm font-semibold text-foreground">
           {title}
         </p>
-        <p className="mt-0.5 text-xs leading-5 text-warning-ink">
+        <p className="mt-0.5 text-xs leading-5 text-text-secondary">
           {body}
         </p>
       </div>

@@ -3,11 +3,12 @@ import { cn } from "@/lib/utils";
 import { formatCampusClockTime } from "@/lib/campus-time";
 import { TRAVEL_CHOICES, leaveCopy, travelLabel } from "@/lib/leave-alert";
 
+/* One neutral card; only the left rail and the headline carry the state. */
 const TONE = {
-  now: "border-warning-line bg-warning-soft",
-  soon: "border-info/40 bg-info-soft",
-  later: "border-border bg-card",
-  paused: "border-border bg-card",
+  now: "border-l-warning",
+  soon: "border-l-info-ink/60",
+  later: "border-l-primary/50",
+  paused: "border-l-border-strong",
 };
 
 /**
@@ -29,9 +30,9 @@ export function LeaveTimeCard({ leave, etaMinutes, travelMinutes, busy, error, o
       data-testid="leave-card"
       data-leave-state={leave.state}
       aria-labelledby="leave-card-title"
-      className={cn("rounded-lg border px-4 py-3.5", TONE[leave.state])}
+      className={cn("rounded-xl border border-l-4 border-border bg-card px-4 py-3.5 shadow-card", TONE[leave.state])}
     >
-      <p id="leave-card-title" className="text-label uppercase tracking-wide text-text-muted">
+      <p id="leave-card-title" className="text-xs font-semibold tracking-[0.06em] text-text-muted uppercase">
         {t("leave.cardTitle")}
       </p>
       {copy ? (
@@ -39,7 +40,7 @@ export function LeaveTimeCard({ leave, etaMinutes, travelMinutes, busy, error, o
           <p className={cn("font-heading text-base font-semibold", ink)} data-testid="leave-title">
             {copy.title}
           </p>
-          <p className={cn("mt-0.5 text-sm", leave.state === "now" ? "text-warning-ink" : "text-text-secondary")}>
+          <p className="mt-0.5 text-sm text-text-secondary">
             {copy.body}
           </p>
         </div>
@@ -62,7 +63,7 @@ export function LeaveTimeCard({ leave, etaMinutes, travelMinutes, busy, error, o
                   "rounded-full border px-3 py-1 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60",
                   selected
                     ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-text-secondary hover:border-primary/50 hover:text-foreground"
+                    : "border-border bg-secondary/60 text-text-secondary hover:border-primary/50 hover:text-foreground"
                 )}
               >
                 {travelLabel(minutes, locale)}
@@ -92,7 +93,7 @@ export function LeaveNowBanner({ etaMinutes, travelMinutes, locale }) {
       role="status"
       aria-live="polite"
       data-testid="leave-now-banner"
-      className="flex items-start gap-2.5 rounded-lg border border-warning-line bg-warning-soft px-4 py-3"
+      className="flex items-start gap-3 rounded-xl border border-warning-line bg-warning-soft px-4 py-3.5"
     >
       <Footprints className="mt-0.5 size-4 shrink-0 text-warning-ink" aria-hidden="true" />
       <div>

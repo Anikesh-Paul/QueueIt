@@ -86,6 +86,8 @@ export default {
   "occupancy.none": "कोई इंतज़ार नहीं",
   "occupancy.waiting": "{count} इंतज़ार में",
   "occupancy.cap": "{waiting} · सीमा {cap}",
+  "serving.walkUp": "काउंटर खाली है — सीधे आ जाइए",
+  "serving.startsSoon": "सेवा जल्द शुरू होगी",
   "serving.now": "अभी सेवा में",
   "serving.last": "पिछली सेवा",
   "queue.avgMinutes": "~{minutes} मिनट",

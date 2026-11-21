@@ -451,7 +451,7 @@ export function AdminNoticesPage() {
       />
       <ShellContent tier="admin">
         <header className="mb-5">
-          <h1 className="font-heading text-headline leading-tight text-foreground" data-testid="notices-heading">
+          <h1 className="page-title" data-testid="notices-heading">
             Announcement board
           </h1>
           <p className="mt-1 text-sm text-text-secondary">

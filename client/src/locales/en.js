@@ -86,6 +86,8 @@ export default {
   "occupancy.none": "No one waiting",
   "occupancy.waiting": "{count} waiting",
   "occupancy.cap": "{waiting} · cap {cap}",
+  "serving.walkUp": "Counter free — walk right up",
+  "serving.startsSoon": "Serving starts soon",
   "serving.now": "Now serving",
   "serving.last": "Last served",
   "queue.avgMinutes": "~{minutes} min",

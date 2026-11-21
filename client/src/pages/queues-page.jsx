@@ -13,10 +13,10 @@ import { FeedbackPrompt } from "@/components/feedback/feedback-prompt";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { describeTodayException } from "@/lib/service-exceptions";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
-import { formatCatalogServing } from "@/lib/now-serving";
+import { catalogServingNote } from "@/lib/now-serving";
 import { isQueueId, joinPath } from "@/lib/join-link";
 import { cn } from "@/lib/utils";
-import { catalogWaitLabel } from "@/lib/wait-estimate";
+import { catalogWaitLabel, waitLevel } from "@/lib/wait-estimate";
 import { useI18n } from "@/context/i18n-context";
 import { staffCanManageQueue } from "@/lib/staff-access";
 import { OpenWatchControls } from "@/components/status/open-watch-controls";
@@ -224,7 +224,7 @@ export function QueuesPage() {
       <header className="mb-6 flex items-end justify-between gap-4">
         <h1
           data-testid="queues-heading"
-          className="font-heading text-headline leading-tight text-foreground"
+          className="page-title"
         >
           {t("queues.title")}
         </h1>
@@ -297,7 +297,7 @@ export function QueuesPage() {
             // Closed, Full, and Paused are orthogonal — Closed/Full affect join; Paused can still show beside them.
             const primaryLabel = closed ? t("state.closed") : full ? t("state.full") : paused ? t("state.paused") : t("state.open");
             const occupancyLine = formatWaitingOccupancy({ ...queue, locale });
-            const servingLine = formatCatalogServing({ ...queue, locale });
+            const servingLine = catalogServingNote({ ...queue, locale });
             const primaryTestId = closed
               ? "queue-state-closed"
               : full
@@ -308,8 +308,9 @@ export function QueuesPage() {
             return (
               <li key={queue.id}>
                 <div
+                  data-wait-level={closed ? "closed" : waitLevel(queue.waitEstimate)}
                   className={cn(
-                    "overflow-hidden rounded-md border bg-card shadow-card transition-[border,background-color]",
+                    "wait-rail overflow-hidden rounded-lg border bg-card transition-[border,background-color]",
                     isSelected && "border-primary bg-primary-muted/60"
                   )}
                 >
@@ -320,7 +321,7 @@ export function QueuesPage() {
                   data-queue-id={queue.id}
                   data-accepting-tokens={closed ? "false" : "true"}
                   className={cn(
-                    "queue-card flex min-w-0 flex-1 flex-col items-start gap-0.5 px-4 py-3 text-left outline-none hover:bg-secondary/40 focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "queue-card flex min-w-0 flex-1 flex-col items-start gap-0.5 py-3.5 pr-4 pl-5 text-left outline-none hover:bg-secondary/40 focus-visible:ring-3 focus-visible:ring-ring/50",
                     isSelected && "bg-transparent"
                   )}
                   onClick={() => {
@@ -354,20 +355,20 @@ export function QueuesPage() {
                       ) : null}
                     </span>
                   </span>
-                  <span className="text-sm text-text-muted">
-                    {queue.venue?.name || t("common.venue")} ·{" "}
-                    {catalogWaitLabel(queue.waitEstimate, locale) ? (
-                      <span data-testid="queue-wait-estimate" className="font-medium text-text-secondary">
-                        {catalogWaitLabel(queue.waitEstimate, locale)}
-                      </span>
-                    ) : (
-                      t("queue.avgMinutes", { minutes: queue.averageServiceTime })
-                    )}
-                    {" · "}
+                  <span className="text-sm text-text-muted">{queue.venue?.name || t("common.venue")}</span>
+                  {catalogWaitLabel(queue.waitEstimate, locale) ? (
+                    <span data-testid="queue-wait-estimate" className="mt-2 text-base font-semibold text-foreground">
+                      {catalogWaitLabel(queue.waitEstimate, locale)}
+                    </span>
+                  ) : (
+                    <span className="mt-2 text-base font-semibold text-foreground">
+                      {t("queue.avgMinutes", { minutes: queue.averageServiceTime })}
+                    </span>
+                  )}
+                  <span className="text-sm text-text-secondary">
                     <span data-testid="queue-occupancy">{occupancyLine}</span>
-                  </span>
-                  <span className="text-sm text-text-muted" data-testid="queue-now-serving">
-                    {servingLine}
+                    {" · "}
+                    <span data-testid="queue-now-serving">{servingLine}</span>
                   </span>
                   {queue.shorterEquivalent ? (
                     <span

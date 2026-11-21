@@ -111,7 +111,7 @@ export function BookPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
           <Link to="/queues" className="hover:text-foreground hover:underline">{t("nav.queues")}</Link>
         </p>
-        <h1 className="font-heading text-headline leading-tight text-foreground" data-testid="book-heading">
+        <h1 className="page-title" data-testid="book-heading">
           {t("book.title", { name: queueName })}
         </h1>
         {grid?.enabled ? (

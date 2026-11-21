@@ -397,7 +397,7 @@ export function SecurityPage() {
   return (
     <ShellContent tier={isAdmin ? "admin" : "student"} className="max-w-3xl">
       <h1
-        className="font-display text-display font-semibold leading-tight tracking-[-0.01em] text-foreground"
+        className="page-title"
         data-testid="security-heading"
       >
         {t("security.title")}

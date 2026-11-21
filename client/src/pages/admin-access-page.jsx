@@ -179,7 +179,7 @@ export function AdminAccessPage() {
       <PageToolbar tier="admin" title="Access" meta="Global admins only · every change is in the audit log" />
       <ShellContent tier="admin" className="max-w-4xl">
         <header className="mb-5">
-          <h1 className="font-heading text-headline leading-tight text-foreground" data-testid="access-heading">
+          <h1 className="page-title" data-testid="access-heading">
             Who manages what
           </h1>
           <p className="mt-1 text-sm text-text-secondary">

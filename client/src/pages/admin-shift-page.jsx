@@ -146,7 +146,7 @@ export function AdminShiftPage() {
       />
       <ShellContent tier="admin">
         <header className="mb-5">
-          <h1 data-testid="shift-heading" className="font-heading text-headline leading-tight text-foreground">
+          <h1 data-testid="shift-heading" className="page-title">
             Your shift
           </h1>
           <p className="mt-1 text-sm text-text-secondary">

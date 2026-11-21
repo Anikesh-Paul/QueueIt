@@ -280,7 +280,7 @@ export function AdminCatalogPage() {
         <div>
           <h1
             data-testid="catalog-heading"
-            className="font-heading text-headline leading-tight text-foreground"
+            className="page-title"
           >
             Catalog
           </h1>

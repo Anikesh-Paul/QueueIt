@@ -486,14 +486,6 @@ html.theme-transition * {
    Landing page ("/", signed out). Motion is CSS-first and transform/opacity
    only (no layout shift); every piece is switched off under reduced motion.
    ------------------------------------------------------------------------ */
-.landing-forest {
-  background-color: #1b4332;
-  background-image: linear-gradient(155deg, #1f4d39 0%, #1b4332 45%, #133227 100%);
-}
-.dark .landing-forest {
-  background-image: linear-gradient(155deg, #173b2c 0%, #12301f 50%, #0c2117 100%);
-}
-
 /* Hero text: a staggered rise on first paint. */
 @keyframes landing-rise {
   from {

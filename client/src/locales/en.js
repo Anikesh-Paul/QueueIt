@@ -751,6 +751,7 @@ export default {
   "landing.consolePause": "Pause",
   "landing.consoleWaiting": "Waiting",
   "landing.consoleAvg": "Avg. service",
+  "landing.consoleAvgValue": "{n} min",
   "landing.consoleBest": "Best time to come",
   "landing.trustTitle": "Made for the phone in your pocket",
   "landing.trust1Title": "Works on any phone",

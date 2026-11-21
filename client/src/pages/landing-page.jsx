@@ -14,6 +14,24 @@ import { landingStripItems, tickValue } from "@/lib/landing";
 import { cn } from "@/lib/utils";
 
 const LIVE_POLL_MS = 30_000;
+const LIVE_NOTE =
+  "rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center text-text-secondary";
+const EYEBROW = "text-xs font-semibold tracking-[0.14em] uppercase";
+
+/** Section heading at the landing's 2 → 2.5 rem Fraunces step (see DESIGN.md). */
+function SectionTitle({ id, className, children }) {
+  return (
+    <h2
+      id={id}
+      className={cn(
+        "font-display text-[2rem] leading-tight font-semibold tracking-[-0.02em] text-foreground sm:text-[2.5rem]",
+        className
+      )}
+    >
+      {children}
+    </h2>
+  );
+}
 
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -70,16 +88,33 @@ function useJoinAsGuest() {
   };
 }
 
-function CtaPair({ testIdPrefix, className }) {
+const CTA_TONES = {
+  default: {
+    guest: "bg-primary text-primary-foreground shadow-lift hover:bg-primary-hover focus-visible:ring-ring/50",
+    login: "border-border-strong bg-card text-foreground hover:bg-secondary focus-visible:ring-ring/50",
+  },
+  // On the forest band.
+  inverse: {
+    guest: "bg-[#f0fdf4] text-[#1b4332] hover:bg-white focus-visible:ring-[#b7e4c7]",
+    login: "border-[#f0fdf4]/40 text-[#f0fdf4] hover:bg-white/10 focus-visible:ring-[#b7e4c7]",
+  },
+};
+
+/** The two landing CTAs: join as a guest (primary) and log in. */
+function CtaPair({ testIdPrefix, tone = "default", className }) {
   const { t } = useI18n();
   const joinAsGuest = useJoinAsGuest();
+  const colors = CTA_TONES[tone];
   return (
     <div className={cn("flex flex-wrap items-center gap-3", className)}>
       <button
         type="button"
         onClick={joinAsGuest}
         data-testid={`${testIdPrefix}-guest`}
-        className="landing-cta group inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-5 text-base font-semibold text-primary-foreground shadow-lift outline-none hover:bg-primary-hover focus-visible:ring-3 focus-visible:ring-ring/50"
+        className={cn(
+          "group inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold outline-none focus-visible:ring-3",
+          colors.guest
+        )}
       >
         {t("landing.ctaGuest")}
         <ArrowRight
@@ -90,7 +125,10 @@ function CtaPair({ testIdPrefix, className }) {
       <Link
         to="/login"
         data-testid={`${testIdPrefix}-login`}
-        className="inline-flex h-12 items-center rounded-xl border border-border-strong bg-card px-5 text-base font-semibold text-foreground outline-none hover:bg-secondary focus-visible:ring-3 focus-visible:ring-ring/50"
+        className={cn(
+          "inline-flex h-12 items-center rounded-xl border px-5 text-base font-semibold outline-none focus-visible:ring-3",
+          colors.login
+        )}
       >
         {t("landing.ctaLogin")}
       </Link>
@@ -122,7 +160,7 @@ function PhoneMock() {
       role="img"
       aria-label={t("landing.phoneLabel")}
       data-testid="landing-phone"
-      className="landing-phone w-[11.5rem] rounded-[2rem] border border-[#0f2a1f] bg-[#10261c] p-2 shadow-dialog sm:w-[15rem]"
+      className="landing-phone w-[11.5rem] rounded-[2rem] border border-[#133227] bg-[#133227] p-2 shadow-dialog sm:w-[15rem]"
     >
       <div aria-hidden="true" className="overflow-hidden rounded-[1.6rem] bg-card px-4 pt-3 pb-5">
         <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-border-strong" />
@@ -158,7 +196,7 @@ function PhoneMock() {
           key={step}
           className={cn(
             "landing-tick mt-4 min-h-[2.5rem] text-center text-sm leading-tight font-semibold",
-            turn ? "text-[#8a4a14] dark:text-warning" : "text-foreground"
+            turn ? "text-warning-ink" : "text-foreground"
           )}
         >
           {turn ? t("landing.phoneTurn") : t("landing.phoneAhead", { n: ahead })}
@@ -228,7 +266,7 @@ function Hero() {
       <StubDrift />
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-8 sm:px-6 sm:pt-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] lg:gap-10 lg:pt-16">
         <div className="min-w-0">
-          <p className="landing-rise text-xs font-semibold tracking-[0.14em] text-primary uppercase" style={{ "--rise": 0 }}>
+          <p className={cn(EYEBROW, "landing-rise text-primary")} style={{ "--rise": 0 }}>
             {t("landing.eyebrow")}
           </p>
           <h1
@@ -268,7 +306,6 @@ function Hero() {
                 height="900"
                 alt={t("landing.heroImageAlt")}
                 fetchPriority="high"
-                decoding="async"
                 className="landing-art-img block aspect-[4/3] h-auto w-full object-cover sm:aspect-[16/10] lg:aspect-[4/4.2]"
               />
           </div>
@@ -284,7 +321,9 @@ function Hero() {
 /* ------------------------------------------------------------ live strip */
 
 function TickNumber({ value, run }) {
-  const [shown, setShown] = useState(() => (run ? 0 : value));
+  // Start at 0 when the tick-in will play (the card is still hidden until it
+  // scrolls into view), so the number never flashes its final value first.
+  const [shown, setShown] = useState(() => (prefersReducedMotion() ? value : 0));
   const started = useRef(false);
   useEffect(() => {
     if (value == null) return undefined;
@@ -392,13 +431,13 @@ function LiveStrip() {
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <Reveal className="max-w-xl">
-            <p className="flex items-center gap-2 text-xs font-semibold tracking-[0.14em] text-primary uppercase">
+            <p className={cn(EYEBROW, "flex items-center gap-2 text-primary")}>
               <span className="landing-live-dot size-2 rounded-full bg-primary" aria-hidden="true" />
               {t("landing.navLive")}
             </p>
-            <h2 id="landing-live-title" className="mt-3 font-display text-[2rem] leading-tight font-semibold tracking-[-0.02em] text-foreground sm:text-[2.5rem]">
+            <SectionTitle id="landing-live-title" className="mt-3">
               {t("landing.liveTitle")}
-            </h2>
+            </SectionTitle>
             <p className="mt-2 text-text-secondary">{t("landing.liveBody")}</p>
           </Reveal>
           <Link
@@ -411,7 +450,7 @@ function LiveStrip() {
           </Link>
         </div>
 
-        <div ref={listRef} className="mt-8" aria-live="polite">
+        <div ref={listRef} className="mt-8">
           {items && items.length > 0 ? (
             <ul
               className={cn(
@@ -425,11 +464,11 @@ function LiveStrip() {
               ))}
             </ul>
           ) : items ? (
-            <p className="rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center text-text-secondary" data-testid="landing-live-empty">
+            <p role="status" className={LIVE_NOTE} data-testid="landing-live-empty">
               {t("landing.liveEmpty")}
             </p>
           ) : failed ? (
-            <p className="rounded-2xl border border-dashed border-border-strong px-5 py-8 text-center text-text-secondary" data-testid="landing-live-error">
+            <p role="status" className={LIVE_NOTE} data-testid="landing-live-error">
               {t("landing.liveError")}
             </p>
           ) : (
@@ -459,10 +498,10 @@ function HowItWorks() {
     <section id="how" aria-labelledby="landing-how-title" className="scroll-mt-6 py-20 sm:py-28">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <Reveal className="max-w-2xl">
-          <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">{t("landing.navHow")}</p>
-          <h2 id="landing-how-title" className="mt-3 font-display text-[2rem] leading-tight font-semibold tracking-[-0.02em] text-foreground sm:text-[2.5rem]">
-            {t("landing.howTitle")}
-          </h2>
+          <p className={cn(EYEBROW, "text-primary")}>{t("landing.navHow")}</p>
+          <SectionTitle id="landing-how-title" className="mt-3">
+              {t("landing.howTitle")}
+            </SectionTitle>
         </Reveal>
         <ol className="mt-12 grid gap-10 md:grid-cols-3 md:gap-6 lg:gap-8">
           {STEPS.map((step, i) => (
@@ -524,7 +563,7 @@ function ConsoleMock() {
             </div>
             <div className="rounded-lg bg-[#efece4] px-3 py-2">
               <p className="text-[#57534e]">{t("landing.consoleAvg")}</p>
-              <p className="text-lg font-bold tabular-nums">2.4m</p>
+              <p className="text-lg font-bold tabular-nums">{t("landing.consoleAvgValue", { n: "2.4" })}</p>
             </div>
           </div>
         </div>
@@ -562,14 +601,14 @@ function ConsoleMock() {
 function ForStaff() {
   const { t } = useI18n();
   return (
-    <section id="staff" aria-labelledby="landing-staff-title" className="landing-forest relative scroll-mt-6 overflow-hidden py-20 sm:py-28">
+    <section id="staff" aria-labelledby="landing-staff-title" className="auth-brand relative scroll-mt-6 overflow-hidden py-20 sm:py-28">
       <div aria-hidden="true" className="auth-brand-glow pointer-events-none absolute inset-0" />
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2">
         <Reveal className="min-w-0">
-          <p className="text-xs font-semibold tracking-[0.14em] text-[#b7e4c7] uppercase">{t("landing.staffEyebrow")}</p>
-          <h2 id="landing-staff-title" className="mt-3 max-w-[18ch] font-display text-[2rem] leading-tight font-semibold tracking-[-0.02em] text-[#f0fdf4] sm:text-[2.5rem]">
+          <p className={cn(EYEBROW, "text-[#b7e4c7]")}>{t("landing.staffEyebrow")}</p>
+          <SectionTitle id="landing-staff-title" className="mt-3 max-w-[18ch] text-[#f0fdf4]">
             {t("landing.staffTitle")}
-          </h2>
+          </SectionTitle>
           <p className="mt-4 max-w-xl text-lg leading-relaxed text-[#d8f3dc]">{t("landing.staffBody")}</p>
           <ul className="mt-8 flex flex-col gap-3">
             {["landing.staffPoint1", "landing.staffPoint2", "landing.staffPoint3"].map((key) => (
@@ -603,9 +642,9 @@ function Trust() {
     <section aria-labelledby="landing-trust-title" className="py-20 sm:py-24">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <Reveal>
-          <h2 id="landing-trust-title" className="font-display text-[2rem] leading-tight font-semibold tracking-[-0.02em] text-foreground sm:text-[2.5rem]">
+          <SectionTitle id="landing-trust-title">
             {t("landing.trustTitle")}
-          </h2>
+          </SectionTitle>
         </Reveal>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {TRUST.map(({ n, Icon }, i) => (
@@ -619,44 +658,19 @@ function Trust() {
           ))}
         </ul>
 
-        <Reveal className="landing-forest relative mt-16 overflow-hidden rounded-[1.5rem] px-6 py-12 sm:px-12 sm:py-14">
+        <Reveal className="auth-brand relative mt-16 overflow-hidden rounded-[1.5rem] px-6 py-12 sm:px-12 sm:py-14">
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-xl">
-              <h2 className="font-display text-[2rem] leading-tight font-semibold tracking-[-0.02em] text-[#f0fdf4] sm:text-[2.5rem]">
+              <SectionTitle className="text-[#f0fdf4]">
                 {t("landing.finalTitle")}
-              </h2>
+              </SectionTitle>
               <p className="mt-3 text-lg text-[#d8f3dc]">{t("landing.finalBody")}</p>
             </div>
-            <FinalCtas />
+            <CtaPair testIdPrefix="landing-final" tone="inverse" />
           </div>
         </Reveal>
       </div>
     </section>
-  );
-}
-
-function FinalCtas() {
-  const { t } = useI18n();
-  const joinAsGuest = useJoinAsGuest();
-  return (
-    <div className="flex flex-wrap gap-3">
-      <button
-        type="button"
-        onClick={joinAsGuest}
-        data-testid="landing-final-guest"
-        className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#f0fdf4] px-5 text-base font-semibold text-[#1b4332] outline-none hover:bg-white focus-visible:ring-3 focus-visible:ring-[#b7e4c7]"
-      >
-        {t("landing.ctaGuest")}
-        <ArrowRight className="size-4" aria-hidden="true" />
-      </button>
-      <Link
-        to="/login"
-        data-testid="landing-final-login"
-        className="inline-flex h-12 items-center rounded-xl border border-[#f0fdf4]/40 px-5 text-base font-semibold text-[#f0fdf4] outline-none hover:bg-white/10 focus-visible:ring-3 focus-visible:ring-[#b7e4c7]"
-      >
-        {t("landing.ctaLogin")}
-      </Link>
-    </div>
   );
 }
 

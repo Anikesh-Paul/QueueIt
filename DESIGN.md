@@ -79,9 +79,11 @@ A Q drawn as an open ring with the tail as a dot: the line, and the next person 
 The public landing (`client/src/pages/landing-page.jsx`) keeps this palette and the two faces, and bends two rules on purpose:
 
 - **Type scale.** Hero headline steps 2.625 → 3.5 → 4.25 rem (phone → sm → lg), section titles 2 → 2.5 rem, all Fraunces. These sizes are for the landing only; app screens stay on the scale above.
-- **Radius.** Hero art, the phone mock and the final CTA band use 24px (`rounded-[1.5rem]`); landing cards use `rounded-2xl`.
+- **Radius.** Hero art and the final CTA band use 24px (`rounded-[1.5rem]`); landing cards use `rounded-2xl`; the phone mock uses 32px outside / ~26px screen so it reads as a handset.
 
-Still no blur or glass. Forest bands use `.landing-forest` (same gradient as the sign-in panel).
+Still no blur or glass. Forest bands reuse `.auth-brand` (the sign-in panel gradient). The phone shell is the gradient's deep stop `#133227`; mist accents on Forest reuse the sign-in panel's `#b7e4c7` / `#95d5b2`.
+
+- **Fixed colours.** The staff console mock and the forest bands use literal palette hex values (cream card, Forest, mist text) instead of theme tokens, so they look the same in both themes, like the sign-in panel and the poster.
 
 **Imagery.** Four Gemini-generated `.webp` files in `client/public/landing/` (hero 1600 + 800, three 800×600 step scenes), each ≤ 200 KB, with `width`/`height` set. Regenerate with `node client/scripts/build-landing-images.mjs` (needs `GEMINI_API_KEY`; `--export` re-encodes cached PNGs only). The hero is preloaded from `index.html` only when the path is `/`.
 

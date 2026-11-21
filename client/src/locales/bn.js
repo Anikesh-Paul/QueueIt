@@ -751,6 +751,7 @@ export default {
   "landing.consolePause": "বিরতি",
   "landing.consoleWaiting": "অপেক্ষায়",
   "landing.consoleAvg": "গড় পরিষেবা",
+  "landing.consoleAvgValue": "{n} মিনিট",
   "landing.consoleBest": "আসার সেরা সময়",
   "landing.trustTitle": "আপনার পকেটের ফোনের জন্য তৈরি",
   "landing.trust1Title": "যেকোনো ফোনে চলে",

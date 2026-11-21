@@ -751,6 +751,7 @@ export default {
   "landing.consolePause": "रोकें",
   "landing.consoleWaiting": "इंतज़ार में",
   "landing.consoleAvg": "औसत सेवा",
+  "landing.consoleAvgValue": "{n} मिनट",
   "landing.consoleBest": "आने का सबसे अच्छा समय",
   "landing.trustTitle": "आपकी जेब के फ़ोन के लिए बना",
   "landing.trust1Title": "हर फ़ोन पर चलता है",

@@ -106,15 +106,10 @@ export function AdminConsolePage() {
       <ShellContent tier="admin">
         <header className="mb-6 flex items-end justify-between gap-4">
           <div className="min-w-0">
-            <h1
-              data-testid="admin-heading"
-              className="page-title"
-            >
+            <p className="mb-1 text-xs font-semibold tracking-[0.08em] text-primary uppercase">Admin console</p>
+            <h1 data-testid="admin-heading" className="page-title">
               {queueName}
             </h1>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">
-              Admin console
-            </p>
           </div>
           {/* Phone-only in-page jump — not a sticky bottom bar */}
           <a
@@ -127,14 +122,15 @@ export function AdminConsolePage() {
         </header>
 
         {/*
-          ≥lg: waiting list + operate | Check arrival
-          phone: list first, arrival below
+          Phone: operate + waiting list, then arrival + walk-in, then setup.
+          ≥lg: operate + waiting list over setup on the left; arrival + walk-in
+          stay in a sticky column on the right.
         */}
         <div
           data-testid="admin-layout"
-          className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(17.5rem,22rem)] lg:items-start lg:gap-5"
+          className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(17.5rem,22rem)] lg:items-start lg:gap-x-5 lg:gap-y-4"
         >
-          <div data-testid="admin-operate-column" className="flex min-w-0 flex-col gap-4">
+          <div data-testid="admin-operate-column" className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
             <AdminOperatePanel
               adminQueueMeta={adminQueueMeta}
               waitingList={waitingList}
@@ -156,19 +152,43 @@ export function AdminConsolePage() {
               adminMarkPriority={adminMarkPriority}
               adminDecidePriorityRequest={adminDecidePriorityRequest}
             />
+            <AdminWaitingList
+              waitingList={waitingList}
+              waitingLoading={waitingLoading}
+              empty={empty}
+              selectedEntryId={selectedEntryId}
+              setSelectedEntryId={setSelectedEntryId}
+            />
             <AdminAppointments
               token={token}
               queueId={queueId}
               refreshKey={waitingList.length}
               onCheckedIn={() => openAdminConsole(queueId)}
             />
+          </div>
+
+          <aside
+            data-testid="admin-side-column"
+            className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-[7.5rem] lg:col-start-2 lg:row-span-2 lg:row-start-1"
+          >
+            <AdminCheckArrival
+              token={token}
+              queueId={queueId}
+              setSelectedEntryId={setSelectedEntryId}
+            />
+            <AdminWalkIn adminActionBusy={adminActionBusy} adminWalkIn={adminWalkIn} groups={adminQueueMeta?.groups} />
+          </aside>
+
+          <div data-testid="admin-setup-column" className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-2">
+            <h2 className="mt-4 flex items-center gap-3 text-xs font-semibold tracking-[0.08em] text-text-muted uppercase after:h-px after:flex-1 after:bg-border">
+              Line setup
+            </h2>
             <AdminServiceWindows
               queueId={queueId}
               adminQueueMeta={adminQueueMeta}
               adminActionBusy={adminActionBusy}
               adminUpdateServiceWindows={adminUpdateServiceWindows}
             />
-            <AdminWalkIn adminActionBusy={adminActionBusy} adminWalkIn={adminWalkIn} groups={adminQueueMeta?.groups} />
             <AdminHandoverNotes
               token={token}
               queueId={queueId}
@@ -179,24 +199,11 @@ export function AdminConsolePage() {
               counters={adminQueueMeta?.counters}
               adminActionBusy={adminActionBusy}
               adminAddCounter={adminAddCounter}
-              adminRenameCounter={adminRenameCounter}
               adminRemoveCounter={adminRemoveCounter}
+              adminRenameCounter={adminRenameCounter}
             />
             <AdminPosterQr queueId={queueId} queueName={queueName} />
-            <AdminWaitingList
-              waitingList={waitingList}
-              waitingLoading={waitingLoading}
-              empty={empty}
-              selectedEntryId={selectedEntryId}
-              setSelectedEntryId={setSelectedEntryId}
-            />
           </div>
-
-          <AdminCheckArrival
-            token={token}
-            queueId={queueId}
-            setSelectedEntryId={setSelectedEntryId}
-          />
         </div>
         <AdminAuditPanel token={token} queueId={queueId} />
         <AdminResetDangerZone

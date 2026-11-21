@@ -169,7 +169,7 @@ export function AdminServiceWindows({
       className="scroll-mt-28 overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card"
       data-testid="admin-service-windows"
     >
-      <h2 className="text-label uppercase tracking-wide text-text-muted">
+      <h2 className="font-heading text-base font-semibold text-foreground">
         Service windows
       </h2>
       <p className="mt-1 text-xs text-text-muted">

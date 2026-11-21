@@ -90,8 +90,8 @@ export function AdminOperatePanel({
 
   return (
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-              <div className="grid grid-cols-2 gap-3 px-5 py-5 sm:max-w-sm">
-                <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary px-4 py-3">
+              <div className="grid grid-cols-2 gap-3 px-5 py-5">
+                <div className="flex flex-col gap-1 rounded-lg border border-primary/20 bg-primary-muted/40 px-4 py-3.5">
                   <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
                     {servingBoard.label}
                   </span>
@@ -123,11 +123,14 @@ export function AdminOperatePanel({
                   ) : (
                     <span className="flex flex-wrap items-center gap-2">
                       <span
-                        className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
+                        className="font-metric text-[2rem] leading-none font-bold tracking-[-0.02em] tabular-nums text-foreground"
                         data-testid="admin-now-serving"
                       >
                         {servingBoard.value}
                       </span>
+                      {servingBoard.value === "—" ? (
+                        <span className="text-xs text-text-muted">Nobody called yet</span>
+                      ) : null}
                       {servingBoard.rows[0]?.live ? (
                         <PartyBadge
                           size={partyByToken.get(servingBoard.value)}
@@ -139,12 +142,12 @@ export function AdminOperatePanel({
                     </span>
                   )}
                 </div>
-                <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary px-4 py-3">
+                <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary px-4 py-3.5">
                   <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
                     Waiting
                   </span>
                   <span
-                    className="font-metric text-2xl font-bold tracking-[-0.02em] tabular-nums text-foreground"
+                    className="font-metric text-[2rem] leading-none font-bold tracking-[-0.02em] tabular-nums text-foreground"
                     data-testid="admin-waiting-count"
                   >
                     {waiterCount}

@@ -34,7 +34,7 @@ export function AdminCounters({
       data-testid="admin-counters"
       className="rounded-xl border border-border bg-card p-5 shadow-card"
     >
-      <h2 className="font-display text-headline font-semibold tracking-[-0.01em] text-foreground">
+      <h2 className="font-heading text-base font-semibold text-foreground">
         Counters
       </h2>
       <p className="mt-1 text-sm text-text-secondary">

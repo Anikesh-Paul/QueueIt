@@ -35,11 +35,11 @@ export function AdminAuditPanel({ token, queueId }) {
 
   return (
     <section
-      className="overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card"
+      className="mt-6 overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-card"
       data-testid="admin-audit-panel"
     >
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-label uppercase tracking-wide text-text-muted">Activity</h2>
+        <h2 className="font-heading text-base font-semibold text-foreground">Activity</h2>
         <Link
           to={`/admin/audit?queueId=${queueId}`}
           className="text-xs font-medium text-primary underline-offset-4 hover:underline"

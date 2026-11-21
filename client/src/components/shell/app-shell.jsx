@@ -1,3 +1,4 @@
+import { LogOut } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/brand/wordmark";
@@ -188,10 +189,13 @@ export function AppShell() {
                   variant="ghost"
                   size="sm"
                   onClick={handleLogout}
-                  className="whitespace-nowrap"
+                  className="whitespace-nowrap max-sm:size-8 max-sm:px-0"
                   data-testid="shell-logout"
+                  aria-label={t("nav.logOut")}
+                  title={t("nav.logOut")}
                 >
-                  {t("nav.logOut")}
+                  <LogOut className="sm:hidden" aria-hidden="true" />
+                  <span className="max-sm:hidden">{t("nav.logOut")}</span>
                 </Button>
               ) : null}
             </div>

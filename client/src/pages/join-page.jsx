@@ -9,7 +9,8 @@ import { MotifIllustration } from "@/components/brand/motif-illustration";
 import { formatCampusDateTime } from "@/lib/campus-time";
 import { describeTodayException } from "@/lib/service-exceptions";
 import { formatWaitingOccupancy } from "@/lib/waiting-occupancy";
-import { formatCatalogServing } from "@/lib/now-serving";
+import { catalogServingNote } from "@/lib/now-serving";
+import { catalogWaitLabel, waitLevel } from "@/lib/wait-estimate";
 import { isQrScan, isQueueId, joinPath } from "@/lib/join-link";
 import { QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -73,7 +74,7 @@ export function JoinPage() {
   const membership = activeMemberships.find((row) => row.queue?.id === queueId);
   const closed = queue?.acceptingTokens === false;
   const occupancyLine = queue ? formatWaitingOccupancy({ ...queue, locale }) : "";
-  const servingLine = queue ? formatCatalogServing({ ...queue, locale }) : "";
+  const servingLine = queue ? catalogServingNote({ ...queue, locale }) : "";
   const full = queue?.full === true;
   const paused = queue?.status === "paused";
   const signedIn = Boolean(token && user);
@@ -183,7 +184,8 @@ export function JoinPage() {
         <section
           data-testid="join-queue-card"
           data-queue-id={queue.id}
-          className="rounded-md border border-border bg-card px-5 py-5 shadow-card"
+          data-wait-level={closed ? "closed" : waitLevel(queue.waitEstimate)}
+          className="wait-rail rounded-lg border border-border bg-card py-5 pr-5 pl-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
@@ -194,12 +196,15 @@ export function JoinPage() {
                 {queue.name}
               </h2>
               <p className="mt-0.5 text-sm text-text-muted">
-                {placeLabel(queue.venue?.name, orgs, queue.venue?.organizationId) || t("common.venue")} · {t("queue.avgMinutes", { minutes: queue.averageServiceTime })}
-                {" · "}
-                <span data-testid="queue-occupancy">{occupancyLine}</span>
+                {placeLabel(queue.venue?.name, orgs, queue.venue?.organizationId) || t("common.venue")}
               </p>
-              <p className="mt-0.5 text-sm text-text-muted" data-testid="queue-now-serving">
-                {servingLine}
+              <p className="mt-2 text-base font-semibold text-foreground">
+                {catalogWaitLabel(queue.waitEstimate, locale) || t("queue.avgMinutes", { minutes: queue.averageServiceTime })}
+              </p>
+              <p className="text-sm text-text-secondary">
+                <span data-testid="queue-occupancy">{occupancyLine}</span>
+                {" · "}
+                <span data-testid="queue-now-serving">{servingLine}</span>
               </p>
               {queue.shorterEquivalent ? (
                 <p className="mt-2 text-sm font-medium text-primary" data-testid="shorter-equivalent">
@@ -302,7 +307,7 @@ export function JoinPage() {
                 data-testid="open-admin-console"
                 className="w-full sm:w-auto"
               >
-                Manage {queue.name}
+                {t("queue.manage", { name: queue.name })}
               </Button>
             ) : membership ? (
               <Button

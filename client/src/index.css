@@ -332,6 +332,16 @@ body {
   background-color: var(--background);
 }
 
+/* Faint Forest light from above the sign-in card (a gradient, not a blur). */
+.auth-halo {
+  background:
+    radial-gradient(56rem 26rem at 50% -8%, rgb(27 67 50 / 0.08), transparent 70%),
+    radial-gradient(34rem 20rem at 85% 105%, rgb(188 108 37 / 0.05), transparent 70%);
+}
+.dark .auth-halo {
+  background: radial-gradient(56rem 26rem at 50% -8%, rgb(127 200 160 / 0.08), transparent 70%);
+}
+
 /* Near-invisible linen grain — felt on pause, not a filter preset */
 .auth-grain {
   opacity: 0.028;
@@ -365,13 +375,7 @@ body {
 }
 
 /* Ticket stubs step one place toward the counter, pause, repeat. */
-.auth-mini-ticket {
-  animation: auth-mini-bob 3.2s ease-in-out infinite;
-}
-@keyframes auth-mini-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
-}
+
 
 /* Inline hints and errors fade in instead of popping. */
 .auth-reveal {
@@ -396,8 +400,7 @@ html.theme-transition * {
 @media (prefers-reduced-motion: reduce) {
   .auth-settle,
   .auth-reveal,
-  .auth-brand-glow,
-  .auth-mini-ticket {
+  .auth-brand-glow {
     animation: none;
   }
   *,

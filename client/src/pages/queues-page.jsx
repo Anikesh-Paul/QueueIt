@@ -489,7 +489,7 @@ export function QueuesPage() {
               data-testid="open-admin-console"
               className="w-full sm:w-auto"
             >
-              Manage {selected.name}
+              {t("queue.manage", { name: selected.name })}
             </Button>
             ) : null}
             </>

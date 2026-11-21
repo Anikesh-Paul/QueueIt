@@ -501,6 +501,7 @@ export default {
   "nav.access": "अनुमतियाँ",
   "nav.admin": "एडमिन",
   "nav.analytics": "विश्लेषण",
+  "queue.manage": "{name} संभालें",
   "queues.manageCatalog": "कैटलॉग प्रबंधित करें",
   "join.loading": "कतार लोड हो रही है",
   "status.closedForNew": "नए टोकन बंद",

@@ -501,6 +501,7 @@ export default {
   "nav.access": "Access",
   "nav.admin": "Admin",
   "nav.analytics": "Analytics",
+  "queue.manage": "Manage {name}",
   "queues.manageCatalog": "Manage catalog",
   "join.loading": "Loading queue",
   "status.closedForNew": "Closed for new tokens",

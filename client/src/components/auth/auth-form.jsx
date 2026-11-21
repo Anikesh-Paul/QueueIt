@@ -363,7 +363,7 @@ export function AuthForm({ mode }) {
           >
             {t("auth.continueGuest")}
           </Button>
-          <p className="flex items-start justify-center gap-2 text-center text-xs leading-relaxed text-text-secondary">
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-text-secondary">
             <QrCode className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
             <span>{t("auth.qrHint")}</span>
           </p>

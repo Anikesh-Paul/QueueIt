@@ -1,7 +1,13 @@
+/** Sentinel: render the public landing page at "/" instead of redirecting. */
+export const HOME_LANDING = "landing";
+
 /**
- * Choose the signed-in home route.
- * Wait (return null) until memberships have been restored so an in-line
- * student is not sent to /queues once and left there.
+ * Choose what "/" shows.
+ * - Signed out → the public landing page (HOME_LANDING).
+ * - Admin → the catalog straight away.
+ * - User / Guest → wait (null) until memberships are restored, so an in-line
+ *   visitor is not sent elsewhere once and left there; then /status when in
+ *   line, otherwise /queues (User) or the landing page (Guest).
  */
 export function homeRedirectTarget({
   user,
@@ -10,8 +16,9 @@ export function homeRedirectTarget({
   inQueue,
   membershipsReady,
 } = {}) {
-  if (!user && !isGuest) return "/login";
+  if (!user && !isGuest) return HOME_LANDING;
   if (isAdmin) return "/queues";
   if (!membershipsReady) return null;
-  return inQueue ? "/status" : "/queues";
+  if (inQueue) return "/status";
+  return user ? "/queues" : HOME_LANDING;
 }

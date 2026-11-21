@@ -481,3 +481,154 @@ html.theme-transition * {
 :lang(bn) .leading-tight {
   line-height: 1.25;
 }
+
+/* ------------------------------------------------------------------------
+   Landing page ("/", signed out). Motion is CSS-first and transform/opacity
+   only (no layout shift); every piece is switched off under reduced motion.
+   ------------------------------------------------------------------------ */
+/* Hero text: a staggered rise on first paint. */
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.landing-rise {
+  animation: landing-rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--rise, 0) * 110ms + 60ms);
+}
+
+/* Hero art: settles in (transform only, so the LCP image paints at once),
+   then drifts with scroll (--parallax set from JS). */
+@keyframes landing-art-in {
+  from {
+    transform: translateY(24px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.landing-art {
+  animation: landing-art-in 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.landing-art-frame {
+  transform: translate3d(0, calc(var(--parallax, 0px) * -1), 0);
+  will-change: transform;
+}
+.landing-art-img {
+  transform: translate3d(0, var(--parallax, 0px), 0) scale(1.06);
+  will-change: transform;
+}
+@keyframes landing-phone-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.landing-phone {
+  animation: landing-phone-in 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 520ms both;
+}
+.landing-ring {
+  transition: stroke-dashoffset 700ms cubic-bezier(0.65, 0, 0.35, 1), stroke 300ms ease;
+}
+@keyframes landing-tick {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.landing-tick {
+  animation: landing-tick 320ms ease-out both;
+}
+
+/* Ticket stubs drifting behind the hero. */
+@keyframes landing-stub-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.landing-stubs {
+  opacity: 0.55;
+  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+.landing-stub-track {
+  animation: landing-stub-drift 90s linear infinite;
+}
+
+/* Scroll reveals (data-revealed set by IntersectionObserver). */
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 640ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0ms),
+    transform 640ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0ms);
+}
+.landing-reveal[data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+.landing-step-img {
+  transform: scale(1.04);
+  transition: transform 1200ms cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--reveal-delay, 0ms) + 120ms);
+}
+.landing-reveal[data-revealed] .landing-step-img {
+  transform: none;
+}
+.landing-bar {
+  transform-origin: bottom;
+  transform: scaleY(0.15);
+  transition: transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--bar, 0) * 45ms + 250ms);
+}
+.landing-reveal[data-revealed] .landing-bar {
+  transform: none;
+}
+
+@keyframes landing-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(27 67 50 / 0.45);
+  }
+  60% {
+    box-shadow: 0 0 0 6px rgb(27 67 50 / 0);
+  }
+}
+.landing-live-dot {
+  animation: landing-live-pulse 2.4s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise,
+  .landing-art,
+  .landing-phone,
+  .landing-tick,
+  .landing-stub-track,
+  .landing-live-dot {
+    animation: none;
+  }
+  .landing-art-frame,
+  .landing-art-img,
+  .landing-step-img,
+  .landing-bar,
+  .landing-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

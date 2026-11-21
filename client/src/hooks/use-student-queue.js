@@ -114,7 +114,7 @@ export function useStudentQueue({
     clearLiveStatus();
   }, [clearLiveStatus]);
 
-  /** Call before persistSession so HomeRedirect waits for a fresh restore. */
+  /** Call before persistSession so HomeRoute waits for a fresh restore. */
   const invalidateMemberships = useCallback(() => {
     setMembershipsReady(false);
     clearLiveStatus();

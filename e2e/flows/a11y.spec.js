@@ -7,6 +7,7 @@ async function pages(request) {
   const cafeteria = await queueByName(request, "Cafeteria");
   const { admin, student } = tokens();
   return [
+    ["landing", "/", null],
     ["login", "/login", null],
     ["queues", "/queues", student],
     ["join (QR)", `/join/${cafeteria.id}?src=qr`, null],
@@ -27,6 +28,7 @@ async function pages(request) {
     ["live view", "/admin/live", admin],
     ["live view (TV, high contrast)", `/admin/live?queue=${cafeteria.id}&contrast=high&tv=1`, admin],
     // Hindi and Bengali: longer words and other scripts must still fit and contrast.
+    ["landing (hi)", "/", null, "hi"],
     ["login (hi)", "/login", null, "hi"],
     ["queues (bn)", "/queues", student, "bn"],
     ["join (QR, bn)", `/join/${cafeteria.id}?src=qr`, null, "bn"],
@@ -40,11 +42,12 @@ async function pages(request) {
 
 for (const theme of ["light", "dark"]) {
   test(`no serious accessibility violations (${theme})`, async ({ browser, request }) => {
-    // 27 pages (incl. Hindi and Bengali) per theme.
+    // 29 pages (incl. Hindi and Bengali) per theme.
     test.setTimeout(240_000);
     const failures = [];
     for (const [name, url, token, locale] of await pages(request)) {
-      const context = await browser.newContext();
+      // The landing reveals sections on scroll; reduced motion shows them all so axe sees final colours.
+      const context = await browser.newContext(url === "/" ? { reducedMotion: "reduce" } : {});
       const page = await context.newPage();
       await signIn(page, token, { theme, locale });
       await page.goto(url);

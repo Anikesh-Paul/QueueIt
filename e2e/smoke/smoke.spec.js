@@ -10,10 +10,12 @@ const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "admin@queueit.local";
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "admin-demo-pass";
 
 test.describe("QueueIt shared smoke (login + queues list)", () => {
-  test("login page loads", async ({ page }) => {
+  test("landing and login pages load", async ({ page }) => {
+    // Signed-out "/" is the public landing page, which links to /login.
     await page.goto("/");
+    await expect(page.getByTestId("landing-heading")).toBeVisible();
+    await page.getByTestId("landing-header-login").click();
 
-    // Unauth "/" redirects to the public /login (Router shell).
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
@@ -46,7 +48,7 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
   });
 
   test("user can log in and see seeded queues, then select one", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/login");
     await page.getByLabel("Email").fill(USER_EMAIL);
     await page.getByLabel("Password").fill(USER_PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
@@ -77,7 +79,7 @@ test.describe("QueueIt shared smoke (login + queues list)", () => {
   });
 
   test("admin can log in and see the same queue catalog", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/login");
     await page.getByLabel("Email").fill(ADMIN_EMAIL);
     await page.getByLabel("Password").fill(ADMIN_PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();

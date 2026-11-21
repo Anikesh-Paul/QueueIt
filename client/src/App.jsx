@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/context/theme-context";
 import { AppShell } from "@/components/shell/app-shell";
 import { Wordmark } from "@/components/brand/wordmark";
 import {
-  HomeRedirect,
+  HomeRoute,
   JoinSessionGate,
   RequireAdmin,
   RequireLoggedOut,
@@ -25,6 +25,7 @@ import { KioskPage } from "@/pages/kiosk-page";
 import { StatusBoardPage } from "@/pages/status-board-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { BookPage } from "@/pages/book-page";
+import { LandingPage } from "@/pages/landing-page";
 
 const AdminConsolePage = lazy(() =>
   import("@/pages/admin-console-page").then((mod) => ({ default: mod.AdminConsolePage }))
@@ -92,6 +93,8 @@ const router = createBrowserRouter([
     element: <BootGate />,
     errorElement: <RouteErrorPage />,
     children: [
+      // Public landing for signed-out visitors; signed-in people are sent home.
+      { index: true, element: <HomeRoute landing={<LandingPage />} /> },
       { path: "/kiosk/:queueId", element: <KioskPage /> },
       { path: "/status-board", element: <StatusBoardPage /> },
       {
@@ -145,7 +148,6 @@ const router = createBrowserRouter([
           {
             element: <AppShell />,
             children: [
-              { index: true, element: <HomeRedirect /> },
               { path: "queues", element: <QueuesPage /> },
               {
                 path: "security",

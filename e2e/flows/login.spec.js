@@ -15,11 +15,14 @@ async function makeAccount(request, label) {
 test.describe("desktop layout", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("split layout shows the brand panel next to the form", async ({ page }) => {
+  test("one centred card holds the form", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByTestId("auth-brand-panel")).toBeVisible();
-    await expect(page.getByTestId("auth-queue-illustration")).toBeAttached();
-    await expect(page.getByTestId("auth-brand-header")).toBeHidden();
+    const card = page.getByTestId("auth-card");
+    await expect(card).toBeVisible();
+    // Centred: equal space either side of the card.
+    const box = await card.boundingBox();
+    expect(Math.abs(box.x - (1280 - box.x - box.width))).toBeLessThan(4);
+    await expect(page.getByTestId("auth-footer")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Log in" })).toBeVisible();
     await expect(page.getByTestId("register-link")).toBeVisible();
     await expect(page.getByTestId("forgot-password-link")).toBeVisible();
@@ -30,10 +33,10 @@ test.describe("desktop layout", () => {
 test.describe("phone layout", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("phone gets a compact brand header instead of the panel", async ({ page }) => {
+  test("phone shows the form edge to edge with no overflow", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByTestId("auth-brand-header")).toBeVisible();
-    await expect(page.getByTestId("auth-brand-panel")).toBeHidden();
+    await expect(page.getByTestId("auth-card")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Log in" })).toBeInViewport();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(overflow).toBe(false);
   });
@@ -147,11 +150,11 @@ test("brand text and errors follow the language switcher", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/login");
   await page.getByTestId("language-select").selectOption("hi");
-  await expect(page.getByTestId("auth-brand-panel")).toContainText("छात्रों के लिए मुफ़्त");
+  await expect(page.getByTestId("auth-footer")).toContainText("छात्रों के लिए मुफ़्त");
   await page.getByTestId("auth-submit").click();
   await expect(page.getByTestId("email-error")).toHaveText("अपना ईमेल पता डालें।");
   await page.getByTestId("language-select").selectOption("bn");
-  await expect(page.getByTestId("auth-brand-panel")).toContainText("ছাত্রছাত্রীদের জন্য বিনামূল্যে");
+  await expect(page.getByTestId("auth-footer")).toContainText("ছাত্রছাত্রীদের জন্য বিনামূল্যে");
   await expect(page.getByTestId("email-error")).toHaveText("আপনার ইমেল ঠিকানা দিন।");
   await page.getByTestId("language-select").selectOption("en");
 });

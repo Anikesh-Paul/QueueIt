@@ -72,8 +72,10 @@ export const IMAGES = [
     width: 800,
     height: 600,
     prompt:
-      "A student walking briskly and happily along a covered stone corridor towards a warmly lit service counter " +
-      "at the end, a staff member waiting there with a welcoming gesture, nobody else queuing. " +
+      "View from behind the student: we see their back and backpack as they walk away from the viewer, down a covered " +
+      "stone corridor, TOWARD a warmly lit service counter at the far end of the corridor. The counter is in front of " +
+      "the student, in the direction they are walking. A staff member behind the counter faces the student with a " +
+      "welcoming wave. Nobody else is queuing. " +
       STYLE,
   },
 ];

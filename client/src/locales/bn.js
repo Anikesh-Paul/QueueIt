@@ -501,6 +501,7 @@ export default {
   "nav.access": "অ্যাক্সেস",
   "nav.admin": "অ্যাডমিন",
   "nav.analytics": "বিশ্লেষণ",
+  "queue.manage": "{name} পরিচালনা করুন",
   "queues.manageCatalog": "ক্যাটালগ সামলান",
   "join.loading": "লাইন লোড হচ্ছে",
   "status.closedForNew": "নতুন টোকেন বন্ধ",

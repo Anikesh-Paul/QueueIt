@@ -15,13 +15,17 @@ async function makeAccount(request, label) {
 test.describe("desktop layout", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("one centred card holds the form", async ({ page }) => {
+  test("the form floats on a card over the campus scene, with live waits", async ({ page }) => {
     await page.goto("/login");
-    const card = page.getByTestId("auth-card");
-    await expect(card).toBeVisible();
-    // Centred: equal space either side of the card.
-    const box = await card.boundingBox();
-    expect(Math.abs(box.x - (1280 - box.x - box.width))).toBeLessThan(4);
+    await expect(page.getByTestId("auth-card")).toBeVisible();
+    const scene = page.getByTestId("auth-scene");
+    await expect.poll(() => scene.evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect(page.getByTestId("auth-story")).toContainText("Hold your place");
+    await expect(page.getByTestId("auth-live")).toContainText("Cafeteria", { timeout: 15_000 });
+    // Card sits to the right of the headline.
+    const story = await page.getByTestId("auth-story").boundingBox();
+    const card = await page.getByTestId("auth-card").boundingBox();
+    expect(card.x).toBeGreaterThan(story.x + story.width - 1);
     await expect(page.getByTestId("auth-footer")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Log in" })).toBeVisible();
     await expect(page.getByTestId("register-link")).toBeVisible();
@@ -33,8 +37,9 @@ test.describe("desktop layout", () => {
 test.describe("phone layout", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("phone shows the form edge to edge with no overflow", async ({ page }) => {
+  test("phone shows the scene as a banner above the form, no overflow", async ({ page }) => {
     await page.goto("/login");
+    await expect(page.getByTestId("auth-story")).toBeVisible();
     await expect(page.getByTestId("auth-card")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Log in" })).toBeInViewport();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

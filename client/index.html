@@ -55,9 +55,9 @@
           for (var j = 0; !lang && j < prefs.length; j++) lang = pick(prefs[j]);
           document.documentElement.lang = lang || "en";
         } catch (e) {}
-        // Landing LCP: preload the hero art, but only where the landing renders.
+        // LCP: preload the campus art, but only where it renders (landing + sign-in).
         try {
-          if (location.pathname === "/") {
+          if (/^\/(login|register|forgot-password|reset-password)?$/.test(location.pathname)) {
             var hero = document.createElement("link");
             hero.rel = "preload";
             hero.as = "image";

@@ -110,14 +110,15 @@ export function AuthLayout({ children }) {
         <main
           id={MAIN_CONTENT_ID}
           tabIndex={-1}
-          className="-mt-6 flex flex-1 flex-col rounded-t-[1.75rem] bg-card px-5 pt-8 pb-6 shadow-dialog outline-none sm:px-8 lg:mt-0 lg:flex-none lg:rounded-2xl lg:border lg:border-border lg:px-10 lg:pt-10 lg:pb-8"
+          className="relative -mt-6 flex flex-1 flex-col overflow-hidden rounded-t-[1.75rem] bg-card px-5 pt-8 pb-6 shadow-dialog outline-none sm:px-8 lg:mt-0 lg:flex-none lg:rounded-[1.75rem] lg:px-10 lg:pt-10 lg:pb-7 lg:shadow-[0_32px_80px_-24px_rgb(6_20_14/0.7),0_0_0_1px_rgb(255_252_247/0.14)]"
         >
+          <span aria-hidden="true" className="auth-card-accent pointer-events-none absolute inset-x-0 top-0 h-1" />
           <div data-testid="auth-card" className="auth-settle mx-auto w-full max-w-[26rem] lg:max-w-none">
             {children}
           </div>
           <p
             data-testid="auth-footer"
-            className="mx-auto mt-auto w-full max-w-[26rem] pt-8 text-center text-xs text-text-secondary lg:max-w-none"
+            className="mx-auto mt-auto w-full max-w-[26rem] pt-5 text-center text-xs text-text-muted lg:max-w-none"
           >
             {t("auth.brandFootnote")}
           </p>

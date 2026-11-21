@@ -96,7 +96,9 @@ Still no blur or glass. Forest bands reuse `.auth-brand` (the sign-in panel grad
 
 ## Sign-in screens
 
-Login, register, forgot and reset share `AuthLayout`. The landing's campus scene fills the page, slowly drifting (off under reduced motion) under a Forest shade (`.auth-scene-shade`). The cream Fraunces headline and up to two live-wait chips from the public status board sit in the scene; the form floats on a `rounded-2xl` card (`shadow-dialog`) on the right. On phones the scene is a banner and the card slides up over its bottom edge (`rounded-t-[1.75rem]`). The art is preloaded on these routes.
+Login, register, forgot and reset share `AuthLayout`. The landing's campus scene fills the page, slowly drifting (off under reduced motion) under a Forest shade (`.auth-scene-shade`). The cream Fraunces headline and up to two live-wait chips from the public status board sit in the scene; the form floats on a `rounded-[1.75rem]` card on the right with a deep Forest-tinted shadow, a faint cream ring and a thin Forest-to-mist accent line along its top (`.auth-card-accent`). On phones the scene is a banner and the card slides up over its bottom edge (`rounded-t-[1.75rem]`). The art is preloaded on these routes.
+
+Inside the card: the eyebrow is a small pill with the plate mark; inputs are 48px, `rounded-xl`, recessed on the stone canvas colour with a leading icon, and lift to the card colour with a soft Forest ring on focus. The submit carries a Forest-tinted shadow. "Continue as Guest" is one row-button (QR tile, a one-line subtext, a trailing arrow) under an "or" divider, and the register/log-in switch sits at the bottom of the card below a hairline.
 
 ## Touch targets
 

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { QrCode, ShieldCheck, UserRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, AtSign, QrCode, ShieldCheck, UserRound } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { login, loginTwoFactor, register } from "@/api";
 import { cleanCode, codeLooksComplete, loginOutcome } from "@/lib/two-factor";
@@ -276,6 +275,7 @@ export function AuthForm({ mode }) {
             onChange={onChangeField("name", setName)}
             onBlur={(e) => onBlurField("name", e.target.value)}
             placeholder={t("auth.namePlaceholder")}
+            icon={UserRound}
             data-testid="register-name"
           />
         )}
@@ -295,6 +295,7 @@ export function AuthForm({ mode }) {
           onChange={onChangeField("email", setEmail)}
           onBlur={(e) => onBlurField("email", e.target.value)}
           placeholder="you@example.com"
+          icon={AtSign}
         />
         <PasswordField
           id="password"
@@ -332,7 +333,31 @@ export function AuthForm({ mode }) {
         />
       </form>
 
-      <p className="mt-6 text-center text-sm text-text-secondary">
+      {!isGuest ? (
+        <div className="mt-7 flex flex-col gap-4">
+          <AuthDivider label={t("auth.or")} />
+          <button
+            type="button"
+            onClick={handleContinueAsGuest}
+            data-testid="continue-as-guest"
+            className="group flex w-full items-center gap-3.5 rounded-xl border border-border bg-card px-3.5 py-3 text-left outline-none transition-[border-color,background-color,box-shadow] hover:border-primary/40 hover:bg-primary-muted/30 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-primary" aria-hidden="true">
+              <QrCode className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.9375rem] font-semibold text-foreground">{t("auth.continueGuest")}</span>
+              <span className="block text-xs leading-snug text-text-secondary">{t("auth.guestSub")}</span>
+            </span>
+            <ArrowRight
+              className="size-4 shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+      ) : null}
+
+      <p className="-mx-5 mt-7 border-t border-border px-5 pt-5 text-center text-sm text-text-secondary sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10">
         {isLogin ? (
           <>
             {t("auth.noAccount")}{" "}
@@ -350,25 +375,6 @@ export function AuthForm({ mode }) {
         )}
       </p>
 
-      {!isGuest ? (
-        <div className="mt-7 flex flex-col gap-4">
-          <AuthDivider label={t("auth.or")} />
-          <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            className="h-12 w-full rounded-lg border border-border text-[0.9375rem] font-semibold"
-            onClick={handleContinueAsGuest}
-            data-testid="continue-as-guest"
-          >
-            {t("auth.continueGuest")}
-          </Button>
-          <p className="flex items-start gap-2 text-xs leading-relaxed text-text-secondary">
-            <QrCode className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            <span>{t("auth.qrHint")}</span>
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }

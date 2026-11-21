@@ -1,11 +1,12 @@
 import { useId, useState } from "react";
-import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, WifiOff } from "lucide-react";
+import { AlertCircle, ArrowRight, Eye, EyeOff, KeyRound, Loader2, Lock, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/context/i18n-context";
 import { capsLockOn } from "@/lib/auth-validation";
 import { cn } from "@/lib/utils";
+import { QueueItMark } from "@/components/brand/wordmark";
 
 /**
  * Shared pieces for the sign-in, register, forgot and reset forms:
@@ -13,10 +14,21 @@ import { cn } from "@/lib/utils";
  * Caps Lock warning, a submit button with a loading state and an error alert.
  */
 export const authFieldClass =
-  "h-12 rounded-lg border-border-strong bg-card px-3.5 text-base shadow-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-text-muted hover:border-text-muted/60 focus-visible:border-primary md:text-[0.9375rem] dark:bg-background/40";
+  "h-12 rounded-xl border-border bg-background px-3.5 text-base shadow-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-text-muted/80 hover:border-border-strong focus-visible:border-primary focus-visible:bg-card focus-visible:ring-4 focus-visible:ring-primary/10 md:text-[0.9375rem] dark:bg-background/40";
+
+/** Leading icon inside an auth input (decorative; the label names the field). */
+function FieldIcon({ icon: Icon }) {
+  if (!Icon) return null;
+  return (
+    <Icon
+      className="pointer-events-none absolute top-1/2 left-3.5 size-[1.125rem] -translate-y-1/2 text-text-muted transition-colors peer-focus-visible:text-primary"
+      aria-hidden="true"
+    />
+  );
+}
 
 /** One label + input + hint/error. Passes everything else through to <Input>. */
-export function AuthField({ id, label, error = "", hint = "", className, children, ...inputProps }) {
+export function AuthField({ id, label, error = "", hint = "", icon = null, className, children, ...inputProps }) {
   const { t } = useI18n();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -27,13 +39,16 @@ export function AuthField({ id, label, error = "", hint = "", className, childre
         {label}
       </Label>
       {children ?? (
-        <Input
-          id={id}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy}
-          className={cn(authFieldClass, className)}
-          {...inputProps}
-        />
+        <div className="relative">
+          <Input
+            id={id}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            className={cn("peer", authFieldClass, icon && "pl-11", className)}
+            {...inputProps}
+          />
+          <FieldIcon icon={icon} />
+        </div>
       )}
       <FieldMessages error={error ? t(error) : ""} errorId={errorId} hint={hint} hintId={hintId} />
     </div>
@@ -103,9 +118,10 @@ export function PasswordField({ id, label, error = "", hint = "", value, onChang
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          className={cn(authFieldClass, "pr-12", className)}
+          className={cn("peer", authFieldClass, "pr-12 pl-11", className)}
           {...rest}
         />
+        <FieldIcon icon={KeyRound} />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
@@ -149,7 +165,7 @@ export function AuthSubmit({ busy, label, busyLabel, disabled = false, className
       disabled={busy || disabled}
       aria-busy={busy || undefined}
       className={cn(
-        "group/submit mt-1 h-12 w-full gap-2 rounded-lg text-[0.9375rem] font-semibold shadow-card transition-[background-color,transform,box-shadow] active:translate-y-px",
+        "group/submit mt-1 h-12 w-full gap-2 rounded-xl text-[0.9375rem] font-semibold shadow-[0_8px_20px_-8px_rgb(27_67_50/0.6)] transition-[background-color,transform,box-shadow] hover:shadow-[0_10px_24px_-8px_rgb(27_67_50/0.7)] active:translate-y-px",
         className
       )}
       {...rest}
@@ -205,8 +221,13 @@ export function AuthErrorAlert({ info, testId = "auth-error", className }) {
 export function AuthHeading({ title, intro, eyebrow = null }) {
   return (
     <div>
-      {eyebrow ? <p className="mb-2 text-xs font-semibold tracking-[0.08em] text-primary uppercase">{eyebrow}</p> : null}
-      <h1 className="font-display text-[2rem] font-semibold leading-tight tracking-[-0.02em] text-foreground">{title}</h1>
+      {eyebrow ? (
+        <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary-muted/70 py-1 pr-3 pl-1.5 text-xs font-semibold text-primary">
+          <QueueItMark variant="plate" className="size-5 rounded-[0.3rem]" />
+          {eyebrow}
+        </p>
+      ) : null}
+      <h1 className="font-display text-[2.125rem] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground">{title}</h1>
       {intro ? <p className="mt-2 text-[0.9375rem] leading-relaxed text-text-secondary">{intro}</p> : null}
     </div>
   );

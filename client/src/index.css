@@ -346,6 +346,11 @@ body {
   animation: auth-scene-drift 40s ease-in-out infinite alternate;
   will-change: transform;
 }
+/* Thin Forest-to-mist line across the top of the floating sign-in card. */
+.auth-card-accent {
+  background: linear-gradient(90deg, var(--color-primary) 0%, #40916c 55%, #b7e4c7 100%);
+}
+
 .auth-scene-shade {
   background: linear-gradient(180deg, rgb(13 34 25 / 0.55) 0%, rgb(13 34 25 / 0.45) 40%, rgb(13 34 25 / 0.8) 100%);
 }

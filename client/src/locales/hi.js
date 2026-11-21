@@ -46,6 +46,7 @@ export default {
   "auth.noAccount": "खाता नहीं है?",
   "auth.alreadyRegistered": "पहले से रजिस्टर हैं?",
   "auth.guestHint": "लाइन में शामिल होने के लिए खाता ज़रूरी नहीं",
+  "auth.guestSub": "खाते की ज़रूरत नहीं। सेकंडों में लाइन में लगें।",
   "auth.continueGuest": "अतिथि के रूप में जारी रखें",
   "auth.keepHistory": "अपना इतिहास सुरक्षित रखें",
   "auth.keepHistoryBody": "इस डिवाइस पर रजिस्टर या लॉग इन करें ताकि आपकी जगह और पिछला इतिहास आपके खाते से जुड़ जाए।",

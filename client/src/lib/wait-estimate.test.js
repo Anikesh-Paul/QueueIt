@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   campusWeekday,
   catalogWaitLabel,
+  waitLevel,
   confidenceLabel,
   estimateBasisLine,
   formatWaitRange,
@@ -49,5 +50,20 @@ describe("wait estimate copy", () => {
     assert.equal(confidenceLabel("nope"), null);
     assert.equal(paceReadout({ recentPace: 2, typicalPace: 5 }), "Today 2 min · Typical 5 min");
     assert.equal(paceReadout({ recentPace: null, typicalPace: null }), "Using the configured average");
+  });
+});
+
+describe("waitLevel", () => {
+  it("grades the upper end of the wait range", () => {
+    assert.equal(waitLevel({ source: "empty", high: 0 }), "none");
+    assert.equal(waitLevel({ low: 0, high: 1 }), "none");
+    assert.equal(waitLevel({ low: 2, high: 8 }), "short");
+    assert.equal(waitLevel({ low: 10, high: 20 }), "medium");
+    assert.equal(waitLevel({ low: 20, high: 45 }), "long");
+  });
+
+  it("is unknown without an estimate", () => {
+    assert.equal(waitLevel(null), "unknown");
+    assert.equal(waitLevel({ high: "x" }), "unknown");
   });
 });

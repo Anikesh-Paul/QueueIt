@@ -175,9 +175,9 @@ body {
   --info-ink: #1e40af;
   --attention: #d97706;
 
-  --border: #e7e5e4;
-  --border-strong: #d6d3d1;
-  --input: #d6d3d1;
+  --border: #e5dfd3; /* warm hairline (stone, not cool grey) */
+  --border-strong: #d3cbbb;
+  --input: #d3cbbb;
   --ring: #1b4332; /* focus-ring = forest */
 
   --text-secondary: #57534e;
@@ -200,7 +200,7 @@ body {
   --sidebar-primary-foreground: #f0fdf4;
   --sidebar-accent: rgb(216 243 220 / 0.55);
   --sidebar-accent-foreground: #1a1a18;
-  --sidebar-border: #e7e5e4;
+  --sidebar-border: #e5dfd3;
   --sidebar-ring: #1b4332;
 }
 
@@ -287,6 +287,35 @@ body {
   }
 }
 
+/* Page titles: every screen's <h1> is set in the display serif (DESIGN "Page title" step). */
+@layer components {
+  .page-title {
+    font-family: var(--font-display);
+    font-variation-settings: "SOFT" 100, "WONK" 0;
+    font-size: 1.875rem;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+    text-wrap: balance;
+  }
+  @media (min-width: 640px) {
+    .page-title {
+      font-size: 2.125rem;
+    }
+  }
+
+  /* Wait-level rail on queue / board cards (inset, so no layout change). */
+  .wait-rail {
+    box-shadow: inset 4px 0 0 var(--wait-rail, transparent), var(--shadow-card);
+  }
+  .wait-rail[data-wait-level="none"] { --wait-rail: var(--success); }
+  .wait-rail[data-wait-level="short"] { --wait-rail: var(--primary); }
+  .wait-rail[data-wait-level="medium"] { --wait-rail: var(--warning); }
+  .wait-rail[data-wait-level="long"] { --wait-rail: var(--destructive); }
+  .wait-rail[data-wait-level="closed"] { --wait-rail: var(--border-strong); }
+}
+
 /* Auth arrival — whisper material + one settle (DESIGN motion; reduced-motion → instant) */
 @keyframes auth-settle {
   from {
@@ -336,28 +365,6 @@ body {
 }
 
 /* Ticket stubs step one place toward the counter, pause, repeat. */
-.auth-queue-track {
-  animation: auth-queue-step 4.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-}
-@keyframes auth-queue-step {
-  0%, 62% { transform: translateX(0); }
-  100% { transform: translateX(calc(-1 * (2.75rem + 0.75rem))); }
-}
-.auth-ticket-first {
-  animation: auth-ticket-out 4.8s ease-in infinite;
-}
-@keyframes auth-ticket-out {
-  0%, 62% { opacity: 1; }
-  92%, 100% { opacity: 0; }
-}
-.auth-counter {
-  animation: auth-counter-pulse 4.8s ease-out infinite;
-}
-@keyframes auth-counter-pulse {
-  0%, 92% { box-shadow: 0 0 0 0 rgb(231 176 106 / 0); }
-  96% { box-shadow: 0 0 0 6px rgb(231 176 106 / 0.25); }
-  100% { box-shadow: 0 0 0 10px rgb(231 176 106 / 0); }
-}
 .auth-mini-ticket {
   animation: auth-mini-bob 3.2s ease-in-out infinite;
 }
@@ -390,9 +397,6 @@ html.theme-transition * {
   .auth-settle,
   .auth-reveal,
   .auth-brand-glow,
-  .auth-queue-track,
-  .auth-ticket-first,
-  .auth-counter,
   .auth-mini-ticket {
     animation: none;
   }

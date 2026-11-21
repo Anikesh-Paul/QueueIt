@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { formatCatalogServing, presentCounterServing, presentServingBoard } from "./now-serving.js";
+import { catalogServingNote, formatCatalogServing, presentCounterServing, presentServingBoard } from "./now-serving.js";
 
 describe("presentCounterServing", () => {
   it("shows the live token as Now serving", () => {
@@ -96,5 +96,27 @@ describe("formatCatalogServing", () => {
       }),
       "Now serving Counter 1 9, Counter 2 last served 4"
     );
+  });
+});
+
+describe("catalogServingNote", () => {
+  it("keeps the serving line when a counter has a number", () => {
+    assert.equal(
+      catalogServingNote({ counters: [{ nowServing: 12 }], waitingCount: 3 }),
+      formatCatalogServing({ counters: [{ nowServing: 12 }] })
+    );
+    assert.match(catalogServingNote({ counters: [{ lastServed: 4 }], waitingCount: 0 }), /4/);
+  });
+
+  it("says walk right up instead of a bare dash when nobody is waiting", () => {
+    assert.equal(catalogServingNote({ counters: [{}], waitingCount: 0 }), "Counter free — walk right up");
+  });
+
+  it("says serving starts soon when people wait but nothing has been served", () => {
+    assert.equal(catalogServingNote({ counters: [{}], waitingCount: 2 }), "Serving starts soon");
+  });
+
+  it("localises the idle lines", () => {
+    assert.notEqual(catalogServingNote({ counters: [{}], waitingCount: 0, locale: "hi" }), "Counter free — walk right up");
   });
 });

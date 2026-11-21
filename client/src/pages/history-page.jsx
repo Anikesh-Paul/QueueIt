@@ -60,7 +60,7 @@ function GuestHistoryPage() {
       <header className="mb-6 flex items-center justify-between gap-4">
         <h1
           data-testid="history-heading"
-          className="font-heading text-headline leading-tight text-foreground"
+          className="page-title"
         >
           {t("history.title")}
         </h1>

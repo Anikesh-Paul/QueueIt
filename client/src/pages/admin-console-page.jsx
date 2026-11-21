@@ -76,7 +76,7 @@ export function AdminConsolePage() {
   if (waitingDenied && !adminQueueMeta) {
     return (
       <ShellContent tier="admin" className="max-w-2xl">
-        <h1 data-testid="admin-heading" className="mb-4 font-heading text-headline leading-tight text-foreground">
+        <h1 data-testid="admin-heading" className="mb-4 page-title">
           Admin console
         </h1>
         <ErrorState
@@ -108,7 +108,7 @@ export function AdminConsolePage() {
           <div className="min-w-0">
             <h1
               data-testid="admin-heading"
-              className="font-heading text-headline leading-tight text-foreground"
+              className="page-title"
             >
               {queueName}
             </h1>

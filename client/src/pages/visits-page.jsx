@@ -272,7 +272,7 @@ export function MyVisitsPage() {
     <ShellContent tier="student">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 data-testid="history-heading" className="font-heading text-headline leading-tight text-foreground">
+          <h1 data-testid="history-heading" className="page-title">
             {t("visits.title")}
           </h1>
           <p className="mt-1 text-sm text-text-secondary">{t("visits.intro")}</p>

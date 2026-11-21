@@ -86,6 +86,8 @@ export default {
   "occupancy.none": "কেউ অপেক্ষায় নেই",
   "occupancy.waiting": "{count} জন অপেক্ষায়",
   "occupancy.cap": "{waiting} · সর্বোচ্চ {cap}",
+  "serving.walkUp": "কাউন্টার খালি — সোজা চলে আসুন",
+  "serving.startsSoon": "শীঘ্রই পরিষেবা শুরু হবে",
   "serving.now": "এখন চলছে",
   "serving.last": "শেষ পরিষেবা",
   "queue.avgMinutes": "~{minutes} মিনিট",

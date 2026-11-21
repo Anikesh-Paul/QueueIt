@@ -166,14 +166,15 @@ body {
   --info: #57534e;
 
   --destructive-hover: #7a1a1d;
-  --warning-soft: #fef3c7;
-  --warning-ink: #92400e;
-  --warning-line: #fcd34d;
-  --danger-soft: #fee2e2;
-  --danger-ink: #991b1b;
-  --info-soft: #dbeafe;
-  --info-ink: #1e40af;
-  --attention: #d97706;
+  /* Washes stay in the warm stone family: sand for "act now", dusk slate for info. */
+  --warning-soft: #f6ebdd;
+  --warning-ink: #87420f;
+  --warning-line: #e6caa8;
+  --danger-soft: #f8e4e1;
+  --danger-ink: #8f1f22;
+  --info-soft: #e9e9ee;
+  --info-ink: #3b4566;
+  --attention: #bc6c25;
 
   --border: #e5dfd3; /* warm hairline (stone, not cool grey) */
   --border-strong: #d3cbbb;
@@ -234,14 +235,14 @@ body {
   --warning: #e7b06a;
   --info: #b8b2a7;
 
-  --warning-soft: #3a2c14;
-  --warning-ink: #f3c886;
-  --warning-line: #6b4f1d;
-  --danger-soft: #3b1816;
-  --danger-ink: #f6aaa2;
-  --info-soft: #182a44;
-  --info-ink: #a9c8ff;
-  --attention: #e7a33e;
+  --warning-soft: #2e241a;
+  --warning-ink: #efc39a;
+  --warning-line: #56402a;
+  --danger-soft: #36191a;
+  --danger-ink: #f3aaa2;
+  --info-soft: #23252f;
+  --info-ink: #bcc3de;
+  --attention: #e0a265;
 
   --border: #2f2d28;
   --border-strong: #423f37;
